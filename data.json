@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-21T22:50:07.665923",
+  "timestamp": "2026-05-22T04:54:04.135713",
   "fibonacci_stocks": [
     {
       "symbol": "TMPV",
@@ -12,6 +12,8 @@
       "distance_percent": 1.32,
       "high_5y": 419.0,
       "low_5y": 294.3,
+      "week_52_high": 419.0,
+      "week_52_low": 294.3,
       "all_levels": {
         "100%": 419.0,
         "61.8%": 341.94,
@@ -23,64 +25,22 @@
   ],
   "volume_breakout_stocks": [
     {
-      "symbol": "DRREDDY",
-      "company_name": "Dr. Reddy's Laboratories Ltd.",
-      "industry": "Healthcare",
+      "symbol": "BOSCHLTD",
+      "company_name": "Bosch Ltd.",
+      "industry": "Automobile and Auto Components",
       "is_volume_breakout": true,
-      "breakout_date": "2026-04-23",
-      "breakout_price": 1331.0,
-      "breakout_volume_ratio": 7.5,
-      "breakout_price_change": 9.37,
+      "breakout_date": "2026-04-09",
+      "breakout_price": 36770.0,
+      "breakout_low": 35825.0,
+      "breakout_high": 37570.0,
+      "breakout_volume_ratio": 8.01,
+      "breakout_price_change": 2.32,
       "current_price": NaN,
       "retracement_percent": NaN,
-      "days_since_breakout": 20,
-      "pullback_depth_percent": 6.59,
-      "max_price_after_breakout": 1354.6,
-      "pattern_type": "Volume Breakout with Retracement"
-    },
-    {
-      "symbol": "NESTLEIND",
-      "company_name": "Nestle India Ltd.",
-      "industry": "Fast Moving Consumer Goods",
-      "is_volume_breakout": true,
-      "breakout_date": "2026-04-21",
-      "breakout_price": 1379.9,
-      "breakout_volume_ratio": 6.21,
-      "breakout_price_change": 7.27,
-      "current_price": NaN,
-      "retracement_percent": NaN,
-      "days_since_breakout": 22,
-      "pullback_depth_percent": 6.08,
-      "max_price_after_breakout": 1486.1,
-      "pattern_type": "Volume Breakout with Retracement"
-    }
-  ],
-  "w_pattern_stocks": [
-    {
-      "symbol": "BEL",
-      "company_name": "Bharat Electronics Ltd.",
-      "industry": "Capital Goods",
-      "is_w_pattern": true,
-      "left_trough_price": 378.84,
-      "right_trough_price": 399.35,
-      "neckline_peak_price": 473.45,
-      "current_price": 413.3,
-      "distance_to_neckline_percent": 14.55,
-      "t2_vs_t1_percent": 5.41,
-      "recovery_from_t2_percent": 3.49,
-      "pattern_timeframe_weeks": 16,
-      "left_trough_date": "2025-12-19",
-      "neckline_peak_date": "2026-03-06",
-      "right_trough_date": "2026-04-03"
-    }
-  ],
-  "diagnostics": {
-    "total_stocks_processed": 50,
-    "successful_downloads": 50,
-    "failed_downloads": 0,
-    "fibonacci_matches": 1,
-    "volume_breakout_matches": 2,
-    "w_pattern_matches": 1,
-    "errors": []
-  }
-}
+      "days_since_breakout": 28,
+      "pullback_depth_percent": 6.02,
+      "max_price_after_breakout": 38145.0,
+      "pattern_type": "Volume Breakout with Retracement",
+      "week_52_high": 41945.0,
+      "week_52_low": 28610.0,
+      "near_breakout_low": 

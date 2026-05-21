@@ -42,8 +42,8 @@ class StockScreener:
     def load_stock_universe(self) -> pd.DataFrame:
         """Load the NIFTY stock list"""
         try:
-            # Try different possible file names
-            possible_files = ['ind_nifty50list.csv', 'ind_nifty500list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv', 'nifty50.csv']
+            # Try different possible file names - prioritize NIFTY 200 list
+            possible_files = ['ind_nifty200list.csv', 'ind_nifty500list.csv', 'ind_nifty50list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv', 'nifty50.csv']
             
             for filename in possible_files:
                 try:
@@ -152,6 +152,10 @@ class StockScreener:
             low_5y = data['Low'].min()
             current_price = data['Close'].iloc[-1]
             
+            # Calculate 52-week high and low
+            week_52_high = data['High'].tail(252).max() if len(data) >= 252 else data['High'].max()
+            week_52_low = data['Low'].tail(252).min() if len(data) >= 252 else data['Low'].min()
+            
             # Calculate retracement levels
             diff = high_5y - low_5y
             fib_100 = high_5y
@@ -182,6 +186,8 @@ class StockScreener:
                         'distance_percent': round(((current_price - level_price) / level_price) * 100, 2),
                         'high_5y': round(high_5y, 2),
                         'low_5y': round(low_5y, 2),
+                        'week_52_high': round(week_52_high, 2),
+                        'week_52_low': round(week_52_low, 2),
                         'all_levels': {k: round(v, 2) for k, v in levels.items()}
                     }
             
@@ -205,12 +211,19 @@ class StockScreener:
             recent_data = data.tail(30).copy()
             current_price = data['Close'].iloc[-1]
             
+            # Calculate 52-week high and low
+            week_52_high = data['High'].tail(252).max() if len(data) >= 252 else data['High'].max()
+            week_52_low = data['Low'].tail(252).min() if len(data) >= 252 else data['Low'].min()
+            
             # Step 1: Find historical volume breakouts in recent data
             volume_breakout_days = []
             
             for i in range(len(recent_data)):
                 day_volume = recent_data['Volume'].iloc[i]
                 day_close = recent_data['Close'].iloc[i]
+                day_low = recent_data['Low'].iloc[i]
+                day_high = recent_data['High'].iloc[i]
+                day_date = recent_data.index[i]
                 
                 if i > 0:
                     prev_close = recent_data['Close'].iloc[i-1]
@@ -221,8 +234,10 @@ class StockScreener:
                     if volume_ratio >= 5.0 and price_change > 2.0:
                         volume_breakout_days.append({
                             'index': i,
-                            'date': recent_data.index[i],
+                            'date': day_date,
                             'breakout_price': day_close,
+                            'breakout_low': day_low,
+                            'breakout_high': day_high,
                             'volume_ratio': volume_ratio,
                             'price_change': price_change
                         })
@@ -233,6 +248,8 @@ class StockScreener:
             # Step 2: Check for retracement back to breakout levels
             for breakout in volume_breakout_days:
                 breakout_price = breakout['breakout_price']
+                breakout_low = breakout['breakout_low']
+                breakout_date = breakout['date']
                 breakout_index = breakout['index']
                 
                 # Look for retracement in days after the breakout
@@ -249,6 +266,9 @@ class StockScreener:
                 # Check recent prices for retracement
                 recent_prices = post_breakout_data['Close'].tail(5)  # Last 5 days
                 
+                # Check if current price is near breakout low (radar condition)
+                near_breakout_low = abs(current_price - breakout_low) / breakout_low <= 0.02  # Within 2%
+                
                 for price in recent_prices:
                     if lower_bound <= price <= upper_bound:
                         # Found retracement! Check if it's showing signs of reversal
@@ -263,8 +283,10 @@ class StockScreener:
                         if pullback_depth >= 5.0:  # At least 5% pullback after breakout
                             return {
                                 'is_volume_breakout': True,
-                                'breakout_date': breakout['date'].strftime('%Y-%m-%d'),
+                                'breakout_date': breakout_date.strftime('%Y-%m-%d'),
                                 'breakout_price': round(breakout_price, 2),
+                                'breakout_low': round(breakout_low, 2),
+                                'breakout_high': round(breakout['breakout_high'], 2),
                                 'breakout_volume_ratio': round(breakout['volume_ratio'], 2),
                                 'breakout_price_change': round(breakout['price_change'], 2),
                                 'current_price': round(current_price, 2),
@@ -272,7 +294,12 @@ class StockScreener:
                                 'days_since_breakout': days_since_breakout,
                                 'pullback_depth_percent': round(pullback_depth, 2),
                                 'max_price_after_breakout': round(max_price_after_breakout, 2),
-                                'pattern_type': 'Volume Breakout with Retracement'
+                                'pattern_type': 'Volume Breakout with Retracement',
+                                'week_52_high': round(week_52_high, 2),
+                                'week_52_low': round(week_52_low, 2),
+                                'near_breakout_low': near_breakout_low,
+                                'radar_trigger_price': round(breakout_low, 2),
+                                'radar_status': 'Active' if near_breakout_low else 'Monitoring'
                             }
             
             return {'is_volume_breakout': False, 'error': 'No valid retracement patterns found'}
@@ -291,6 +318,10 @@ class StockScreener:
             lows = weekly_data['Low'].values
             highs = weekly_data['High'].values
             
+            # Calculate 52-week high and low
+            week_52_high = max(highs) if len(highs) >= 52 else max(highs)
+            week_52_low = min(lows) if len(lows) >= 52 else min(lows)
+            
             # Find local minima and maxima using a rolling window approach
             window = 3  # Look for peaks/troughs over 3-week periods
             
@@ -298,13 +329,13 @@ class StockScreener:
             troughs = []
             for i in range(window, len(lows) - window):
                 if lows[i] == min(lows[i-window:i+window+1]):
-                    troughs.append((i, lows[i]))
+                    troughs.append((i, lows[i], weekly_data.index[i]))
             
             # Identify potential peaks (local maxima) 
             peaks = []
             for i in range(window, len(highs) - window):
                 if highs[i] == max(highs[i-window:i+window+1]):
-                    peaks.append((i, highs[i]))
+                    peaks.append((i, highs[i], weekly_data.index[i]))
             
             if len(troughs) < 2 or len(peaks) < 1:
                 return {'is_w_pattern': False, 'error': 'Insufficient pivot points'}
@@ -314,8 +345,8 @@ class StockScreener:
             start_idx = len(weekly_data) - recent_weeks
             
             # Filter pivots to recent period
-            recent_troughs = [(i, price) for i, price in troughs if i >= start_idx]
-            recent_peaks = [(i, price) for i, price in peaks if i >= start_idx]
+            recent_troughs = [(i, price, date) for i, price, date in troughs if i >= start_idx]
+            recent_peaks = [(i, price, date) for i, price, date in peaks if i >= start_idx]
             
             if len(recent_troughs) < 2:
                 return {'is_w_pattern': False, 'error': 'No recent double bottom pattern'}
@@ -324,10 +355,10 @@ class StockScreener:
             current_price = closes[-1]
             
             for i in range(len(recent_troughs) - 1):
-                t1_idx, t1_price = recent_troughs[i]
+                t1_idx, t1_price, t1_date = recent_troughs[i]
                 
                 for j in range(i + 1, len(recent_troughs)):
-                    t2_idx, t2_price = recent_troughs[j]
+                    t2_idx, t2_price, t2_date = recent_troughs[j]
                     
                     # Find peak between the two troughs
                     intermediate_peaks = [p for p in recent_peaks if t1_idx < p[0] < t2_idx]
@@ -335,7 +366,7 @@ class StockScreener:
                         continue
                     
                     # Get the highest peak between troughs
-                    p1_idx, p1_price = max(intermediate_peaks, key=lambda x: x[1])
+                    p1_idx, p1_price, p1_date = max(intermediate_peaks, key=lambda x: x[1])
                     
                     # Validate W-pattern conditions
                     # 1. T2 should be within tolerance of T1 (equal +/-2% OR higher low up to +8%)
@@ -362,20 +393,34 @@ class StockScreener:
                     t2_vs_t1_percent = ((t2_price - t1_price) / t1_price) * 100
                     recovery_from_t2 = ((current_price - t2_price) / t2_price) * 100
                     
+                    # Determine which trough is lower for radar tracking
+                    lower_trough_price = min(t1_price, t2_price)
+                    lower_trough_date = t1_date if t1_price <= t2_price else t2_date
+                    
+                    # Check if current price is near the lower trough (radar condition)
+                    near_trough_low = abs(current_price - lower_trough_price) / lower_trough_price <= 0.02  # Within 2%
+                    
                     # Valid W-pattern found
                     return {
                         'is_w_pattern': True,
                         'left_trough_price': round(t1_price, 2),
+                        'left_trough_date': t1_date.strftime('%Y-%m-%d'),
                         'right_trough_price': round(t2_price, 2),
+                        'right_trough_date': t2_date.strftime('%Y-%m-%d'),
                         'neckline_peak_price': round(p1_price, 2),
+                        'neckline_peak_date': p1_date.strftime('%Y-%m-%d'),
                         'current_price': round(current_price, 2),
                         'distance_to_neckline_percent': round(distance_to_neckline, 2),
                         't2_vs_t1_percent': round(t2_vs_t1_percent, 2),
                         'recovery_from_t2_percent': round(recovery_from_t2, 2),
                         'pattern_timeframe_weeks': t2_idx - t1_idx + 1,
-                        'left_trough_date': weekly_data.index[t1_idx].strftime('%Y-%m-%d'),
-                        'neckline_peak_date': weekly_data.index[p1_idx].strftime('%Y-%m-%d'),
-                        'right_trough_date': weekly_data.index[t2_idx].strftime('%Y-%m-%d')
+                        'week_52_high': round(week_52_high, 2),
+                        'week_52_low': round(week_52_low, 2),
+                        'lower_trough_price': round(lower_trough_price, 2),
+                        'lower_trough_date': lower_trough_date.strftime('%Y-%m-%d'),
+                        'radar_trigger_price': round(lower_trough_price, 2),
+                        'near_trough_low': near_trough_low,
+                        'radar_status': 'Active' if near_trough_low else 'Monitoring'
                     }
             
             return {'is_w_pattern': False, 'error': 'No valid W-pattern found in recent data'}
@@ -507,6 +552,12 @@ class StockScreener:
             vol_count = len(self.results['volume_breakout_stocks'])
             w_pattern_count = len(self.results['w_pattern_stocks'])
             
+            # Count radar alerts
+            vol_radar_active = sum(1 for stock in self.results['volume_breakout_stocks'] 
+                                 if stock.get('radar_status') == 'Active')
+            w_radar_active = sum(1 for stock in self.results['w_pattern_stocks'] 
+                               if stock.get('radar_status') == 'Active')
+            
             message = f"""🔍 *Stock Yard Daily Screening Report*
 📅 {datetime.now().strftime('%Y-%m-%d %H:%M IST')}
 
@@ -514,6 +565,10 @@ class StockScreener:
 • Fibonacci Retracement Matches: {fib_count}
 • Volume Breakout Matches: {vol_count}
 • W-Pattern Matches: {w_pattern_count}
+
+🚨 *RADAR ALERTS:*
+• Volume Stocks in Radar: {vol_radar_active}
+• W-Pattern Stocks in Radar: {w_radar_active}
 
 """
             
@@ -523,29 +578,42 @@ class StockScreener:
                 for stock in self.results['fibonacci_stocks'][:5]:  # Limit to top 5
                     message += f"• {stock['symbol']} ({stock['company_name'][:20]}...)\n"
                     message += f"  Near {stock['level']} level at ₹{stock['current_price']}\n"
+                    message += f"  52W Range: ₹{stock.get('week_52_low', 'N/A')} - ₹{stock.get('week_52_high', 'N/A')}\n"
                 if fib_count > 5:
                     message += f"... and {fib_count - 5} more\n"
                 message += "\n"
             
-            # Add volume breakout matches
+            # Add volume breakout matches with radar status
             if vol_count > 0:
                 message += "📈 *Volume Breakout Stocks:*\n"
                 for stock in self.results['volume_breakout_stocks'][:5]:  # Limit to top 5
+                    radar_emoji = "🔴" if stock.get('radar_status') == 'Active' else "🟡"
                     message += f"• {stock['symbol']} ({stock['company_name'][:20]}...)\n"
                     message += f"  {stock['breakout_volume_ratio']}x volume, +{stock['breakout_price_change']:.1f}%\n"
+                    message += f"  Breakout: {stock['breakout_date']} at ₹{stock['breakout_price']}\n"
+                    message += f"  Day Low: ₹{stock.get('breakout_low', 'N/A')}\n"
+                    message += f"  {radar_emoji} Radar: ₹{stock.get('radar_trigger_price', 'N/A')}\n"
                 if vol_count > 5:
                     message += f"... and {vol_count - 5} more\n"
                 message += "\n"
             
-            # Add W-Pattern matches
+            # Add W-Pattern matches with radar status
             if w_pattern_count > 0:
-                message += "📈 *LOGIC 3: WEEKLY W-PATTERN TRIGGERS:*\n"
+                message += "📈 *W-PATTERN OPPORTUNITIES:*\n"
                 for stock in self.results['w_pattern_stocks'][:5]:  # Limit to top 5
+                    radar_emoji = "🔴" if stock.get('radar_status') == 'Active' else "🟡"
                     message += f"• {stock['symbol']} ({stock['company_name'][:20]}...)\n"
                     message += f"  {stock['distance_to_neckline_percent']:.1f}% to neckline breakout at ₹{stock['neckline_peak_price']}\n"
+                    message += f"  Lower Trough: {stock.get('lower_trough_date', 'N/A')} at ₹{stock.get('lower_trough_price', 'N/A')}\n"
+                    message += f"  {radar_emoji} Radar: ₹{stock.get('radar_trigger_price', 'N/A')}\n"
                 if w_pattern_count > 5:
                     message += f"... and {w_pattern_count - 5} more\n"
                 message += "\n"
+            
+            # Add radar alert summary
+            if vol_radar_active > 0 or w_radar_active > 0:
+                message += "🚨 *ACTIVE RADAR ALERTS:*\n"
+                message += "Stocks are near their trigger prices!\n\n"
             
             message += f"📱 View full report: https://anuragsin17-sketch.github.io/Stock-Yard/"
             
