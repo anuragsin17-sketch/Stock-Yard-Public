@@ -42,11 +42,41 @@ class StockScreener:
     def load_stock_universe(self) -> pd.DataFrame:
         """Load the NIFTY 500 stock list"""
         try:
-            df = pd.read_csv('ind_nifty500list.csv')
-            logger.info(f"Loaded {len(df)} stocks from universe")
+            # Try different possible file names
+            possible_files = ['ind_nifty500list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv']
+            
+            for filename in possible_files:
+                try:
+                    if filename.endswith('.csv'):
+                        df = pd.read_csv(filename)
+                    else:
+                        df = pd.read_excel(filename)
+                    
+                    logger.info(f"Successfully loaded {len(df)} stocks from {filename}")
+                    logger.info(f"Columns: {list(df.columns)}")
+                    return df
+                except FileNotFoundError:
+                    logger.warning(f"File {filename} not found, trying next option...")
+                    continue
+                except Exception as e:
+                    logger.warning(f"Error reading {filename}: {e}")
+                    continue
+            
+            # If no file found, create a minimal test dataset
+            logger.warning("No stock universe file found, creating minimal test dataset")
+            test_data = {
+                'Company Name': ['Reliance Industries Ltd.', 'Tata Consultancy Services Ltd.', 'Infosys Ltd.'],
+                'Industry': ['Oil Gas & Consumable Fuels', 'Information Technology', 'Information Technology'],
+                'Symbol': ['RELIANCE', 'TCS', 'INFY'],
+                'Series': ['EQ', 'EQ', 'EQ'],
+                'ISIN Code': ['INE002A01018', 'INE467B01029', 'INE009A01021']
+            }
+            df = pd.DataFrame(test_data)
+            logger.info(f"Created test dataset with {len(df)} stocks")
             return df
+            
         except Exception as e:
-            logger.error(f"Error loading stock universe: {e}")
+            logger.error(f"Critical error loading stock universe: {e}")
             self.results['diagnostics']['errors'].append(f"Failed to load stock universe: {e}")
             return pd.DataFrame()
     
@@ -539,6 +569,15 @@ class StockScreener:
 def main():
     """Main execution function"""
     logger.info("Stock Yard Screener Starting...")
+    
+    # Check if stock universe file exists
+    import os
+    if not os.path.exists('ind_nifty500list.csv'):
+        logger.error("Stock universe file 'ind_nifty500list.csv' not found!")
+        logger.info("Current directory contents:")
+        for item in os.listdir('.'):
+            logger.info(f"  - {item}")
+        return
     
     screener = StockScreener()
     screener.run_screening()
