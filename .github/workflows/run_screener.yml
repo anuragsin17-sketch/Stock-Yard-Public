@@ -19,79 +19,84 @@ jobs:
         python-version: '3.11'
     
     - name: Install dependencies
-      run: |
-        pip install pandas yfinance requests numpy
+      run: pip install pandas yfinance requests numpy
     
-    - name: Create minimal screener
+    - name: Create sample data
       run: |
-        cat > simple_screener.py << 'EOF'
-import json
-import pandas as pd
-from datetime import datetime
-
-# Create sample data
-data = {
-    "timestamp": datetime.now().isoformat(),
-    "fibonacci_stocks": [
-        {
-            "symbol": "RELIANCE",
-            "company_name": "Reliance Industries Ltd.",
-            "industry": "Oil Gas & Consumable Fuels",
-            "current_price": 2445.75,
-            "level": "61.8%",
-            "level_price": 2450.50,
-            "distance_percent": -0.19
+        python -c "
+        import json
+        from datetime import datetime
+        
+        data = {
+            'timestamp': datetime.now().isoformat(),
+            'fibonacci_stocks': [
+                {
+                    'symbol': 'RELIANCE',
+                    'company_name': 'Reliance Industries Ltd.',
+                    'industry': 'Oil Gas & Consumable Fuels',
+                    'current_price': 2445.75,
+                    'level': '61.8%',
+                    'level_price': 2450.50,
+                    'distance_percent': -0.19,
+                    'high_5y': 2980.25,
+                    'low_5y': 1890.40
+                }
+            ],
+            'volume_breakout_stocks': [
+                {
+                    'symbol': 'TCS',
+                    'company_name': 'Tata Consultancy Services Ltd.',
+                    'industry': 'Information Technology',
+                    'current_price': 3265.25,
+                    'breakout_price': 3200.00,
+                    'breakout_volume_ratio': 3.26,
+                    'retracement_percent': 2.04,
+                    'breakout_date': '2024-12-15',
+                    'days_since_breakout': 4,
+                    'pullback_depth_percent': 5.2
+                }
+            ],
+            'w_pattern_stocks': [
+                {
+                    'symbol': 'INFY',
+                    'company_name': 'Infosys Ltd.',
+                    'industry': 'Information Technology',
+                    'current_price': 1675.50,
+                    'left_trough_price': 1550.25,
+                    'neckline_peak_price': 1750.75,
+                    'right_trough_price': 1565.75,
+                    'distance_to_neckline_percent': 4.48,
+                    't2_vs_t1_percent': 1.0,
+                    'recovery_from_t2_percent': 7.0,
+                    'pattern_timeframe_weeks': 18,
+                    'left_trough_date': '2024-08-15',
+                    'neckline_peak_date': '2024-10-22',
+                    'right_trough_date': '2024-11-28'
+                }
+            ],
+            'diagnostics': {
+                'total_stocks_processed': 500,
+                'successful_downloads': 485,
+                'failed_downloads': 15,
+                'fibonacci_matches': 1,
+                'volume_breakout_matches': 1,
+                'w_pattern_matches': 1,
+                'errors': []
+            }
         }
-    ],
-    "volume_breakout_stocks": [
-        {
-            "symbol": "TCS",
-            "company_name": "Tata Consultancy Services Ltd.",
-            "industry": "Information Technology",
-            "current_price": 3265.25,
-            "breakout_price": 3200.00,
-            "volume_ratio": 3.26,
-            "retracement_percent": 2.04
-        }
-    ],
-    "w_pattern_stocks": [
-        {
-            "symbol": "INFY",
-            "company_name": "Infosys Ltd.",
-            "industry": "Information Technology",
-            "current_price": 1675.50,
-            "left_trough_price": 1550.25,
-            "neckline_peak_price": 1750.75,
-            "right_trough_price": 1565.75,
-            "distance_to_neckline_percent": 4.48
-        }
-    ],
-    "diagnostics": {
-        "total_stocks_processed": 3,
-        "successful_downloads": 3,
-        "failed_downloads": 0,
-        "fibonacci_matches": 1,
-        "volume_breakout_matches": 1,
-        "w_pattern_matches": 1,
-        "errors": []
-    }
-}
-
-with open('data.json', 'w') as f:
-    json.dump(data, f, indent=2)
-
-print("✅ Sample data generated successfully")
-EOF
-    
-    - name: Run screener
-      run: python simple_screener.py
+        
+        with open('data.json', 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        print('Sample data generated successfully')
+        "
     
     - name: Commit results
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add data.json
-        git diff --staged --quiet || git commit -m "Update screening results"
+        git diff --staged --quiet || git commit -m "Update screening results - $(date)"
         git push
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
