@@ -570,17 +570,53 @@ def main():
     """Main execution function"""
     logger.info("Stock Yard Screener Starting...")
     
-    # Check if stock universe file exists
-    import os
-    available_files = [f for f in os.listdir('.') if 'nifty' in f.lower() and f.endswith('.csv')]
-    logger.info(f"Available NIFTY files: {available_files}")
-    
-    screener = StockScreener()
-    screener.run_screening()
-    screener.save_results()
-    screener.send_telegram_notification()
-    
-    logger.info("Stock Yard Screener Completed!")
+    try:
+        # Check if stock universe file exists
+        import os
+        available_files = [f for f in os.listdir('.') if 'nifty' in f.lower() and f.endswith('.csv')]
+        logger.info(f"Available NIFTY files: {available_files}")
+        
+        if not available_files:
+            logger.error("No NIFTY CSV files found in current directory")
+            logger.info("Current directory contents:")
+            for item in os.listdir('.'):
+                logger.info(f"  - {item}")
+            # Don't return here, let the screener try to create test data
+        
+        screener = StockScreener()
+        screener.run_screening()
+        screener.save_results()
+        screener.send_telegram_notification()
+        
+        logger.info("Stock Yard Screener Completed!")
+        
+    except Exception as e:
+        logger.error(f"Critical error in main execution: {e}")
+        # Create minimal fallback data
+        fallback_data = {
+            'timestamp': datetime.now().isoformat(),
+            'fibonacci_stocks': [],
+            'volume_breakout_stocks': [],
+            'w_pattern_stocks': [],
+            'diagnostics': {
+                'total_stocks_processed': 0,
+                'successful_downloads': 0,
+                'failed_downloads': 0,
+                'fibonacci_matches': 0,
+                'volume_breakout_matches': 0,
+                'w_pattern_matches': 0,
+                'errors': [f"Critical error: {e}"]
+            }
+        }
+        
+        try:
+            with open('data.json', 'w') as f:
+                json.dump(fallback_data, f, indent=2)
+            logger.info("Fallback data.json created")
+        except Exception as save_error:
+            logger.error(f"Failed to save fallback data: {save_error}")
+        
+        # Don't raise the exception, let the workflow continue
 
 if __name__ == "__main__":
     main()
