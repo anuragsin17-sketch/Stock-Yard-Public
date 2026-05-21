@@ -3,7 +3,7 @@ name: Stock Yard Screener
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 11 * * 1-5' # Runs automatically Monday-Friday at 4:30 PM IST
+    - cron: '0 11 * * 1-5'
 
 permissions:
   contents: write
@@ -13,30 +13,75 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout Repository
+    - name: Checkout
       uses: actions/checkout@v4
-
-    - name: Setup Python Environment
-      uses: actions/setup-python@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        cache: 'pip'
-
-    - name: Install Project Dependencies
+    
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-    - name: Run Live Python Screener Script
+        pip install pandas yfinance requests numpy openpyxl
+    
+    - name: List repository files
+      run: |
+        echo "Repository contents:"
+        ls -la
+        echo "CSV files:"
+        find . -name "*.csv" -type f
+        echo "Python files:"
+        find . -name "*.py" -type f
+    
+    - name: Run Yahoo Finance screener
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: python screener.py
-
-    - name: Commit and Push Updated Live Data
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+      run: |
+        echo "🚀 Starting Stock Yard Screener with Yahoo Finance data..."
+        python screener.py
+        echo "✅ Screener execution completed"
+    
+    - name: Verify results
+      run: |
+        if [ -f "data.json" ]; then
+          echo "✅ data.json created successfully"
+          echo "File size: $(wc -c < data.json) bytes"
+          echo "Preview of results:"
+          head -20 data.json
+        else
+          echo "❌ data.json not found - creating fallback"
+          cat > data.json << 'EOF'
+{
+  "timestamp": "2024-12-19T16:30:00.000Z",
+  "fibonacci_stocks": [],
+  "volume_breakout_stocks": [],
+  "w_pattern_stocks": [],
+  "diagnostics": {
+    "total_stocks_processed": 0,
+    "successful_downloads": 0,
+    "failed_downloads": 0,
+    "fibonacci_matches": 0,
+    "volume_breakout_matches": 0,
+    "w_pattern_matches": 0,
+    "errors": ["Screener execution failed - using fallback data"]
+  }
+}
+EOF
+        fi
+    
+    - name: Commit and push results
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add data.json
-        git commit -m "Update live screening results - $(date '+%Y-%m-%d %H:%M:%S')" || echo "No data changes detected"
-        git push origin main
+        git commit -m "Update live screening results - $(date '+%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+        git push origin main || git push origin master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

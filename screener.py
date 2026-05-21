@@ -40,10 +40,10 @@ class StockScreener:
         }
     
     def load_stock_universe(self) -> pd.DataFrame:
-        """Load the NIFTY 500 stock list"""
+        """Load the NIFTY stock list"""
         try:
             # Try different possible file names
-            possible_files = ['ind_nifty500list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv']
+            possible_files = ['ind_nifty50list.csv', 'ind_nifty500list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv', 'nifty50.csv']
             
             for filename in possible_files:
                 try:
@@ -421,7 +421,7 @@ class StockScreener:
                 }
                 self.results['volume_breakout_stocks'].append(stock_info)
                 self.results['diagnostics']['volume_breakout_matches'] += 1
-                logger.info(f"Volume breakout: {symbol} with {volume_result['volume_ratio']}x volume")
+                logger.info(f"Volume breakout: {symbol} with {volume_result.get('breakout_volume_ratio', 'N/A')}x volume")
             
             # Check W-Pattern (weekly data)
             weekly_data = self.get_weekly_data(symbol)
@@ -532,7 +532,7 @@ class StockScreener:
                 message += "📈 *Volume Breakout Stocks:*\n"
                 for stock in self.results['volume_breakout_stocks'][:5]:  # Limit to top 5
                     message += f"• {stock['symbol']} ({stock['company_name'][:20]}...)\n"
-                    message += f"  {stock['volume_ratio']}x volume, +{stock['price_change_percent']:.1f}%\n"
+                    message += f"  {stock['breakout_volume_ratio']}x volume, +{stock['breakout_price_change']:.1f}%\n"
                 if vol_count > 5:
                     message += f"... and {vol_count - 5} more\n"
                 message += "\n"
@@ -547,7 +547,7 @@ class StockScreener:
                     message += f"... and {w_pattern_count - 5} more\n"
                 message += "\n"
             
-            message += f"📱 View full report: https://{os.environ.get('GITHUB_REPOSITORY_OWNER', 'your-username')}.github.io/{os.environ.get('GITHUB_REPOSITORY', 'stock-yard').split('/')[-1]}/"
+            message += f"📱 View full report: https://anuragsin17-sketch.github.io/Stock-Yard/"
             
             # Send message
             url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
@@ -572,12 +572,8 @@ def main():
     
     # Check if stock universe file exists
     import os
-    if not os.path.exists('ind_nifty500list.csv'):
-        logger.error("Stock universe file 'ind_nifty500list.csv' not found!")
-        logger.info("Current directory contents:")
-        for item in os.listdir('.'):
-            logger.info(f"  - {item}")
-        return
+    available_files = [f for f in os.listdir('.') if 'nifty' in f.lower() and f.endswith('.csv')]
+    logger.info(f"Available NIFTY files: {available_files}")
     
     screener = StockScreener()
     screener.run_screening()

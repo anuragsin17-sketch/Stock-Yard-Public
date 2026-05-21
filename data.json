@@ -1,64 +1,89 @@
 {
-  "timestamp": "2024-12-19T16:30:00.000Z",
+  "timestamp": "2026-05-22T03:04:28.405219",
   "fibonacci_stocks": [
     {
-      "symbol": "RELIANCE",
-      "company_name": "Reliance Industries Ltd.",
-      "industry": "Oil Gas & Consumable Fuels",
-      "current_price": 2445.75,
-      "level": "61.8%",
-      "level_price": 2450.50,
-      "distance_percent": -0.19,
-      "high_5y": 2980.25,
-      "low_5y": 1890.40,
+      "symbol": "TMPV",
+      "company_name": "Tata Motors Passenger Vehicles Ltd.",
+      "industry": "Automobile and Auto Components",
+      "is_near_fibonacci": true,
+      "level": "50%",
+      "level_price": 356.65,
+      "current_price": 361.35,
+      "distance_percent": 1.32,
+      "high_5y": 419.0,
+      "low_5y": 294.3,
       "all_levels": {
-        "100%": 2980.25,
-        "61.8%": 2450.50,
-        "50%": 2435.33,
-        "38.2%": 2416.85,
-        "0%": 1890.40
+        "100%": 419.0,
+        "61.8%": 341.94,
+        "50%": 356.65,
+        "38.2%": 371.36,
+        "0%": 294.3
       }
     }
   ],
   "volume_breakout_stocks": [
     {
-      "symbol": "TCS",
-      "company_name": "Tata Consultancy Services Ltd.",
-      "industry": "Information Technology",
-      "current_price": 3265.25,
-      "breakout_price": 3200.00,
-      "breakout_volume_ratio": 3.26,
-      "retracement_percent": 2.04,
-      "breakout_date": "2024-12-15",
-      "days_since_breakout": 4,
-      "pullback_depth_percent": 5.2
+      "symbol": "DRREDDY",
+      "company_name": "Dr. Reddy's Laboratories Ltd.",
+      "industry": "Healthcare",
+      "is_volume_breakout": true,
+      "breakout_date": "2026-04-23",
+      "breakout_price": 1331.0,
+      "breakout_volume_ratio": 7.5,
+      "breakout_price_change": 9.37,
+      "current_price": NaN,
+      "retracement_percent": NaN,
+      "days_since_breakout": 20,
+      "pullback_depth_percent": 6.59,
+      "max_price_after_breakout": 1354.6,
+      "pattern_type": "Volume Breakout with Retracement"
+    },
+    {
+      "symbol": "NESTLEIND",
+      "company_name": "Nestle India Ltd.",
+      "industry": "Fast Moving Consumer Goods",
+      "is_volume_breakout": true,
+      "breakout_date": "2026-04-21",
+      "breakout_price": 1379.9,
+      "breakout_volume_ratio": 6.21,
+      "breakout_price_change": 7.27,
+      "current_price": NaN,
+      "retracement_percent": NaN,
+      "days_since_breakout": 22,
+      "pullback_depth_percent": 6.08,
+      "max_price_after_breakout": 1486.1,
+      "pattern_type": "Volume Breakout with Retracement"
     }
   ],
   "w_pattern_stocks": [
     {
-      "symbol": "INFY",
-      "company_name": "Infosys Ltd.",
-      "industry": "Information Technology",
-      "current_price": 1675.50,
-      "left_trough_price": 1550.25,
-      "neckline_peak_price": 1750.75,
-      "right_trough_price": 1565.75,
-      "distance_to_neckline_percent": 4.48,
-      "t2_vs_t1_percent": 1.0,
-      "recovery_from_t2_percent": 7.0,
-      "pattern_timeframe_weeks": 18,
-      "left_trough_date": "2024-08-15",
-      "neckline_peak_date": "2024-10-22",
-      "right_trough_date": "2024-11-28"
+      "symbol": "BEL",
+      "company_name": "Bharat Electronics Ltd.",
+      "industry": "Capital Goods",
+      "is_w_pattern": true,
+      "left_trough_price": 378.84,
+      "right_trough_price": 399.35,
+      "neckline_peak_price": 473.45,
+      "current_price": 413.3,
+      "distance_to_neckline_percent": 14.55,
+      "t2_vs_t1_percent": 5.41,
+      "recovery_from_t2_percent": 3.49,
+      "pattern_timeframe_weeks": 16,
+      "left_trough_date": "2025-12-19",
+      "neckline_peak_date": "2026-03-06",
+      "right_trough_date": "2026-04-03"
     }
   ],
   "diagnostics": {
-    "total_stocks_processed": 500,
-    "successful_downloads": 485,
-    "failed_downloads": 15,
+    "total_stocks_processed": 50,
+    "successful_downloads": 50,
+    "failed_downloads": 0,
     "fibonacci_matches": 1,
-    "volume_breakout_matches": 1,
+    "volume_breakout_matches": 2,
     "w_pattern_matches": 1,
-    "errors": []
+    "errors": [
+      "Error screening DRREDDY: 'volume_ratio'",
+      "Error screening NESTLEIND: 'volume_ratio'"
+    ]
   }
 }
