@@ -62,6 +62,12 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-4 text-slate-400">
+                    <button id="refreshDataBtn" class="flex items-center space-x-2 px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        <span class="text-xs">Refresh</span>
+                    </button>
                     <span>Last Sync:</span>
                     <span id="lastUpdated" class="text-slate-300 font-mono">Loading...</span>
                 </div>
@@ -307,18 +313,37 @@
         // Load screening data
         async function loadData() {
             try {
-                const response = await fetch('data.json');
+                // Add cache-busting parameter to prevent browser caching
+                const timestamp = new Date().getTime();
+                console.log(`Attempting to fetch data.json?v=${timestamp}`);
+                
+                const response = await fetch(`data.json?v=${timestamp}`);
+                console.log('Fetch response:', response.status, response.statusText);
+                
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                screeningData = await response.json();
+                
+                const responseText = await response.text();
+                console.log('Response size:', responseText.length, 'characters');
+                
+                screeningData = JSON.parse(responseText);
                 console.log('Data loaded successfully:', screeningData);
+                console.log('Data timestamp:', screeningData.timestamp);
+                console.log('Total stocks processed:', screeningData.diagnostics?.total_stocks_processed);
+                
                 updateUI();
                 populateIndustryFilter();
                 applyFilters();
                 updateStatusIndicator(true);
             } catch (error) {
                 console.error('Error loading data:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    timestamp: new Date().toISOString()
+                });
+                
                 // Show demo data if real data fails to load
                 loadDemoData();
                 showError(`Failed to load live data: ${error.message}. Showing demo data instead.`);
@@ -526,6 +551,18 @@
 
         // Setup event listeners
         function setupEventListeners() {
+            // Refresh button
+            document.getElementById('refreshDataBtn').addEventListener('click', function() {
+                console.log('Manual refresh triggered');
+                this.disabled = true;
+                this.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span class="text-xs ml-2">Loading...</span>';
+                
+                loadData().finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span class="text-xs ml-2">Refresh</span>';
+                });
+            });
+
             // Tab switching
             document.querySelectorAll('.tab-button').forEach(button => {
                 button.addEventListener('click', function() {
