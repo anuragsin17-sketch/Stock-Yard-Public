@@ -35,57 +35,18 @@ jobs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
       run: |
-        echo "🚀 Starting Stock Yard Screener with Yahoo Finance data..."
-        python screener.py 2>&1 | tee screener_output.log
-        echo "✅ Screener execution completed"
-    
-    - name: Update HTML with live data
-      run: |
-        echo "🔄 Updating HTML with embedded live data..."
-        python3 -c "
-import json
-import re
-
-try:
-    with open('data.json', 'r') as f:
-        data = json.load(f)
-    
-    def fix_nan_values(obj):
-        if isinstance(obj, dict):
-            return {k: fix_nan_values(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [fix_nan_values(item) for item in obj]
-        elif obj != obj:
-            return None
-        else:
-            return obj
-    
-    clean_data = fix_nan_values(data)
-    
-    with open('index.html', 'r') as f:
-        html_content = f.read()
-    
-    js_data = json.dumps(clean_data, indent=2)
-    pattern = r'const LIVE_DATA = \{.*?\};'
-    replacement = f'const LIVE_DATA = {js_data};'
-    new_html = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
-    
-    with open('index.html', 'w') as f:
-        f.write(new_html)
-    
-    print('✅ HTML updated with live data')
-except Exception as e:
-    print(f'❌ Error updating HTML: {e}')
-"
+        echo "Starting Stock Yard Screener with Yahoo Finance data..."
+        python screener.py
+        echo "Screener execution completed"
     
     - name: Verify results
       run: |
         if [ -f "data.json" ]; then
-          echo "✅ data.json created successfully"
+          echo "data.json created successfully"
           echo "File size: $(wc -c < data.json) bytes"
           head -10 data.json
         else
-          echo "❌ data.json not found - creating fallback"
+          echo "data.json not found - creating fallback"
           echo '{"timestamp":"2024-12-19T16:30:00.000Z","fibonacci_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"fibonacci_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"errors":["Screener execution failed"]}}' > data.json
         fi
     
@@ -93,7 +54,7 @@ except Exception as e:
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add data.json index.html
+        git add data.json
         git commit -m "Update live screening results - $(date '+%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
         git push origin main || git push origin master
       env:
