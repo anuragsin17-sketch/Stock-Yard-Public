@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Stock Yard - Executive Trading Platform</title>
+    <meta name="description" content="Professional stock screening platform with Fibonacci, Volume Breakout, and W-Pattern analysis">
+    <meta name="theme-color" content="#0f172a">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -46,49 +48,88 @@
             border: 1px solid rgba(148, 163, 184, 0.1);
             backdrop-filter: blur(12px);
         }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .mobile-scroll {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .mobile-table {
+                min-width: 600px;
+            }
+            .mobile-compact {
+                padding: 0.75rem !important;
+            }
+            .mobile-text {
+                font-size: 0.875rem !important;
+            }
+            .mobile-hide {
+                display: none !important;
+            }
+        }
+        
+        /* Touch-friendly buttons */
+        .touch-target {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        /* Improved scrollbars */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
     <!-- Header with Status Ribbon -->
     <header class="bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/50 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
             <!-- Status Ribbon -->
             <div class="flex items-center justify-between py-2 text-xs border-b border-slate-800/30">
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2 sm:space-x-4">
                     <div class="flex items-center space-x-2">
                         <div id="statusIndicator" class="w-2 h-2 rounded-full bg-amber-500 status-pulse"></div>
-                        <span class="text-slate-400">System Status</span>
-                        <span id="systemStatus" class="text-amber-400 font-medium">Resilient Offline Datasets</span>
+                        <span class="text-slate-400 hidden sm:inline">System Status</span>
+                        <span id="systemStatus" class="text-amber-400 font-medium text-xs sm:text-sm">Live Data</span>
                     </div>
                 </div>
-                <div class="flex items-center space-x-4 text-slate-400">
-                    <button id="refreshDataBtn" class="flex items-center space-x-2 px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="flex items-center space-x-2 sm:space-x-4 text-slate-400">
+                    <button id="refreshDataBtn" class="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors touch-target">
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        <span class="text-xs">Refresh</span>
+                        <span class="text-xs hidden sm:inline">Refresh</span>
                     </button>
-                    <span>Last Sync:</span>
-                    <span id="lastUpdated" class="text-slate-300 font-mono">Loading...</span>
+                    <span class="hidden sm:inline">Last Sync:</span>
+                    <span id="lastUpdated" class="text-slate-300 font-mono text-xs">Loading...</span>
                 </div>
             </div>
             
             <!-- Main Header -->
-            <div class="flex items-center justify-between py-4">
-                <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-3">
-                        <svg class="w-8 h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center justify-between py-3 sm:py-4">
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    <div class="flex items-center space-x-2 sm:space-x-3">
+                        <svg class="w-6 h-6 sm:w-8 sm:h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                         </svg>
-                        <h1 class="text-2xl font-bold text-slate-100">Stock Yard</h1>
-                        <span class="px-3 py-1 bg-brand-500/20 text-brand-400 text-xs font-medium rounded-full border border-brand-500/30">
+                        <h1 class="text-xl sm:text-2xl font-bold text-slate-100">Stock Yard</h1>
+                        <span class="px-2 sm:px-3 py-1 bg-brand-500/20 text-brand-400 text-xs font-medium rounded-full border border-brand-500/30 hidden sm:inline">
                             Executive Platform
                         </span>
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-4 mobile-hide">
                     <div class="text-sm text-slate-400">
-                        <span class="font-medium">NIFTY 500</span> • <span class="text-slate-500">Automated Screening</span>
+                        <span class="font-medium">NIFTY 50</span> • <span class="text-slate-500">Live Screening</span>
                     </div>
                 </div>
             </div>
@@ -96,14 +137,14 @@
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-6 py-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
         <!-- Performance Metrics -->
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-            <div class="metric-card rounded-xl p-6 hover:border-slate-700/50 transition-all duration-200">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mb-6 sm:mb-8">
+            <div class="metric-card rounded-xl p-4 sm:p-6 hover:border-slate-700/50 transition-all duration-200">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-slate-400 text-sm font-medium">Total Processed</p>
-                        <p id="totalProcessed" class="text-3xl font-bold text-slate-100 font-mono tabular-nums mt-1">-</p>
+                        <p class="text-slate-400 text-xs sm:text-sm font-medium">Total Processed</p>
+                        <p id="totalProcessed" class="text-xl sm:text-3xl font-bold text-slate-100 font-mono tabular-nums mt-1">-</p>
                     </div>
                     <div class="w-12 h-12 bg-slate-800/50 rounded-lg flex items-center justify-center">
                         <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -312,41 +353,80 @@
 
         // Load screening data
         async function loadData() {
+            console.log('🔄 Starting data load...');
+            
             try {
-                // Add cache-busting parameter to prevent browser caching
-                const timestamp = new Date().getTime();
-                console.log(`Attempting to fetch data.json?v=${timestamp}`);
+                // Try multiple approaches to load data
+                let response;
+                let attempts = [
+                    'data.json',
+                    './data.json',
+                    `data.json?t=${Date.now()}`,
+                    `./data.json?t=${Date.now()}`
+                ];
                 
-                const response = await fetch(`data.json?v=${timestamp}`);
-                console.log('Fetch response:', response.status, response.statusText);
+                for (let url of attempts) {
+                    try {
+                        console.log(`📡 Trying to fetch: ${url}`);
+                        response = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                                'Pragma': 'no-cache',
+                                'Expires': '0'
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            console.log(`✅ Success with: ${url}`);
+                            break;
+                        } else {
+                            console.log(`❌ Failed with ${url}: ${response.status}`);
+                        }
+                    } catch (err) {
+                        console.log(`❌ Error with ${url}:`, err.message);
+                    }
+                }
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (!response || !response.ok) {
+                    throw new Error(`All fetch attempts failed. Last status: ${response?.status || 'No response'}`);
                 }
                 
                 const responseText = await response.text();
-                console.log('Response size:', responseText.length, 'characters');
+                console.log('📄 Response received, size:', responseText.length, 'characters');
+                
+                if (responseText.length < 100) {
+                    throw new Error('Response too small, likely not valid JSON');
+                }
                 
                 screeningData = JSON.parse(responseText);
-                console.log('Data loaded successfully:', screeningData);
-                console.log('Data timestamp:', screeningData.timestamp);
-                console.log('Total stocks processed:', screeningData.diagnostics?.total_stocks_processed);
+                
+                // Validate the data structure
+                if (!screeningData.timestamp || !screeningData.diagnostics) {
+                    throw new Error('Invalid data structure - missing required fields');
+                }
+                
+                console.log('✅ Data loaded and validated successfully');
+                console.log('📊 Data summary:', {
+                    timestamp: screeningData.timestamp,
+                    fibonacci_count: screeningData.fibonacci_stocks?.length || 0,
+                    volume_count: screeningData.volume_breakout_stocks?.length || 0,
+                    w_pattern_count: screeningData.w_pattern_stocks?.length || 0,
+                    total_processed: screeningData.diagnostics?.total_stocks_processed || 0
+                });
                 
                 updateUI();
                 populateIndustryFilter();
                 applyFilters();
                 updateStatusIndicator(true);
-            } catch (error) {
-                console.error('Error loading data:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    stack: error.stack,
-                    timestamp: new Date().toISOString()
-                });
                 
-                // Show demo data if real data fails to load
+            } catch (error) {
+                console.error('💥 Critical error loading data:', error);
+                
+                // Only use demo data as absolute last resort
+                console.warn('⚠️ Loading demo data as fallback');
                 loadDemoData();
-                showError(`Failed to load live data: ${error.message}. Showing demo data instead.`);
+                showError(`Live data unavailable: ${error.message}`);
                 updateStatusIndicator(false);
             }
         }
