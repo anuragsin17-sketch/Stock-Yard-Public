@@ -3,7 +3,7 @@ name: Stock Yard Screener
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 11 * * 1-5'
+    - cron: '0 11 * * 1-5' # Runs automatically Monday-Friday at 4:30 PM IST
 
 permissions:
   contents: write
@@ -13,98 +13,30 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout
+    - name: Checkout Repository
       uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Setup Python
-      uses: actions/setup-python@v4
+
+    - name: Setup Python Environment
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    
-    - name: Create sample data
+        cache: 'pip'
+
+    - name: Install Project Dependencies
       run: |
-        cat > data.json << 'EOF'
-        {
-          "timestamp": "2024-12-19T16:30:00.000Z",
-          "fibonacci_stocks": [
-            {
-              "symbol": "RELIANCE",
-              "company_name": "Reliance Industries Ltd.",
-              "industry": "Oil Gas & Consumable Fuels",
-              "current_price": 2445.75,
-              "level": "61.8%",
-              "level_price": 2450.50,
-              "distance_percent": -0.19,
-              "high_5y": 2980.25,
-              "low_5y": 1890.40,
-              "all_levels": {
-                "100%": 2980.25,
-                "61.8%": 2450.50,
-                "50%": 2435.33,
-                "38.2%": 2416.85,
-                "0%": 1890.40
-              }
-            }
-          ],
-          "volume_breakout_stocks": [
-            {
-              "symbol": "TCS",
-              "company_name": "Tata Consultancy Services Ltd.",
-              "industry": "Information Technology",
-              "current_price": 3265.25,
-              "breakout_price": 3200.00,
-              "breakout_volume_ratio": 3.26,
-              "retracement_percent": 2.04,
-              "breakout_date": "2024-12-15",
-              "days_since_breakout": 4,
-              "pullback_depth_percent": 5.2
-            }
-          ],
-          "w_pattern_stocks": [
-            {
-              "symbol": "INFY",
-              "company_name": "Infosys Ltd.",
-              "industry": "Information Technology",
-              "current_price": 1675.50,
-              "left_trough_price": 1550.25,
-              "neckline_peak_price": 1750.75,
-              "right_trough_price": 1565.75,
-              "distance_to_neckline_percent": 4.48,
-              "t2_vs_t1_percent": 1.0,
-              "recovery_from_t2_percent": 7.0,
-              "pattern_timeframe_weeks": 18,
-              "left_trough_date": "2024-08-15",
-              "neckline_peak_date": "2024-10-22",
-              "right_trough_date": "2024-11-28"
-            }
-          ],
-          "diagnostics": {
-            "total_stocks_processed": 500,
-            "successful_downloads": 485,
-            "failed_downloads": 15,
-            "fibonacci_matches": 1,
-            "volume_breakout_matches": 1,
-            "w_pattern_matches": 1,
-            "errors": []
-          }
-        }
-        EOF
-    
-    - name: Verify data file
-      run: |
-        echo "✅ Data file created:"
-        ls -la data.json
-        echo "File contents preview:"
-        head -10 data.json
-    
-    - name: Commit and push
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Run Live Python Screener Script
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: python screener.py
+
+    - name: Commit and Push Updated Live Data
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add data.json
-        git commit -m "Update screening results - $(date '+%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
-        git push origin main || git push origin master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        git commit -m "Update live screening results - $(date '+%Y-%m-%d %H:%M:%S')" || echo "No data changes detected"
+        git push origin main
