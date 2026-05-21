@@ -28,24 +28,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas yfinance requests numpy openpyxl
     
-    - name: List repository files
-      run: |
-        echo "Repository contents:"
-        ls -la
-        echo "CSV files:"
-        find . -name "*.csv" -type f
-        echo "Python files:"
-        find . -name "*.py" -type f
-        echo "Checking NIFTY CSV file specifically:"
-        if [ -f "ind_nifty50list.csv" ]; then
-          echo "✅ ind_nifty50list.csv found"
-          echo "File size: $(wc -l < ind_nifty50list.csv) lines"
-          echo "First 3 lines:"
-          head -3 ind_nifty50list.csv
-        else
-          echo "❌ ind_nifty50list.csv NOT found"
-        fi
-    
     - name: Run Yahoo Finance screener
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -54,78 +36,57 @@ jobs:
         GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
       run: |
         echo "🚀 Starting Stock Yard Screener with Yahoo Finance data..."
-        echo "Current directory: $(pwd)"
-        echo "Available files:"
-        ls -la *.csv *.py 2>/dev/null || echo "No CSV/PY files in current directory"
-        echo "Running screener..."
         python screener.py 2>&1 | tee screener_output.log
-        echo "Screener exit code: $?"
         echo "✅ Screener execution completed"
     
     - name: Update HTML with live data
       run: |
         echo "🔄 Updating HTML with embedded live data..."
-        
-        # Update the LIVE_DATA constant in index.html
-        python3 << 'EOF'
+        python3 -c "
 import json
 import re
 
-# Read the data.json
-with open('data.json', 'r') as f:
-    data = json.load(f)
-
-# Fix NaN values in the data
-def fix_nan_values(obj):
-    if isinstance(obj, dict):
-        return {k: fix_nan_values(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [fix_nan_values(item) for item in obj]
-    elif obj != obj:  # Check for NaN
-        return None
-    else:
-        return obj
-
-clean_data = fix_nan_values(data)
-
-# Read the HTML file
-with open('index.html', 'r') as f:
-    html_content = f.read()
-
-# Format the data as a JavaScript object
-js_data = json.dumps(clean_data, indent=2)
-
-# Replace the LIVE_DATA constant using a more robust pattern
-pattern = r'const LIVE_DATA = \{.*?\n\};'
-replacement = f'const LIVE_DATA = {js_data};'
-new_html = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
-
-# Write back to file
-with open('index.html', 'w') as f:
-    f.write(new_html)
-
-print("✅ HTML updated with live data")
-EOF
+try:
+    with open('data.json', 'r') as f:
+        data = json.load(f)
+    
+    def fix_nan_values(obj):
+        if isinstance(obj, dict):
+            return {k: fix_nan_values(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [fix_nan_values(item) for item in obj]
+        elif obj != obj:
+            return None
+        else:
+            return obj
+    
+    clean_data = fix_nan_values(data)
+    
+    with open('index.html', 'r') as f:
+        html_content = f.read()
+    
+    js_data = json.dumps(clean_data, indent=2)
+    pattern = r'const LIVE_DATA = \{.*?\};'
+    replacement = f'const LIVE_DATA = {js_data};'
+    new_html = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
+    
+    with open('index.html', 'w') as f:
+        f.write(new_html)
+    
+    print('✅ HTML updated with live data')
+except Exception as e:
+    print(f'❌ Error updating HTML: {e}')
+"
+    
     - name: Verify results
       run: |
-        echo "Checking screener output log:"
-        if [ -f "screener_output.log" ]; then
-          echo "Last 20 lines of screener output:"
-          tail -20 screener_output.log
-        fi
-        echo "Checking data.json:"
         if [ -f "data.json" ]; then
           echo "✅ data.json created successfully"
           echo "File size: $(wc -c < data.json) bytes"
-          echo "Timestamp check:"
-          grep -o '"timestamp":"[^"]*"' data.json || echo "No timestamp found"
-          echo "Diagnostics check:"
-          grep -A 10 '"diagnostics"' data.json || echo "No diagnostics found"
-          echo "Preview of results:"
-          head -20 data.json
+          head -10 data.json
         else
           echo "❌ data.json not found - creating fallback"
-          echo '{"timestamp":"2024-12-19T16:30:00.000Z","fibonacci_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"fibonacci_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"errors":["Screener execution failed - using fallback data"]}}' > data.json
+          echo '{"timestamp":"2024-12-19T16:30:00.000Z","fibonacci_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"fibonacci_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"errors":["Screener execution failed"]}}' > data.json
         fi
     
     - name: Commit and push results
