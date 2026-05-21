@@ -57,23 +57,7 @@ jobs:
           head -20 data.json
         else
           echo "❌ data.json not found - creating fallback"
-          cat > data.json << 'EOF'
-{
-  "timestamp": "2024-12-19T16:30:00.000Z",
-  "fibonacci_stocks": [],
-  "volume_breakout_stocks": [],
-  "w_pattern_stocks": [],
-  "diagnostics": {
-    "total_stocks_processed": 0,
-    "successful_downloads": 0,
-    "failed_downloads": 0,
-    "fibonacci_matches": 0,
-    "volume_breakout_matches": 0,
-    "w_pattern_matches": 0,
-    "errors": ["Screener execution failed - using fallback data"]
-  }
-}
-EOF
+          echo '{"timestamp":"2024-12-19T16:30:00.000Z","fibonacci_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"fibonacci_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"errors":["Screener execution failed - using fallback data"]}}' > data.json
         fi
     
     - name: Commit and push results
