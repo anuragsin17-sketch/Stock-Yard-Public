@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Yard - Executive Trading Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'Menlo', 'Monaco', 'monospace']
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <style>
+        .glass-card {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        .status-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .tab-glow {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+        .metric-card {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
+    <!-- Header with Status Ribbon -->
+    <header class="bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6">
+            <!-- Status Ribbon -->
+            <div class="flex items-center justify-between py-2 text-xs border-b border-slate-800/30">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div id="statusIndicator" class="w-2 h-2 rounded-full bg-amber-500 status-pulse"></div>
+                        <span class="text-slate-400">System Status</span>
+                        <span id="systemStatus" class="text-amber-400 font-medium">Resilient Offline Datasets</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4 text-slate-400">
+                    <span>Last Sync:</span>
+                    <span id="lastUpdated" class="text-slate-300 font-mono">Loading...</span>
+                </div>
+            </div>
+            
+            <!-- Main Header -->
+            <div class="flex items-center justify-between py-4">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-8 h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <h1 class="text-2xl font-bold text-slate-100">Stock Yard</h1>
+                        <span class="px-3 py-1 bg-brand-500/20 text-brand-400 text-xs font-medium rounded-full border border-brand-500/30">
+                            Executive Platform
+                        </span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-slate-400">
+                        <span class="font-medium">NIFTY 500</span> • <span class="text-slate-500">Automated Screening</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <!-- Performance Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+            <div class="metric-card rounded-xl p-6 hover:border-slate-700/50 transition-all duration-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">Total Processed</p>
+                        <p id="totalProcessed" class="text-3xl font-bold text-slate-100 font-mono tabular-nums mt-1">-</p>
+                    </div>
+                    <div class="w-12 h-12 bg-slate-800/50 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card rounded-xl p-6 hover:border-slate-700/50 transition-all duration-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">Fibonacci Signals</p>
+                        <p id="fibonacciCount" class="text-3xl font-bold text-amber-400 font-mono tabular-nums mt-1">-</p>
+                    </div>
+                    <div class="w-12 h-12 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card rounded-xl p-6 hover:border-slate-700/50 transition-all duration-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">Volume Breakouts</p>
+                        <p id="volumeCount" class="text-3xl font-bold text-emerald-400 font-mono tabular-nums mt-1">-</p>
+                    </div>
+                    <div class="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card rounded-xl p-6 hover:border-slate-700/50 transition-all duration-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">W-Pattern Signals</p>
+                        <p id="wPatternCount" class="text-3xl font-bold text-indigo-400 font-mono tabular-nums mt-1">-</p>
+                    </div>
+                    <div class="w-12 h-12 bg-indigo-500/10 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card rounded-xl p-6 hover:border-slate-700/50 transition-all duration-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">Success Rate</p>
+                        <p id="successRate" class="text-3xl font-bold text-slate-100 font-mono tabular-nums mt-1">-</p>
+                    </div>
+                    <div class="w-12 h-12 bg-slate-800/50 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Toolbar -->
+        <div class="glass-card rounded-xl p-6 mb-8">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-6">
+                    <div class="flex-1 min-w-0">
+                        <input type="text" id="searchInput" placeholder="Search symbols, companies..."
+                               class="w-80 px-4 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all duration-200">
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <select id="industryFilter" class="px-4 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all duration-200">
+                        <option value="">All Industries</option>
+                    </select>
+                    <select id="screenTypeFilter" class="px-4 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all duration-200">
+                        <option value="all">All Signals</option>
+                        <option value="fibonacci">Fibonacci Only</option>
+                        <option value="volume">Volume Breakout Only</option>
+                        <option value="wpattern">W-Pattern Only</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workspace Tabs & Data -->
+        <div class="glass-card rounded-xl overflow-hidden">
+            <div class="border-b border-slate-800/50">
+                <nav class="flex">
+                    <button id="fibonacciTab" class="tab-button active px-8 py-4 text-sm font-medium border-b-2 border-brand-500 text-brand-400 tab-glow">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                            </svg>
+                            <span>Fibonacci Retracement</span>
+                        </div>
+                    </button>
+                    <button id="volumeTab" class="tab-button px-8 py-4 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-300 transition-all duration-200">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                            <span>Volume Breakout</span>
+                        </div>
+                    </button>
+                    <button id="wpatternTab" class="tab-button px-8 py-4 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-300 transition-all duration-200">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span>W Pattern Watchlist</span>
+                        </div>
+                    </button>
+                    <button id="diagnosticsTab" class="tab-button px-8 py-4 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-300 transition-all duration-200">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                            <span>System Diagnostics</span>
+                        </div>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Fibonacci Results -->
+            <div id="fibonacciContent" class="tab-content p-8">
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-slate-100 mb-2">Fibonacci Retracement Analysis</h3>
+                    <p class="text-slate-400">Securities trading within ±1.5% of key Fibonacci levels (100%, 61.8%, 50%)</p>
+                </div>
+                <div id="fibonacciResults" class="space-y-4">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <!-- Volume Breakout Results -->
+            <div id="volumeContent" class="tab-content p-8 hidden">
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-slate-100 mb-2">Volume Breakout Retracement Patterns</h3>
+                    <p class="text-slate-400">Securities with historical volume spikes (5x+) that have retraced to breakout levels</p>
+                </div>
+                <div id="volumeResults" class="space-y-4">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <!-- W-Pattern Results -->
+            <div id="wpatternContent" class="tab-content p-8 hidden">
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-slate-100 mb-2">Weekly W-Pattern Formation Analysis</h3>
+                    <p class="text-slate-400">Double bottom patterns with potential neckline breakout opportunities</p>
+                </div>
+                <div id="wpatternResults" class="space-y-4">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <!-- Diagnostics -->
+            <div id="diagnosticsContent" class="tab-content p-8 hidden">
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-slate-100 mb-2">System Performance & Health Metrics</h3>
+                    <p class="text-slate-400">Data pipeline validation and screening algorithm diagnostics</p>
+                </div>
+                <div id="diagnosticsResults">
+                    <!-- Diagnostics will be populated here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900/50 border-t border-slate-800/50 mt-16">
+        <div class="max-w-7xl mx-auto px-6 py-8">
+            <div class="text-center text-sm text-slate-400">
+                <p class="font-medium">Stock Yard Executive Trading Platform</p>
+                <p class="mt-2">Powered by GitHub Actions • Real-time Data via Yahoo Finance • Automated Screening Monday-Friday 4:30 PM IST</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        let screeningData = null;
+        let filteredFibonacci = [];
+        let filteredVolume = [];
+        let filteredWPattern = [];
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing application...');
+            
+            // Show loading state
+            document.getElementById('lastUpdated').textContent = 'Loading...';
+            document.getElementById('totalProcessed').textContent = '...';
+            document.getElementById('fibonacciCount').textContent = '...';
+            document.getElementById('volumeCount').textContent = '...';
+            document.getElementById('wPatternCount').textContent = '...';
+            document.getElementById('successRate').textContent = '...';
+            
+            setupEventListeners();
+            loadData();
+        });
+
+        // Load screening data
+        async function loadData() {
+            try {
+                const response = await fetch('data.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                screeningData = await response.json();
+                console.log('Data loaded successfully:', screeningData);
+                updateUI();
+                populateIndustryFilter();
+                applyFilters();
+                updateStatusIndicator(true);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                // Show demo data if real data fails to load
+                loadDemoData();
+                showError(`Failed to load live data: ${error.message}. Showing demo data instead.`);
+                updateStatusIndicator(false);
+            }
+        }
+
+        // Load demo data for testing
+        function loadDemoData() {
+            screeningData = {
+                "timestamp": new Date().toISOString(),
+                "fibonacci_stocks": [
+                    {
+                        "symbol": "RELIANCE",
+                        "company_name": "Reliance Industries Ltd.",
+                        "industry": "Oil Gas & Consumable Fuels",
+                        "is_near_fibonacci": true,
+                        "level": "61.8%",
+                        "level_price": 2450.50,
+                        "current_price": 2445.75,
+                        "distance_percent": -0.19,
+                        "high_5y": 2980.25,
+                        "low_5y": 1890.40,
+                        "all_levels": {
+                            "100%": 2980.25,
+                            "61.8%": 2450.50,
+                            "50%": 2435.33,
+                            "38.2%": 2416.85,
+                            "0%": 1890.40
+                        }
+                    },
+                    {
+                        "symbol": "TCS",
+                        "company_name": "Tata Consultancy Services Ltd.",
+                        "industry": "Information Technology",
+                        "is_near_fibonacci": true,
+                        "level": "50%",
+                        "level_price": 3250.00,
+                        "current_price": 3265.25,
+                        "distance_percent": 0.47,
+                        "high_5y": 4150.75,
+                        "low_5y": 2349.25,
+                        "all_levels": {
+                            "100%": 4150.75,
+                            "61.8%": 3037.32,
+                            "50%": 3250.00,
+                            "38.2%": 3462.68,
+                            "0%": 2349.25
+                        }
+                    }
+                ],
+                "volume_breakout_stocks": [
+                    {
+                        "symbol": "INFY",
+                        "company_name": "Infosys Ltd.",
+                        "industry": "Information Technology",
+                        "is_volume_breakout": true,
+                        "current_volume": 15500000,
+                        "avg_volume_90d": 4750000,
+                        "volume_ratio": 3.26,
+                        "price_change_percent": 3.85,
+                        "current_price": 1675.50,
+                        "previous_price": 1613.25
+                    },
+                    {
+                        "symbol": "HDFCBANK",
+                        "company_name": "HDFC Bank Ltd.",
+                        "industry": "Financial Services",
+                        "is_volume_breakout": true,
+                        "current_volume": 8750000,
+                        "avg_volume_90d": 2850000,
+                        "volume_ratio": 3.07,
+                        "price_change_percent": 2.15,
+                        "current_price": 1545.75,
+                        "previous_price": 1513.25
+                    }
+                ],
+                "w_pattern_stocks": [
+                    {
+                        "symbol": "MARUTI",
+                        "company_name": "Maruti Suzuki India Ltd.",
+                        "industry": "Automobile and Auto Components",
+                        "is_w_pattern": true,
+                        "left_trough_price": 9850.25,
+                        "right_trough_price": 10125.75,
+                        "neckline_peak_price": 12450.50,
+                        "current_price": 10875.25,
+                        "distance_to_neckline_percent": 14.48,
+                        "t2_vs_t1_percent": 2.80,
+                        "recovery_from_t2_percent": 7.40,
+                        "pattern_timeframe_weeks": 18,
+                        "left_trough_date": "2024-08-15",
+                        "neckline_peak_date": "2024-10-22",
+                        "right_trough_date": "2024-11-28"
+                    },
+                    {
+                        "symbol": "BAJFINANCE",
+                        "company_name": "Bajaj Finance Ltd.",
+                        "industry": "Financial Services",
+                        "is_w_pattern": true,
+                        "left_trough_price": 6250.00,
+                        "right_trough_price": 6425.50,
+                        "neckline_peak_price": 7850.75,
+                        "current_price": 7125.25,
+                        "distance_to_neckline_percent": 10.18,
+                        "t2_vs_t1_percent": 2.81,
+                        "recovery_from_t2_percent": 10.89,
+                        "pattern_timeframe_weeks": 22,
+                        "left_trough_date": "2024-07-25",
+                        "neckline_peak_date": "2024-09-18",
+                        "right_trough_date": "2024-12-05"
+                    }
+                ],
+                "diagnostics": {
+                    "total_stocks_processed": 500,
+                    "successful_downloads": 485,
+                    "failed_downloads": 15,
+                    "fibonacci_matches": 2,
+                    "volume_breakout_matches": 2,
+                    "w_pattern_matches": 2,
+                    "errors": [
+                        "Demo mode: Real-time data not available",
+                        "Please run the GitHub Action to generate live data"
+                    ]
+                }
+            };
+            
+            console.log('Demo data loaded:', screeningData);
+            updateUI();
+            populateIndustryFilter();
+            applyFilters();
+        }
+
+        // Update UI with loaded data
+        function updateUI() {
+            if (!screeningData) {
+                console.log('No screening data available');
+                return;
+            }
+
+            console.log('Updating UI with data:', screeningData);
+
+            // Update timestamp
+            const timestamp = new Date(screeningData.timestamp);
+            const lastUpdatedElement = document.getElementById('lastUpdated');
+            if (lastUpdatedElement) {
+                lastUpdatedElement.textContent = timestamp.toLocaleString();
+            }
+
+            // Update summary cards
+            const diagnostics = screeningData.diagnostics || {};
+            
+            const totalProcessedElement = document.getElementById('totalProcessed');
+            if (totalProcessedElement) {
+                totalProcessedElement.textContent = diagnostics.total_stocks_processed || 0;
+            }
+            
+            const fibonacciCountElement = document.getElementById('fibonacciCount');
+            if (fibonacciCountElement) {
+                fibonacciCountElement.textContent = (screeningData.fibonacci_stocks || []).length;
+            }
+            
+            const volumeCountElement = document.getElementById('volumeCount');
+            if (volumeCountElement) {
+                volumeCountElement.textContent = (screeningData.volume_breakout_stocks || []).length;
+            }
+            
+            const wPatternCountElement = document.getElementById('wPatternCount');
+            if (wPatternCountElement) {
+                wPatternCountElement.textContent = (screeningData.w_pattern_stocks || []).length;
+            }
+            
+            const successRate = diagnostics.total_stocks_processed > 0 
+                ? Math.round((diagnostics.successful_downloads / diagnostics.total_stocks_processed) * 100)
+                : 0;
+            const successRateElement = document.getElementById('successRate');
+            if (successRateElement) {
+                successRateElement.textContent = successRate + '%';
+            }
+
+            // Update diagnostics
+            updateDiagnostics();
+            
+            console.log('UI updated successfully');
+        }
+
+        // Populate industry filter
+        function populateIndustryFilter() {
+            if (!screeningData) return;
+
+            const industries = new Set();
+            [...(screeningData.fibonacci_stocks || []), ...(screeningData.volume_breakout_stocks || []), ...(screeningData.w_pattern_stocks || [])]
+                .forEach(stock => industries.add(stock.industry));
+
+            const select = document.getElementById('industryFilter');
+            select.innerHTML = '<option value="">All Industries</option>';
+            
+            Array.from(industries).sort().forEach(industry => {
+                const option = document.createElement('option');
+                option.value = industry;
+                option.textContent = industry;
+                select.appendChild(option);
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Tab switching
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    switchTab(this.id.replace('Tab', ''));
+                });
+            });
+
+            // Filters
+            document.getElementById('searchInput').addEventListener('input', applyFilters);
+            document.getElementById('industryFilter').addEventListener('change', applyFilters);
+            document.getElementById('screenTypeFilter').addEventListener('change', applyFilters);
+        }
+
+        // Switch tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active', 'border-brand-500', 'text-brand-400', 'tab-glow');
+                button.classList.add('border-transparent', 'text-slate-400');
+            });
+            
+            const activeTab = document.getElementById(tabName + 'Tab');
+            activeTab.classList.add('active', 'border-brand-500', 'text-brand-400', 'tab-glow');
+            activeTab.classList.remove('border-transparent', 'text-slate-400');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(tabName + 'Content').classList.remove('hidden');
+        }
+
+        // Apply filters
+        function applyFilters() {
+            if (!screeningData) return;
+
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const industryFilter = document.getElementById('industryFilter').value;
+            const screenTypeFilter = document.getElementById('screenTypeFilter').value;
+
+            // Filter fibonacci stocks
+            filteredFibonacci = (screeningData.fibonacci_stocks || []).filter(stock => {
+                const matchesSearch = !searchTerm || 
+                    stock.symbol.toLowerCase().includes(searchTerm) ||
+                    stock.company_name.toLowerCase().includes(searchTerm);
+                const matchesIndustry = !industryFilter || stock.industry === industryFilter;
+                const matchesType = screenTypeFilter === 'all' || screenTypeFilter === 'fibonacci';
+                
+                return matchesSearch && matchesIndustry && matchesType;
+            });
+
+            // Filter volume stocks
+            filteredVolume = (screeningData.volume_breakout_stocks || []).filter(stock => {
+                const matchesSearch = !searchTerm || 
+                    stock.symbol.toLowerCase().includes(searchTerm) ||
+                    stock.company_name.toLowerCase().includes(searchTerm);
+                const matchesIndustry = !industryFilter || stock.industry === industryFilter;
+                const matchesType = screenTypeFilter === 'all' || screenTypeFilter === 'volume';
+                
+                return matchesSearch && matchesIndustry && matchesType;
+            });
+
+            // Filter W-pattern stocks
+            filteredWPattern = (screeningData.w_pattern_stocks || []).filter(stock => {
+                const matchesSearch = !searchTerm || 
+                    stock.symbol.toLowerCase().includes(searchTerm) ||
+                    stock.company_name.toLowerCase().includes(searchTerm);
+                const matchesIndustry = !industryFilter || stock.industry === industryFilter;
+                const matchesType = screenTypeFilter === 'all' || screenTypeFilter === 'wpattern';
+                
+                return matchesSearch && matchesIndustry && matchesType;
+            });
+
+            // Update displays
+            displayFibonacciResults();
+            displayVolumeResults();
+            displayWPatternResults();
+        }
+
+        // Display Fibonacci results
+        function displayFibonacciResults() {
+            const container = document.getElementById('fibonacciResults');
+            
+            if (filteredFibonacci.length === 0) {
+                container.innerHTML = '<div class="text-center py-12 text-slate-400">No Fibonacci retracement signals detected.</div>';
+                return;
+            }
+
+            container.innerHTML = filteredFibonacci.map(stock => `
+                <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 hover:bg-slate-800/50 hover:border-slate-600/50 transition-all duration-200">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <h4 class="font-bold text-xl text-slate-100 font-mono">${stock.symbol}</h4>
+                                <span class="px-3 py-1 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-full border border-amber-500/30">
+                                    ${stock.industry}
+                                </span>
+                            </div>
+                            <p class="text-slate-300 text-sm">${stock.company_name}</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold text-slate-100 font-mono tabular-nums">₹${stock.current_price}</div>
+                            <div class="text-sm font-medium ${stock.distance_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}">
+                                ${stock.distance_percent >= 0 ? '+' : ''}${stock.distance_percent}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 text-sm">
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Fibonacci Level:</span>
+                                <span class="font-medium text-amber-400 font-mono">${stock.level}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Target Price:</span>
+                                <span class="font-medium text-slate-100 font-mono">₹${stock.level_price}</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">5Y High:</span>
+                                <span class="font-medium text-slate-100 font-mono">₹${stock.high_5y}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">5Y Low:</span>
+                                <span class="font-medium text-slate-100 font-mono">₹${stock.low_5y}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Display Volume results
+        function displayVolumeResults() {
+            const container = document.getElementById('volumeResults');
+            
+            if (filteredVolume.length === 0) {
+                container.innerHTML = '<div class="text-center py-12 text-slate-400">No volume breakout retracement patterns detected.</div>';
+                return;
+            }
+
+            container.innerHTML = filteredVolume.map(stock => `
+                <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 hover:bg-slate-800/50 hover:border-slate-600/50 transition-all duration-200">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <h4 class="font-bold text-xl text-slate-100 font-mono">${stock.symbol}</h4>
+                                <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-full border border-emerald-500/30">
+                                    ${stock.industry}
+                                </span>
+                            </div>
+                            <p class="text-slate-300 text-sm">${stock.company_name}</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold text-slate-100 font-mono tabular-nums">₹${stock.current_price}</div>
+                            <div class="text-sm font-medium text-brand-400">${stock.retracement_percent}% retraced</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 text-sm mb-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Breakout Price:</span>
+                                <span class="font-medium text-slate-100 font-mono">₹${stock.breakout_price}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Breakout Volume:</span>
+                                <span class="font-medium text-emerald-400 font-mono">${stock.breakout_volume_ratio}x</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Breakout Date:</span>
+                                <span class="font-medium text-slate-100 font-mono">${stock.breakout_date}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Pullback Depth:</span>
+                                <span class="font-medium text-red-400 font-mono">${stock.pullback_depth_percent}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-slate-400 bg-slate-800/50 rounded-lg p-3 border border-slate-700/30">
+                        <span class="font-medium text-slate-300">Pattern:</span> Volume breakout followed by ${stock.days_since_breakout} days retracement back to breakout level
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Display W-Pattern results
+        function displayWPatternResults() {
+            const container = document.getElementById('wpatternResults');
+            
+            if (filteredWPattern.length === 0) {
+                container.innerHTML = '<div class="text-center py-12 text-slate-400">No W-Pattern formations detected.</div>';
+                return;
+            }
+
+            container.innerHTML = filteredWPattern.map(stock => `
+                <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 hover:bg-slate-800/50 hover:border-slate-600/50 transition-all duration-200">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <h4 class="font-bold text-xl text-slate-100 font-mono">${stock.symbol}</h4>
+                                <span class="px-3 py-1 bg-indigo-500/20 text-indigo-400 text-xs font-medium rounded-full border border-indigo-500/30">
+                                    ${stock.industry}
+                                </span>
+                            </div>
+                            <p class="text-slate-300 text-sm">${stock.company_name}</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold text-slate-100 font-mono tabular-nums">₹${stock.current_price}</div>
+                            <div class="text-sm font-medium ${stock.distance_to_neckline_percent > 0 ? 'text-orange-400' : 'text-emerald-400'}">
+                                ${stock.distance_to_neckline_percent}% to neckline
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 text-sm mb-4">
+                        <div class="space-y-2">
+                            <div class="text-center">
+                                <div class="text-slate-400 text-xs">Left Trough (T1)</div>
+                                <div class="font-medium text-slate-100 font-mono">₹${stock.left_trough_price}</div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="text-center">
+                                <div class="text-slate-400 text-xs">Neckline Peak (P1)</div>
+                                <div class="font-medium text-indigo-400 font-mono">₹${stock.neckline_peak_price}</div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="text-center">
+                                <div class="text-slate-400 text-xs">Right Trough (T2)</div>
+                                <div class="font-medium text-slate-100 font-mono">₹${stock.right_trough_price}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 text-sm mb-4">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">T2 vs T1:</span>
+                            <span class="font-medium font-mono ${stock.t2_vs_t1_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}">
+                                ${stock.t2_vs_t1_percent >= 0 ? '+' : ''}${stock.t2_vs_t1_percent}%
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Recovery from T2:</span>
+                            <span class="font-medium font-mono text-emerald-400">+${stock.recovery_from_t2_percent}%</span>
+                        </div>
+                    </div>
+                    <div class="text-xs text-slate-400 bg-slate-800/50 rounded-lg p-3 border border-slate-700/30">
+                        <span class="font-medium text-slate-300">Pattern Timeline:</span> ${stock.pattern_timeframe_weeks} weeks • T1: ${stock.left_trough_date} • Peak: ${stock.neckline_peak_date} • T2: ${stock.right_trough_date}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update diagnostics
+        function updateDiagnostics() {
+            if (!screeningData) return;
+
+            const diagnostics = screeningData.diagnostics || {};
+            const container = document.getElementById('diagnosticsResults');
+            
+            if (!container) {
+                console.error('Diagnostics container not found');
+                return;
+            }
+
+            const totalProcessed = diagnostics.total_stocks_processed || 0;
+            const successfulDownloads = diagnostics.successful_downloads || 0;
+            const failedDownloads = diagnostics.failed_downloads || 0;
+            const fibonacciMatches = diagnostics.fibonacci_matches || 0;
+            const volumeBreakoutMatches = diagnostics.volume_breakout_matches || 0;
+            const wPatternMatches = diagnostics.w_pattern_matches || 0;
+            const errors = diagnostics.errors || [];
+
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="space-y-6">
+                        <h4 class="font-semibold text-slate-100 text-lg">Processing Statistics</h4>
+                        <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
+                            <div class="space-y-4 text-sm">
+                                <div class="flex justify-between items-center py-2 border-b border-slate-700/30">
+                                    <span class="text-slate-400">Total Securities:</span>
+                                    <span class="font-bold text-slate-100 font-mono tabular-nums">${totalProcessed}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-slate-700/30">
+                                    <span class="text-slate-400">Successful Downloads:</span>
+                                    <span class="font-bold text-emerald-400 font-mono tabular-nums">${successfulDownloads}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-slate-700/30">
+                                    <span class="text-slate-400">Failed Downloads:</span>
+                                    <span class="font-bold text-red-400 font-mono tabular-nums">${failedDownloads}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2">
+                                    <span class="text-slate-400">Success Rate:</span>
+                                    <span class="font-bold text-slate-100 font-mono tabular-nums">${totalProcessed > 0 ? Math.round((successfulDownloads / totalProcessed) * 100) : 0}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <h4 class="font-semibold text-slate-100 text-lg">Algorithm Performance</h4>
+                        <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
+                            <div class="space-y-4 text-sm">
+                                <div class="flex justify-between items-center py-2 border-b border-slate-700/30">
+                                    <span class="text-slate-400">Fibonacci Signals:</span>
+                                    <span class="font-bold text-amber-400 font-mono tabular-nums">${fibonacciMatches}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-slate-700/30">
+                                    <span class="text-slate-400">Volume Breakouts:</span>
+                                    <span class="font-bold text-emerald-400 font-mono tabular-nums">${volumeBreakoutMatches}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-slate-700/30">
+                                    <span class="text-slate-400">W-Pattern Signals:</span>
+                                    <span class="font-bold text-indigo-400 font-mono tabular-nums">${wPatternMatches}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-slate-700/30">
+                                    <span class="text-slate-400">Total Signals:</span>
+                                    <span class="font-bold text-slate-100 font-mono tabular-nums">${fibonacciMatches + volumeBreakoutMatches + wPatternMatches}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2">
+                                    <span class="text-slate-400">Signal Rate:</span>
+                                    <span class="font-bold text-slate-100 font-mono tabular-nums">${successfulDownloads > 0 ? Math.round(((fibonacciMatches + volumeBreakoutMatches + wPatternMatches) / successfulDownloads) * 100) : 0}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                ${errors.length > 0 ? `
+                    <div class="mt-8">
+                        <h4 class="font-semibold text-slate-100 text-lg mb-4">System Errors & Warnings</h4>
+                        <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-6">
+                            <div class="text-sm text-red-300 space-y-2">
+                                ${errors.slice(0, 5).map(error => `<div class="flex items-start space-x-2"><span class="text-red-400 mt-0.5">•</span><span>${error}</span></div>`).join('')}
+                                ${errors.length > 5 ? `<div class="text-red-400 mt-3 font-medium">... and ${errors.length - 5} more errors</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="mt-8">
+                    <h4 class="font-semibold text-slate-100 text-lg mb-4">System Health Indicators</h4>
+                    <div class="flex items-center space-x-8">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full ${successfulDownloads > 0 ? 'bg-emerald-500' : 'bg-red-500'} status-pulse"></div>
+                            <span class="text-sm text-slate-300">Data Pipeline: <span class="font-medium ${successfulDownloads > 0 ? 'text-emerald-400' : 'text-red-400'}">${successfulDownloads > 0 ? 'Operational' : 'Error'}</span></span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full ${errors.length < 10 ? 'bg-emerald-500' : 'bg-amber-500'} status-pulse"></div>
+                            <span class="text-sm text-slate-300">Error Rate: <span class="font-medium ${errors.length < 10 ? 'text-emerald-400' : 'text-amber-400'}">${errors.length < 10 ? 'Low' : 'Moderate'}</span></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update status indicator
+        function updateStatusIndicator(isHealthy) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('systemStatus');
+            if (isHealthy) {
+                indicator.className = 'w-2 h-2 rounded-full bg-emerald-500 status-pulse';
+                statusText.textContent = 'Live Data Pipeline Active';
+                statusText.className = 'text-emerald-400 font-medium';
+            } else {
+                indicator.className = 'w-2 h-2 rounded-full bg-amber-500 status-pulse';
+                statusText.textContent = 'Resilient Offline Datasets';
+                statusText.className = 'text-amber-400 font-medium';
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            // Create a subtle toast notification instead of intrusive banner
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-20 right-6 bg-amber-500/10 border border-amber-500/30 text-amber-300 px-4 py-3 rounded-lg text-sm max-w-md z-50 backdrop-blur-sm';
+            toast.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <svg class="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                    <div>
+                        <div class="font-medium">System Notice</div>
+                        <div class="mt-1 text-amber-200">${message}</div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

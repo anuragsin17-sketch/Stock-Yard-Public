@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Yard Test Page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Stock Yard - Test Page</h1>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">System Status</h2>
+            <div id="status" class="text-gray-600">Testing...</div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Data Loading Test</h2>
+            <button id="loadDataBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                Load Data
+            </button>
+            <div id="dataResult" class="mt-4 text-sm"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Console Logs</h2>
+            <div id="logs" class="bg-gray-100 p-4 rounded text-sm font-mono h-64 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const logsDiv = document.getElementById('logs');
+        
+        function addLog(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type === 'error' ? 'text-red-600' : 'text-gray-800';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog(args.join(' '), 'error');
+        };
+        
+        // Test basic functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Test page loaded successfully');
+            document.getElementById('status').textContent = 'Page loaded successfully ✓';
+            
+            // Test data loading
+            document.getElementById('loadDataBtn').addEventListener('click', async function() {
+                console.log('Testing data load...');
+                document.getElementById('dataResult').innerHTML = '<div class="text-blue-600">Loading...</div>';
+                
+                try {
+                    const response = await fetch('data.json');
+                    console.log('Fetch response status:', response.status);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Data loaded successfully:', data);
+                    
+                    document.getElementById('dataResult').innerHTML = `
+                        <div class="text-green-600 font-semibold">✓ Data loaded successfully!</div>
+                        <div class="mt-2 text-sm">
+                            <div>Fibonacci stocks: ${data.fibonacci_stocks?.length || 0}</div>
+                            <div>Volume breakout stocks: ${data.volume_breakout_stocks?.length || 0}</div>
+                            <div>Last updated: ${new Date(data.timestamp).toLocaleString()}</div>
+                        </div>
+                    `;
+                    
+                } catch (error) {
+                    console.error('Error loading data:', error);
+                    document.getElementById('dataResult').innerHTML = `
+                        <div class="text-red-600 font-semibold">✗ Error loading data</div>
+                        <div class="mt-2 text-sm text-red-500">${error.message}</div>
+                    `;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

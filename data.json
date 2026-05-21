@@ -1,0 +1,162 @@
+{
+  "timestamp": "2024-12-19T16:30:00.000Z",
+  "fibonacci_stocks": [
+    {
+      "symbol": "RELIANCE",
+      "company_name": "Reliance Industries Ltd.",
+      "industry": "Oil Gas & Consumable Fuels",
+      "is_near_fibonacci": true,
+      "level": "61.8%",
+      "level_price": 2450.50,
+      "current_price": 2445.75,
+      "distance_percent": -0.19,
+      "high_5y": 2980.25,
+      "low_5y": 1890.40,
+      "all_levels": {
+        "100%": 2980.25,
+        "61.8%": 2450.50,
+        "50%": 2435.33,
+        "38.2%": 2416.85,
+        "0%": 1890.40
+      }
+    },
+    {
+      "symbol": "TCS",
+      "company_name": "Tata Consultancy Services Ltd.",
+      "industry": "Information Technology",
+      "is_near_fibonacci": true,
+      "level": "50%",
+      "level_price": 3250.00,
+      "current_price": 3265.25,
+      "distance_percent": 0.47,
+      "high_5y": 4150.75,
+      "low_5y": 2349.25,
+      "all_levels": {
+        "100%": 4150.75,
+        "61.8%": 3037.32,
+        "50%": 3250.00,
+        "38.2%": 3462.68,
+        "0%": 2349.25
+      }
+    },
+    {
+      "symbol": "HDFCBANK",
+      "company_name": "HDFC Bank Ltd.",
+      "industry": "Financial Services",
+      "is_near_fibonacci": true,
+      "level": "38.2%",
+      "level_price": 1580.75,
+      "current_price": 1575.25,
+      "distance_percent": -0.35,
+      "high_5y": 1725.00,
+      "low_5y": 1200.50,
+      "all_levels": {
+        "100%": 1725.00,
+        "61.8%": 1400.69,
+        "50%": 1462.75,
+        "38.2%": 1580.75,
+        "0%": 1200.50
+      }
+    }
+  ],
+  "volume_breakout_stocks": [
+    {
+      "symbol": "INFY",
+      "company_name": "Infosys Ltd.",
+      "industry": "Information Technology",
+      "is_volume_breakout": true,
+      "current_volume": 15500000,
+      "avg_volume_90d": 4750000,
+      "volume_ratio": 3.26,
+      "price_change_percent": 3.85,
+      "current_price": 1675.50,
+      "previous_price": 1613.25
+    },
+    {
+      "symbol": "WIPRO",
+      "company_name": "Wipro Ltd.",
+      "industry": "Information Technology",
+      "is_volume_breakout": true,
+      "current_volume": 8750000,
+      "avg_volume_90d": 2850000,
+      "volume_ratio": 3.07,
+      "price_change_percent": 2.15,
+      "current_price": 545.75,
+      "previous_price": 534.25
+    },
+    {
+      "symbol": "BHARTIARTL",
+      "company_name": "Bharti Airtel Ltd.",
+      "industry": "Telecommunication",
+      "is_volume_breakout": true,
+      "current_volume": 12250000,
+      "avg_volume_90d": 3950000,
+      "volume_ratio": 3.10,
+      "price_change_percent": 4.25,
+      "current_price": 1245.50,
+      "previous_price": 1194.75
+    },
+    {
+      "symbol": "ASIANPAINT",
+      "company_name": "Asian Paints Ltd.",
+      "industry": "Consumer Durables",
+      "is_volume_breakout": true,
+      "current_volume": 5850000,
+      "avg_volume_90d": 1750000,
+      "volume_ratio": 3.34,
+      "price_change_percent": 5.15,
+      "current_price": 2875.25,
+      "previous_price": 2734.50
+    }
+  ],
+  "w_pattern_stocks": [
+    {
+      "symbol": "MARUTI",
+      "company_name": "Maruti Suzuki India Ltd.",
+      "industry": "Automobile and Auto Components",
+      "is_w_pattern": true,
+      "left_trough_price": 9850.25,
+      "right_trough_price": 10125.75,
+      "neckline_peak_price": 12450.50,
+      "current_price": 10875.25,
+      "distance_to_neckline_percent": 14.48,
+      "t2_vs_t1_percent": 2.80,
+      "recovery_from_t2_percent": 7.40,
+      "pattern_timeframe_weeks": 18,
+      "left_trough_date": "2024-08-15",
+      "neckline_peak_date": "2024-10-22",
+      "right_trough_date": "2024-11-28"
+    },
+    {
+      "symbol": "BAJFINANCE",
+      "company_name": "Bajaj Finance Ltd.",
+      "industry": "Financial Services",
+      "is_w_pattern": true,
+      "left_trough_price": 6250.00,
+      "right_trough_price": 6425.50,
+      "neckline_peak_price": 7850.75,
+      "current_price": 7125.25,
+      "distance_to_neckline_percent": 10.18,
+      "t2_vs_t1_percent": 2.81,
+      "recovery_from_t2_percent": 10.89,
+      "pattern_timeframe_weeks": 22,
+      "left_trough_date": "2024-07-25",
+      "neckline_peak_date": "2024-09-18",
+      "right_trough_date": "2024-12-05"
+    }
+  ],
+  "diagnostics": {
+    "total_stocks_processed": 500,
+    "successful_downloads": 485,
+    "failed_downloads": 15,
+    "fibonacci_matches": 3,
+    "volume_breakout_matches": 4,
+    "w_pattern_matches": 2,
+    "errors": [
+      "Failed to download data for EXAMPLE3: Connection timeout",
+      "Error screening EXAMPLE4: Invalid data format",
+      "Rate limit exceeded for EXAMPLE5, retrying...",
+      "No data available for EXAMPLE6 in specified period"
+    ]
+  }
+}
