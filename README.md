@@ -1,5 +1,6 @@
 # Stock Yard - Automated Stock Screening System
-![Stock Yard Screener](https://github.com)
+![Stock Yard Screener](https://github.com/anuragsin17-sketch/Stock-Yard/actions/workflows/run_screener.yml/badge.svg)
+
 
 A 24/7 automated stock screening system that runs completely FREE using GitHub ecosystem tools and free API relays.
 
