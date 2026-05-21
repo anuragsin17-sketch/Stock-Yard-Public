@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-22T03:04:28.405219",
+  "timestamp": "2026-05-21T21:42:23.272482",
   "fibonacci_stocks": [
     {
       "symbol": "TMPV",
@@ -81,9 +81,6 @@
     "fibonacci_matches": 1,
     "volume_breakout_matches": 2,
     "w_pattern_matches": 1,
-    "errors": [
-      "Error screening DRREDDY: 'volume_ratio'",
-      "Error screening NESTLEIND: 'volume_ratio'"
-    ]
+    "errors": []
   }
 }
