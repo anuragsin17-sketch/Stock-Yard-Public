@@ -66,12 +66,6 @@ jobs:
       run: |
         echo "🔄 Updating HTML with embedded live data..."
         
-        # Read the data.json content
-        DATA_CONTENT=$(cat data.json)
-        
-        # Escape the JSON for sed (handle quotes and special characters)
-        ESCAPED_DATA=$(echo "$DATA_CONTENT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-        
         # Update the LIVE_DATA constant in index.html
         python3 << 'EOF'
 import json
@@ -101,12 +95,9 @@ with open('index.html', 'r') as f:
 # Format the data as a JavaScript object
 js_data = json.dumps(clean_data, indent=2)
 
-# Replace the LIVE_DATA constant
-pattern = r'const LIVE_DATA = \{[^}]*\};'
-replacement = f'const LIVE_DATA = {js_data};'
-
-# Use a more robust pattern that handles nested objects
+# Replace the LIVE_DATA constant using a more robust pattern
 pattern = r'const LIVE_DATA = \{.*?\n\};'
+replacement = f'const LIVE_DATA = {js_data};'
 new_html = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
 
 # Write back to file
@@ -115,7 +106,6 @@ with open('index.html', 'w') as f:
 
 print("✅ HTML updated with live data")
 EOF
-      run: |
     - name: Verify results
       run: |
         echo "Checking screener output log:"
