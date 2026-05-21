@@ -14,26 +14,34 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      uses: actions/checkout@v5
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+    
+    - name: List repository contents
+      run: |
+        echo "Repository contents:"
+        ls -la
+        echo "Python files:"
+        find . -name "*.py" -type f
+        echo "CSV files:"
+        find . -name "*.csv" -type f
     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install pandas yfinance requests numpy openpyxl
     
-    - name: List files for debugging
+    - name: Test Python and imports
       run: |
-        echo "Current directory contents:"
-        ls -la
-        echo "Looking for CSV file:"
-        find . -name "*.csv" -type f
+        python --version
+        python -c "import pandas; print('Pandas version:', pandas.__version__)"
+        python -c "import yfinance; print('yfinance imported successfully')"
+        python -c "import requests; print('requests imported successfully')"
+        python -c "import numpy; print('numpy imported successfully')"
     
     - name: Run stock screener
       env:
@@ -43,18 +51,36 @@ jobs:
         GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
       run: |
         echo "Starting Stock Yard Screener..."
-        python screener.py || echo "Screener completed with warnings"
+        python screener.py
+        echo "Screener execution completed"
     
-    - name: Check if data.json was created
+    - name: Verify results
       run: |
         if [ -f "data.json" ]; then
-          echo "data.json created successfully"
+          echo "✅ data.json created successfully"
           echo "File size: $(wc -c < data.json) bytes"
-          echo "First few lines:"
-          head -10 data.json
+          echo "Preview of results:"
+          head -20 data.json
         else
-          echo "data.json not found, creating minimal file"
-          echo '{"timestamp":"'$(date -Iseconds)'","fibonacci_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"fibonacci_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"errors":["GitHub Action execution - no data generated"]}}' > data.json
+          echo "❌ data.json not found"
+          echo "Creating fallback data.json..."
+          cat > data.json << 'EOF'
+{
+  "timestamp": "2024-12-19T16:30:00.000Z",
+  "fibonacci_stocks": [],
+  "volume_breakout_stocks": [],
+  "w_pattern_stocks": [],
+  "diagnostics": {
+    "total_stocks_processed": 0,
+    "successful_downloads": 0,
+    "failed_downloads": 0,
+    "fibonacci_matches": 0,
+    "volume_breakout_matches": 0,
+    "w_pattern_matches": 0,
+    "errors": ["GitHub Action execution failed - using fallback data"]
+  }
+}
+EOF
         fi
     
     - name: Commit and push results
@@ -62,14 +88,19 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add data.json
-        git diff --staged --quiet || git commit -m "Update screening results - $(date '+%Y-%m-%d %H:%M:%S')"
-        git push
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update screening results - $(date '+%Y-%m-%d %H:%M:%S')"
+          git push
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Upload results as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: screening-results
         path: data.json
         retention-days: 30
+      if: always()
