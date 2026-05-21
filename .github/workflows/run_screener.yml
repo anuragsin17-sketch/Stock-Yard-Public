@@ -62,6 +62,60 @@ jobs:
         echo "Screener exit code: $?"
         echo "✅ Screener execution completed"
     
+    - name: Update HTML with live data
+      run: |
+        echo "🔄 Updating HTML with embedded live data..."
+        
+        # Read the data.json content
+        DATA_CONTENT=$(cat data.json)
+        
+        # Escape the JSON for sed (handle quotes and special characters)
+        ESCAPED_DATA=$(echo "$DATA_CONTENT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+        
+        # Update the LIVE_DATA constant in index.html
+        python3 << 'EOF'
+import json
+import re
+
+# Read the data.json
+with open('data.json', 'r') as f:
+    data = json.load(f)
+
+# Fix NaN values in the data
+def fix_nan_values(obj):
+    if isinstance(obj, dict):
+        return {k: fix_nan_values(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [fix_nan_values(item) for item in obj]
+    elif obj != obj:  # Check for NaN
+        return None
+    else:
+        return obj
+
+clean_data = fix_nan_values(data)
+
+# Read the HTML file
+with open('index.html', 'r') as f:
+    html_content = f.read()
+
+# Format the data as a JavaScript object
+js_data = json.dumps(clean_data, indent=2)
+
+# Replace the LIVE_DATA constant
+pattern = r'const LIVE_DATA = \{[^}]*\};'
+replacement = f'const LIVE_DATA = {js_data};'
+
+# Use a more robust pattern that handles nested objects
+pattern = r'const LIVE_DATA = \{.*?\n\};'
+new_html = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
+
+# Write back to file
+with open('index.html', 'w') as f:
+    f.write(new_html)
+
+print("✅ HTML updated with live data")
+EOF
+      run: |
     - name: Verify results
       run: |
         echo "Checking screener output log:"
@@ -88,7 +142,7 @@ jobs:
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add data.json
+        git add data.json index.html
         git commit -m "Update live screening results - $(date '+%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
         git push origin main || git push origin master
       env:
