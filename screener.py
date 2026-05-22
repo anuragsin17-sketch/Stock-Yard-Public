@@ -1571,19 +1571,27 @@ if __name__ == "__main__":
         
         # After screening, update position tracking
         logger.info("Starting position tracking update...")
-        from position_tracker import PositionTracker
-        
-        # Load screening results
-        with open('data.json', 'r') as f:
-            screening_results = json.load(f)
-        
-        # Initialize position tracker and update positions
-        tracker = PositionTracker()
-        tracker.check_and_update_positions(screening_results)
-        
-        # Get position summary
-        summary = tracker.get_summary()
-        logger.info(f"Position Tracking Summary: {summary['total_open']} open, {summary['total_closed']} closed")
+        try:
+            from position_tracker import PositionTracker
+            
+            # Load screening results
+            with open('data.json', 'r') as f:
+                screening_results = json.load(f)
+            
+            # Initialize position tracker and update positions
+            tracker = PositionTracker()
+            tracker.check_and_update_positions(screening_results)
+            
+            # Get position summary
+            summary = tracker.get_summary()
+            logger.info(f"✅ Position Tracking: {summary['total_open']} open, {summary['total_closed']} closed")
+        except Exception as tracker_error:
+            logger.error(f"Position tracking error: {tracker_error}")
+            # Create empty positions.json if it doesn't exist
+            import json
+            with open('positions.json', 'w') as f:
+                json.dump({'open_positions': [], 'closed_positions': []}, f, indent=2)
+            logger.info("Created empty positions.json")
         
     except Exception as e:
         logger.error(f"Error in main execution: {e}")
