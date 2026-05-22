@@ -441,15 +441,15 @@ class GoldenStocksBacktest:
             'all_trades': self.closed_trades
         }
         
-        with open('backtest_golden_results.json', 'w') as f:
+        with open('backtest_golden_3years_results.json', 'w') as f:
             json.dump(results, f, indent=2, default=str)
         
-        logger.info("✅ Detailed results saved to backtest_golden_results.json")
+        logger.info("✅ Detailed results saved to backtest_golden_3years_results.json")
 
 def main():
-    # Calculate dates - 6 months back
+    # Calculate dates - 3 years back
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=180)  # 6 months
+    start_date = end_date - timedelta(days=1095)  # 3 years (365 * 3)
     
     logger.info(f"Backtest Period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
     
@@ -458,7 +458,7 @@ def main():
     backtest.run_backtest(
         start_date=start_date.strftime('%Y-%m-%d'),
         end_date=end_date.strftime('%Y-%m-%d'),
-        max_stocks=100  # Test with 100 stocks for reasonable speed
+        max_stocks=150  # Test with 150 stocks for better coverage
     )
 
 if __name__ == "__main__":

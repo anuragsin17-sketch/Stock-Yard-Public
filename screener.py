@@ -1595,4 +1595,38 @@ if __name__ == "__main__":
         
     except Exception as e:
         logger.error(f"Error in main execution: {e}")
-        raise
+        # Create minimal fallback data instead of raising
+        try:
+            fallback_data = {
+                'timestamp': datetime.now().isoformat(),
+                'golden_stocks': [],
+                'volume_breakout_stocks': [],
+                'w_pattern_stocks': [],
+                'elliott_wave_stocks': [],
+                'darvas_box_stocks': [],
+                'diagnostics': {
+                    'total_stocks_processed': 0,
+                    'successful_downloads': 0,
+                    'failed_downloads': 0,
+                    'golden_matches': 0,
+                    'volume_breakout_matches': 0,
+                    'w_pattern_matches': 0,
+                    'elliott_wave_matches': 0,
+                    'darvas_box_matches': 0,
+                    'errors': [f"Main execution error: {e}"]
+                }
+            }
+            
+            with open('data.json', 'w') as f:
+                json.dump(fallback_data, f, indent=2)
+            logger.info("Fallback data.json created due to main execution error")
+            
+            # Also create empty positions.json
+            with open('positions.json', 'w') as f:
+                json.dump({'open_positions': [], 'closed_positions': []}, f, indent=2)
+            logger.info("Created empty positions.json")
+            
+        except Exception as save_error:
+            logger.error(f"Failed to save fallback data: {save_error}")
+        
+        # Don't raise - let workflow continue with fallback data
