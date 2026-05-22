@@ -1341,15 +1341,8 @@ class StockScreener:
             return
         
         # Process each stock - revert to original working version
-        # Quick test mode for GitHub Actions debugging
-        is_quick_test = os.environ.get('QUICK_TEST') == 'true'
-        if is_quick_test:
-            total_stocks = min(len(stocks_df), 10)
-            stocks_df = stocks_df.head(10)
-            logger.info(f"🧪 QUICK TEST MODE: Processing only {total_stocks} stocks")
-        else:
-            total_stocks = len(stocks_df)
-            logger.info(f"Processing {total_stocks} stocks")
+        total_stocks = len(stocks_df)
+        logger.info(f"Processing {total_stocks} stocks")
         
         for idx, row in stocks_df.iterrows():
             symbol = row['Symbol']
