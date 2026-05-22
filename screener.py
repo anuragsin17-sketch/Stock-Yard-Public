@@ -42,8 +42,8 @@ class StockScreener:
     def load_stock_universe(self) -> pd.DataFrame:
         """Load the NIFTY stock list"""
         try:
-            # Try different possible file names - prioritize NIFTY 200 list
-            possible_files = ['ind_nifty200list.csv', 'ind_nifty500list.csv', 'ind_nifty50list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv', 'nifty50.csv']
+            # Try different possible file names - prioritize NIFTY 500 list
+            possible_files = ['ind_nifty500list.csv', 'ind_nifty200list.csv', 'ind_nifty50list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv', 'nifty50.csv']
             
             for filename in possible_files:
                 try:
@@ -576,64 +576,25 @@ class StockScreener:
             w_radar_active = sum(1 for stock in self.results['w_pattern_stocks'] 
                                if stock.get('radar_status') == 'Active')
             
+            total_processed = self.results['diagnostics']['total_stocks_processed']
+            
             message = f"""🔍 *Stock Yard Daily Screening Report*
 📅 {datetime.now().strftime('%Y-%m-%d %H:%M IST')}
 
 📊 *Results Summary:*
-• Fibonacci Retracement Matches: {fib_count}
-• Volume Breakout Matches: {vol_count}
-• W-Pattern Matches: {w_pattern_count}
+• Total Stocks Screened: {total_processed}
+• Fibonacci Retracement: {fib_count} matches
+• Volume Breakout: {vol_count} matches
+• W-Pattern: {w_pattern_count} matches
 
 🚨 *RADAR ALERTS:*
 • Volume Stocks in Radar: {vol_radar_active}
 • W-Pattern Stocks in Radar: {w_radar_active}
 
-"""
-            
-            # Add Fibonacci matches
-            if fib_count > 0:
-                message += "🔢 *Fibonacci Retracement Stocks:*\n"
-                for stock in self.results['fibonacci_stocks'][:5]:  # Limit to top 5
-                    message += f"• {stock['symbol']} ({stock['company_name'][:20]}...)\n"
-                    message += f"  Near {stock['level']} level at ₹{stock['current_price']}\n"
-                    message += f"  52W Range: ₹{stock.get('week_52_low', 'N/A')} - ₹{stock.get('week_52_high', 'N/A')}\n"
-                if fib_count > 5:
-                    message += f"... and {fib_count - 5} more\n"
-                message += "\n"
-            
-            # Add volume breakout matches with radar status
-            if vol_count > 0:
-                message += "📈 *Volume Breakout Stocks:*\n"
-                for stock in self.results['volume_breakout_stocks'][:5]:  # Limit to top 5
-                    radar_emoji = "🔴" if stock.get('radar_status') == 'Active' else "🟡"
-                    message += f"• {stock['symbol']} ({stock['company_name'][:20]}...)\n"
-                    message += f"  {stock['breakout_volume_ratio']}x volume, +{stock['breakout_price_change']:.1f}%\n"
-                    message += f"  Breakout: {stock['breakout_date']} at ₹{stock['breakout_price']}\n"
-                    message += f"  Day Low: ₹{stock.get('breakout_low', 'N/A')}\n"
-                    message += f"  {radar_emoji} Radar: ₹{stock.get('radar_trigger_price', 'N/A')}\n"
-                if vol_count > 5:
-                    message += f"... and {vol_count - 5} more\n"
-                message += "\n"
-            
-            # Add W-Pattern matches with radar status
-            if w_pattern_count > 0:
-                message += "📈 *W-PATTERN OPPORTUNITIES:*\n"
-                for stock in self.results['w_pattern_stocks'][:5]:  # Limit to top 5
-                    radar_emoji = "🔴" if stock.get('radar_status') == 'Active' else "🟡"
-                    message += f"• {stock['symbol']} ({stock['company_name'][:20]}...)\n"
-                    message += f"  {stock['distance_to_neckline_percent']:.1f}% to neckline breakout at ₹{stock['neckline_peak_price']}\n"
-                    message += f"  Lower Trough: {stock.get('lower_trough_date', 'N/A')} at ₹{stock.get('lower_trough_price', 'N/A')}\n"
-                    message += f"  {radar_emoji} Radar: ₹{stock.get('radar_trigger_price', 'N/A')}\n"
-                if w_pattern_count > 5:
-                    message += f"... and {w_pattern_count - 5} more\n"
-                message += "\n"
-            
-            # Add radar alert summary
-            if vol_radar_active > 0 or w_radar_active > 0:
-                message += "🚨 *ACTIVE RADAR ALERTS:*\n"
-                message += "Stocks are near their trigger prices!\n\n"
-            
-            message += f"📱 View full report: https://anuragsin17-sketch.github.io/Stock-Yard/"
+📱 *View Full Report:*
+https://anuragsin17-sketch.github.io/Stock-Yard/
+
+_Automated screening completed successfully_"""
             
             # Send message
             url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
@@ -648,6 +609,9 @@ class StockScreener:
                 logger.info("Telegram notification sent successfully")
             else:
                 logger.error(f"Failed to send Telegram notification: {response.text}")
+                
+        except Exception as e:
+            logger.error(f"Error sending Telegram notification: {e}")
                 
         except Exception as e:
             logger.error(f"Error sending Telegram notification: {e}")
