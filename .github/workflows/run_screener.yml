@@ -2,18 +2,11 @@ name: Stock Yard Screener
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths: 
-      - '.github/workflows/run_screener.yml'
-      - 'trigger_test.txt'
   schedule:
     # Daily runs at specific IST times (7 days a week)
     - cron: '30 4 * * *'     # 10:00 AM IST (04:30 UTC)
     - cron: '30 8 * * *'     # 02:00 PM IST (08:30 UTC)
     - cron: '30 14 * * *'    # 08:00 PM IST (14:30 UTC)
-    - cron: '6 15 * * *'     # 8:36 PM IST (15:06 UTC) - DRY RUN TEST
-    - cron: '*/10 * * * *'   # Every 10 minutes - RELIABLE TEST
 
 permissions:
   contents: write
@@ -23,15 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Debug GitHub Actions
-      run: |
-        echo "🔍 GitHub Actions Debug Info"
-        echo "Event: ${{ github.event_name }}"
-        echo "Ref: ${{ github.ref }}"
-        echo "SHA: ${{ github.sha }}"
-        echo "Time: $(date)"
-        echo "Trigger: ${{ github.event.schedule }}"
-    
     - name: Checkout
       uses: actions/checkout@v4
       with:
