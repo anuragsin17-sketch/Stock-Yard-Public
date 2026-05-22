@@ -2,21 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Stock Yard - Live Screening</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+        }
         body {
             -webkit-text-size-adjust: 100%;
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: #0F172A;
         }
         .mobile-card {
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(148, 163, 184, 0.1);
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
         }
         .status-dot {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -24,6 +33,52 @@
         .touch-btn {
             min-height: 48px;
             touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.2s ease;
+        }
+        .touch-btn:active {
+            transform: scale(0.98);
+            background: rgba(37, 99, 235, 0.8);
+        }
+        .scroll-container {
+            -webkit-overflow-scrolling: touch;
+            overflow-scrolling: touch;
+        }
+        .pill-tab {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            transition: all 0.3s ease;
+        }
+        .pill-tab.active {
+            background: #2563EB;
+            border-color: #3B82F6;
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+        }
+        .stock-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            transition: all 0.2s ease;
+        }
+        .stock-card:active {
+            transform: translateY(-2px);
+            border-color: rgba(37, 99, 235, 0.3);
+        }
+        .price-indicator {
+            background: linear-gradient(135deg, #10B981, #059669);
+            border-radius: 12px;
+            padding: 4px 8px;
+            font-weight: 600;
+        }
+        .signal-badge {
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
     </style>
 </head>
@@ -72,25 +127,37 @@
             </div>
         </div>
         <!-- Navigation Tabs -->
-        <div class="mobile-card rounded-xl p-1">
-            <div class="flex">
-                <button id="fibTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn bg-blue-500 text-white">
-                    📊 Fibonacci
+        <div class="mobile-card p-2">
+            <div class="flex space-x-2 overflow-x-auto scroll-container">
+                <button id="goldenTab" class="pill-tab flex-shrink-0 px-4 py-3 text-xs font-medium transition-all touch-btn active">
+                    <div class="flex items-center space-x-2">
+                        <span>✨</span>
+                        <span>Golden Stocks</span>
+                    </div>
                 </button>
-                <button id="volTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
-                    📈 Volume
+                <button id="volTab" class="pill-tab flex-shrink-0 px-4 py-3 text-xs font-medium transition-all touch-btn text-slate-400">
+                    <div class="flex items-center space-x-2">
+                        <span>📈</span>
+                        <span>Volume</span>
+                    </div>
                 </button>
-                <button id="wpatTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
-                    📈 W-Pattern
+                <button id="wpatTab" class="pill-tab flex-shrink-0 px-4 py-3 text-xs font-medium transition-all touch-btn text-slate-400">
+                    <div class="flex items-center space-x-2">
+                        <span>📊</span>
+                        <span>W-Pattern</span>
+                    </div>
                 </button>
-                <button id="elliotTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
-                    🌊 Elliott Wave
+                <button id="elliotTab" class="pill-tab flex-shrink-0 px-4 py-3 text-xs font-medium transition-all touch-btn text-slate-400">
+                    <div class="flex items-center space-x-2">
+                        <span>🌊</span>
+                        <span>Elliott Wave</span>
+                    </div>
                 </button>
-                <button id="goldenTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
-                    ✨ Golden
-                </button>
-                <button id="perfTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
-                    📊 Performance
+                <button id="perfTab" class="pill-tab flex-shrink-0 px-4 py-3 text-xs font-medium transition-all touch-btn text-slate-400">
+                    <div class="flex items-center space-x-2">
+                        <span>📊</span>
+                        <span>Performance</span>
+                    </div>
                 </button>
             </div>
         </div>
@@ -115,20 +182,29 @@
         // Embedded live data (updated by GitHub Actions)
         const LIVE_DATA = {
   "timestamp": "2026-05-22T06:36:35.732353",
-  "fibonacci_stocks": [
+  "golden_stocks": [
     {
-      "symbol": "TMPV",
-      "company_name": "Tata Motors Passenger Vehicles Ltd.",
-      "industry": "Automobile and Auto Components",
-      "is_near_fibonacci": true,
-      "level": "50%",
-      "level_price": 356.65,
-      "current_price": 361.35,
-      "distance_percent": 1.32,
-      "high_5y": 419.0,
-      "low_5y": 294.3,
-      "week_52_high": 419.0,
-      "week_52_low": 294.3
+      "symbol": "SAMPLE_GOLDEN",
+      "company_name": "Sample Golden Stock",
+      "industry": "Sample Industry",
+      "is_golden_stock": true,
+      "current_price": 850.0,
+      "entry_quality": "Excellent - Double Signal",
+      "has_fibonacci": true,
+      "has_trendline": true,
+      "fibonacci_level": "61.8%",
+      "fibonacci_level_price": 845.0,
+      "fibonacci_distance_percent": 0.6,
+      "trendline_price": 848.0,
+      "distance_to_trendline_percent": 0.2,
+      "trendline_strength": 85.5,
+      "trendline_touches": 4,
+      "timeframe_months": 10.4,
+      "week_52_high": 920.0,
+      "week_52_low": 710.0,
+      "potential_upside_percent": 8.2,
+      "analysis_timeframe": "Weekly + Daily",
+      "pattern_type": "Golden Stock Analysis"
     }
   ],
   "volume_breakout_stocks": [
@@ -177,54 +253,39 @@
       "sma_200w": 1225.0
     }
   ],
-  "golden_stocks": [
-    {
-      "symbol": "SAMPLE_GOLDEN",
-      "company_name": "Sample Golden Trendline Stock",
-      "industry": "Sample Industry",
-      "is_golden_trendline": true,
-      "current_price": 850.0,
-      "trendline_price": 845.0,
-      "distance_to_trendline_percent": 0.6,
-      "trendline_slope_weekly": 2.5,
-      "trendline_start_price": 720.0,
-      "trendline_start_date": "2023-06-15",
-      "trendline_end_price": 800.0,
-      "trendline_end_date": "2024-02-20",
-      "timeframe_weeks": 45.2,
-      "timeframe_months": 10.4,
-      "trendline_touches": 4,
-      "trendline_strength": 85.5,
-      "entry_quality": "Excellent",
-      "week_52_high": 920.0,
-      "week_52_low": 710.0,
-      "potential_upside_percent": 8.2,
-      "analysis_timeframe": "Weekly",
-      "pattern_type": "Golden Trendline Touch"
-    }
-  ],
   "diagnostics": {
     "total_stocks_processed": 500,
     "successful_downloads": 495,
     "failed_downloads": 5,
-    "fibonacci_matches": 1,
+    "golden_matches": 1,
     "volume_breakout_matches": 9,
     "w_pattern_matches": 8,
     "elliott_wave_matches": 1,
-    "golden_matches": 1,
     "errors": []
   }
 };
         
         // Global variables
         let screeningData = null;
-        let currentTab = 'fibonacci';
+        let currentTab = 'golden';
         
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Stock Yard Mobile App Starting...');
+            
+            // Check for URL parameters for deep linking
+            const urlParams = new URLSearchParams(window.location.search);
+            const stockParam = urlParams.get('stock');
+            
             setupEventListeners();
             loadData();
+            
+            // Handle deep linking after data loads
+            if (stockParam) {
+                setTimeout(() => {
+                    highlightStock(stockParam);
+                }, 1000);
+            }
         });
         
         // Setup event listeners
@@ -241,11 +302,10 @@
             });
             
             // Tab buttons
-            document.getElementById('fibTab').addEventListener('click', () => switchTab('fibonacci'));
+            document.getElementById('goldenTab').addEventListener('click', () => switchTab('golden'));
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
             document.getElementById('wpatTab').addEventListener('click', () => switchTab('wpattern'));
             document.getElementById('elliotTab').addEventListener('click', () => switchTab('elliott'));
-            document.getElementById('goldenTab').addEventListener('click', () => switchTab('golden'));
             document.getElementById('perfTab').addEventListener('click', () => switchTab('performance'));
         }
         
@@ -290,20 +350,18 @@
             console.warn('⚠️ Using fallback data');
             screeningData = {
                 timestamp: new Date().toISOString(),
-                fibonacci_stocks: [],
+                golden_stocks: [],
                 volume_breakout_stocks: [],
                 w_pattern_stocks: [],
                 elliott_wave_stocks: [],
-                golden_stocks: [],
                 diagnostics: {
                     total_stocks_processed: 0,
                     successful_downloads: 0,
                     failed_downloads: 0,
-                    fibonacci_matches: 0,
+                    golden_matches: 0,
                     volume_breakout_matches: 0,
                     w_pattern_matches: 0,
                     elliott_wave_matches: 0,
-                    golden_matches: 0,
                     errors: ['Live data unavailable - using fallback']
                 }
             };
@@ -316,11 +374,10 @@
             
             // Update stats
             const total = screeningData.diagnostics?.total_stocks_processed || 0;
-            const opportunities = (screeningData.fibonacci_stocks?.length || 0) + 
+            const opportunities = (screeningData.golden_stocks?.length || 0) + 
                                (screeningData.volume_breakout_stocks?.length || 0) + 
                                (screeningData.w_pattern_stocks?.length || 0) +
-                               (screeningData.elliott_wave_stocks?.length || 0) +
-                               (screeningData.golden_stocks?.length || 0);
+                               (screeningData.elliott_wave_stocks?.length || 0);
             
             document.getElementById('totalStocks').textContent = total;
             document.getElementById('totalOpportunities').textContent = opportunities;
@@ -339,18 +396,17 @@
         function switchTab(tab) {
             currentTab = tab;
             
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-500', 'text-white');
+            // Update tab buttons with new pill design
+            document.querySelectorAll('.pill-tab').forEach(btn => {
+                btn.classList.remove('active');
                 btn.classList.add('text-slate-400');
             });
             
-            const activeBtn = document.getElementById(tab === 'fibonacci' ? 'fibTab' : 
+            const activeBtn = document.getElementById(tab === 'golden' ? 'goldenTab' : 
                                                    tab === 'volume' ? 'volTab' : 
                                                    tab === 'wpattern' ? 'wpatTab' : 
-                                                   tab === 'elliott' ? 'elliotTab' : 
-                                                   tab === 'golden' ? 'goldenTab' : 'perfTab');
-            activeBtn.classList.add('bg-blue-500', 'text-white');
+                                                   tab === 'elliott' ? 'elliotTab' : 'perfTab');
+            activeBtn.classList.add('active');
             activeBtn.classList.remove('text-slate-400');
             
             // Update results
@@ -371,10 +427,10 @@
             let sortingInfo = '';
             
             switch(tab) {
-                case 'fibonacci':
-                    stocks = screeningData.fibonacci_stocks || [];
-                    title = 'Fibonacci Retracement Opportunities';
-                    sortingInfo = 'Sorted: 38.2% → 50% → 61.8% levels, then by proximity to level';
+                case 'golden':
+                    stocks = screeningData.golden_stocks || [];
+                    title = 'Golden Stocks Opportunities';
+                    sortingInfo = 'Sorted: Double signals first, then by entry quality (Weekly + Daily analysis)';
                     break;
                 case 'volume':
                     stocks = screeningData.volume_breakout_stocks || [];
@@ -425,6 +481,23 @@
             });
             
             container.innerHTML = html;
+        }
+        
+        // Deep link highlighting function
+        function highlightStock(stockSymbol) {
+            const stockCards = document.querySelectorAll('.stock-card');
+            stockCards.forEach(card => {
+                const symbolElement = card.querySelector('a');
+                if (symbolElement && symbolElement.textContent.includes(stockSymbol)) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.style.border = '2px solid #2563EB';
+                    card.style.boxShadow = '0 0 20px rgba(37, 99, 235, 0.4)';
+                    setTimeout(() => {
+                        card.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+                        card.style.boxShadow = 'none';
+                    }, 3000);
+                }
+            });
         }
         
         // Create stock card HTML
@@ -517,37 +590,53 @@
                     `;
                     break;
                 case 'golden':
-                    // Add priority badge for Golden Trendline entries
-                    if (stock.entry_quality === 'Excellent') {
-                        priorityBadge = '<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">⭐ EXCELLENT</span>';
-                    } else if (stock.entry_quality === 'Good') {
-                        priorityBadge = '<span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">✅ GOOD</span>';
-                    } else {
-                        priorityBadge = '<span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">📊 FAIR</span>';
+                    // Add priority badge for Golden Stocks entries (Combined Fibonacci + Trendline)
+                    if (stock.entry_quality && stock.entry_quality.includes('Double Signal')) {
+                        if (stock.entry_quality.includes('Excellent')) {
+                            priorityBadge = '<span class="signal-badge" style="background: linear-gradient(135deg, #F59E0B, #D97706); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;">⭐ EXCELLENT DOUBLE</span>';
+                        } else {
+                            priorityBadge = '<span class="signal-badge" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;">✅ GOOD DOUBLE</span>';
+                        }
+                    } else if (stock.entry_quality && stock.entry_quality.includes('Excellent')) {
+                        priorityBadge = '<span class="signal-badge" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;">⭐ EXCELLENT</span>';
+                    } else if (stock.entry_quality && stock.entry_quality.includes('Good')) {
+                        priorityBadge = '<span class="signal-badge" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;">✅ GOOD</span>';
+                    }
+                    
+                    // Build details based on what signals are present
+                    let signalDetails = [];
+                    
+                    if (stock.has_fibonacci) {
+                        signalDetails.push(`<div class="text-xs text-blue-400">📊 Fibonacci ${stock.fibonacci_level} at ₹${stock.fibonacci_level_price} (${stock.fibonacci_distance_percent > 0 ? '+' : ''}${stock.fibonacci_distance_percent}%)</div>`);
+                    }
+                    
+                    if (stock.has_trendline) {
+                        signalDetails.push(`<div class="text-xs text-yellow-400">📈 Trendline at ₹${stock.trendline_price} (${stock.distance_to_trendline_percent > 0 ? '+' : ''}${stock.distance_to_trendline_percent}%)</div>`);
+                        signalDetails.push(`<div class="text-xs text-slate-500">Strength: ${stock.trendline_strength}% | ${stock.trendline_touches} touches | ${stock.timeframe_months}mo</div>`);
                     }
                     
                     details = `
-                        <div class="text-xs text-slate-400 mb-1">${Math.abs(stock.distance_to_trendline_percent)}% from trendline</div>
-                        <div class="text-lg font-bold text-yellow-400">₹${stock.current_price}</div>
-                        <div class="text-xs text-slate-500">Trendline: ₹${stock.trendline_price} (${stock.analysis_timeframe})</div>
-                        <div class="text-xs text-slate-500">Timeframe: ${stock.timeframe_months} months (${stock.trendline_touches} touches)</div>
-                        <div class="text-xs text-slate-500">Strength: ${stock.trendline_strength}% | Upside: ${stock.potential_upside_percent}%</div>
-                        <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
-                        <div class="mt-2">${priorityBadge}</div>
+                        <div class="text-xs text-slate-400 mb-2">${stock.entry_quality}</div>
+                        <div class="text-2xl font-bold" style="background: linear-gradient(135deg, #10B981, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">₹${stock.current_price}</div>
+                        <div class="mt-2 space-y-1">
+                            ${signalDetails.join('')}
+                        </div>
+                        <div class="text-xs text-slate-500 mt-2">Upside: ${stock.potential_upside_percent}% | 52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
+                        <div class="mt-3">${priorityBadge}</div>
                     `;
                     break;
             }
             
             return `
-                <div class="mobile-card rounded-xl p-4">
+                <div class="stock-card p-4 mb-3">
                     <div class="flex justify-between items-start">
                         <div class="flex-1">
-                            <div>${stockNameHtml}</div>
-                            <div class="text-xs text-slate-400 mb-2">${stock.company_name}</div>
+                            <div class="text-lg font-bold mb-1">${stockNameHtml}</div>
+                            <div class="text-xs text-slate-400 mb-3">${stock.company_name}</div>
                             ${details}
                         </div>
                         <div class="text-xs text-slate-500 text-right ml-4">
-                            <div>${stock.industry}</div>
+                            <div class="bg-slate-800 px-2 py-1 rounded text-xs">${stock.industry}</div>
                         </div>
                     </div>
                 </div>

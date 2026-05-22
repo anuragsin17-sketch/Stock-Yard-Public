@@ -91,8 +91,8 @@ class StockScreener:
             ticker_symbol = f"{symbol}.NS"
             ticker = yf.Ticker(ticker_symbol)
             
-            # Download data with retry logic
-            for attempt in range(3):
+            # Download data with retry logic and longer delays
+            for attempt in range(2):  # Reduced from 3 to 2 attempts
                 try:
                     data = ticker.history(period=period)
                     if not data.empty:
@@ -102,10 +102,10 @@ class StockScreener:
                         logger.warning(f"No data returned for {symbol}, attempt {attempt + 1}")
                 except Exception as e:
                     logger.warning(f"Attempt {attempt + 1} failed for {symbol}: {e}")
-                    if attempt < 2:
-                        time.sleep(1)  # Rate limiting
+                    if attempt < 1:  # Only sleep between attempts, not after last
+                        time.sleep(2)  # Increased from 1 to 2 seconds
             
-            logger.error(f"Failed to download data for {symbol} after 3 attempts")
+            logger.error(f"Failed to download data for {symbol} after 2 attempts")
             return None
             
         except Exception as e:
@@ -570,11 +570,11 @@ class StockScreener:
             logger.error(f"Error detecting Elliott Wave macro setup: {e}")
             return {'is_elliott_wave': False, 'error': str(e)}
     
-    def detect_golden_trendline(self, weekly_data: pd.DataFrame) -> Dict:
-        """Detect Golden Trendline Touch - stocks near long-term ascending support trendline"""
+    def detect_golden_stocks_combined(self, data: pd.DataFrame, weekly_data: pd.DataFrame) -> Dict:
+        """Combined Golden Stocks analysis - Trendline + Fibonacci analysis"""
         try:
             if len(weekly_data) < 52:  # Need at least 1 year of weekly data
-                return {'is_golden_trendline': False, 'error': 'Insufficient weekly data'}
+                return {'is_golden_stock': False, 'error': 'Insufficient weekly data'}
             
             closes = weekly_data['Close'].values
             lows = weekly_data['Low'].values
@@ -585,6 +585,11 @@ class StockScreener:
             # Calculate 52-week high and low
             week_52_high = max(highs[-52:]) if len(highs) >= 52 else max(highs)
             week_52_low = min(lows[-52:]) if len(lows) >= 52 else min(lows)
+            
+            # First check Fibonacci levels from daily data
+            fib_result = self.calculate_fibonacci_levels(data)
+            
+            # Then check trendline from weekly data
             
             # Use longer timeframe for trendline analysis (18-24 months of weekly data)
             analysis_period = min(104, len(weekly_data))  # 2 years or available data
@@ -613,130 +618,165 @@ class StockScreener:
                             'weeks_ago': len(analysis_data) - i - 1
                         })
             
-            if len(significant_lows) < 3:  # Need at least 3 points for a reliable trendline
-                return {'is_golden_trendline': False, 'error': 'Insufficient significant lows for trendline'}
+            # Initialize results
+            has_fibonacci = fib_result.get('is_near_fibonacci', False)
+            has_trendline = False
+            trendline_data = {}
             
-            # Sort by date (oldest first)
-            significant_lows.sort(key=lambda x: x['date'])
-            
-            # Try different combinations of lows to find the best ascending trendline
-            best_trendline = None
-            best_score = 0
-            
-            # Test trendlines using different combinations of significant lows
-            for i in range(len(significant_lows) - 2):
-                for j in range(i + 2, len(significant_lows)):  # Skip adjacent points
-                    low1 = significant_lows[i]
-                    low2 = significant_lows[j]
-                    
-                    # Calculate trendline slope (must be ascending)
-                    weeks_diff = (low2['date'] - low1['date']).days / 7
-                    if weeks_diff <= 8:  # Points too close together
-                        continue
+            # Only proceed with trendline if we have enough data
+            if len(significant_lows) >= 3:
+                # Sort by date (oldest first)
+                significant_lows.sort(key=lambda x: x['date'])
+                
+                # Try different combinations of lows to find the best ascending trendline
+                best_trendline = None
+                best_score = 0
+                
+                # Test trendlines using different combinations of significant lows
+                for i in range(len(significant_lows) - 2):
+                    for j in range(i + 2, len(significant_lows)):  # Skip adjacent points
+                        low1 = significant_lows[i]
+                        low2 = significant_lows[j]
                         
-                    price_diff = low2['price'] - low1['price']
-                    slope = price_diff / weeks_diff  # Price change per week
-                    
-                    if slope <= 0:  # Must be ascending trendline
-                        continue
-                    
-                    # Calculate trendline equation: price = slope * weeks_from_low1 + low1_price
-                    # Project trendline to current date
-                    current_weeks_from_low1 = (dates[-1] - low1['date']).days / 7
-                    current_trendline_price = slope * current_weeks_from_low1 + low1['price']
-                    
-                    # Check if current price is within 2-5% of trendline
-                    distance_percent = ((current_price - current_trendline_price) / current_trendline_price) * 100
-                    
-                    if not (-5.0 <= distance_percent <= 5.0):  # Must be within ±5%
-                        continue
-                    
-                    # Score the trendline based on:
-                    # 1. How many other lows it touches/supports
-                    # 2. How close current price is to trendline
-                    # 3. Consistency of the trendline
-                    
-                    touches = 0
-                    total_deviation = 0
-                    
-                    for low in significant_lows:
-                        weeks_from_low1 = (low['date'] - low1['date']).days / 7
-                        expected_price = slope * weeks_from_low1 + low1['price']
-                        deviation = abs(low['price'] - expected_price) / expected_price
+                        # Calculate trendline slope (must be ascending)
+                        weeks_diff = (low2['date'] - low1['date']).days / 7
+                        if weeks_diff <= 8:  # Points too close together
+                            continue
+                            
+                        price_diff = low2['price'] - low1['price']
+                        slope = price_diff / weeks_diff  # Price change per week
                         
-                        if deviation <= 0.03:  # Within 3% of trendline
-                            touches += 1
+                        if slope <= 0:  # Must be ascending trendline
+                            continue
                         
-                        total_deviation += deviation
+                        # Calculate trendline equation: price = slope * weeks_from_low1 + low1_price
+                        # Project trendline to current date
+                        current_weeks_from_low1 = (dates[-1] - low1['date']).days / 7
+                        current_trendline_price = slope * current_weeks_from_low1 + low1['price']
+                        
+                        # Check if current price is within 2-5% of trendline
+                        distance_percent = ((current_price - current_trendline_price) / current_trendline_price) * 100
+                        
+                        if not (-5.0 <= distance_percent <= 5.0):  # Must be within ±5%
+                            continue
+                        
+                        # Score the trendline based on:
+                        # 1. How many other lows it touches/supports
+                        # 2. How close current price is to trendline
+                        # 3. Consistency of the trendline
+                        
+                        touches = 0
+                        total_deviation = 0
+                        
+                        for low in significant_lows:
+                            weeks_from_low1 = (low['date'] - low1['date']).days / 7
+                            expected_price = slope * weeks_from_low1 + low1['price']
+                            deviation = abs(low['price'] - expected_price) / expected_price
+                            
+                            if deviation <= 0.03:  # Within 3% of trendline
+                                touches += 1
+                            
+                            total_deviation += deviation
+                        
+                        # Calculate score (higher is better)
+                        avg_deviation = total_deviation / len(significant_lows)
+                        proximity_score = max(0, 5 - abs(distance_percent))  # Closer to trendline = higher score
+                        touch_score = touches * 2  # More touches = higher score
+                        consistency_score = max(0, 1 - avg_deviation) * 10  # Lower deviation = higher score
+                        
+                        total_score = proximity_score + touch_score + consistency_score
+                        
+                        if total_score > best_score:
+                            best_score = total_score
+                            best_trendline = {
+                                'low1': low1,
+                                'low2': low2,
+                                'slope': slope,
+                                'current_trendline_price': current_trendline_price,
+                                'distance_percent': distance_percent,
+                                'touches': touches,
+                                'avg_deviation': avg_deviation,
+                                'score': total_score,
+                                'timeframe_weeks': current_weeks_from_low1
+                            }
+                
+                # Check if we found a valid trendline
+                if best_trendline and best_trendline['touches'] >= 3:
+                    has_trendline = True
+                    trendline_strength = min(100, (best_trendline['touches'] * 20) + (best_trendline['score'] * 5))
                     
-                    # Calculate score (higher is better)
-                    avg_deviation = total_deviation / len(significant_lows)
-                    proximity_score = max(0, 5 - abs(distance_percent))  # Closer to trendline = higher score
-                    touch_score = touches * 2  # More touches = higher score
-                    consistency_score = max(0, 1 - avg_deviation) * 10  # Lower deviation = higher score
-                    
-                    total_score = proximity_score + touch_score + consistency_score
-                    
-                    if total_score > best_score:
-                        best_score = total_score
-                        best_trendline = {
-                            'low1': low1,
-                            'low2': low2,
-                            'slope': slope,
-                            'current_trendline_price': current_trendline_price,
-                            'distance_percent': distance_percent,
-                            'touches': touches,
-                            'avg_deviation': avg_deviation,
-                            'score': total_score,
-                            'timeframe_weeks': current_weeks_from_low1
-                        }
+                    trendline_data = {
+                        'trendline_price': round(best_trendline['current_trendline_price'], 2),
+                        'distance_to_trendline_percent': round(best_trendline['distance_percent'], 2),
+                        'trendline_slope_weekly': round(best_trendline['slope'], 4),
+                        'trendline_start_price': round(best_trendline['low1']['price'], 2),
+                        'trendline_start_date': best_trendline['low1']['date'].strftime('%Y-%m-%d'),
+                        'trendline_end_price': round(best_trendline['low2']['price'], 2),
+                        'trendline_end_date': best_trendline['low2']['date'].strftime('%Y-%m-%d'),
+                        'timeframe_weeks': round(best_trendline['timeframe_weeks'], 1),
+                        'timeframe_months': round(best_trendline['timeframe_weeks'] / 4.33, 1),
+                        'trendline_touches': best_trendline['touches'],
+                        'trendline_strength': round(trendline_strength, 1)
+                    }
             
-            if best_trendline is None:
-                return {'is_golden_trendline': False, 'error': 'No valid ascending trendline found'}
+            # Must have either Fibonacci OR Trendline (or both) to qualify as Golden Stock
+            if not (has_fibonacci or has_trendline):
+                return {'is_golden_stock': False, 'error': 'No Fibonacci or Trendline signals found'}
             
-            # Additional validation: trendline should have been tested multiple times
-            if best_trendline['touches'] < 3:
-                return {'is_golden_trendline': False, 'error': 'Trendline not sufficiently tested'}
-            
-            # Calculate additional metrics
-            trendline_strength = min(100, (best_trendline['touches'] * 20) + (best_trendline['score'] * 5))
-            
-            # Determine entry quality based on distance and trendline strength
-            if abs(best_trendline['distance_percent']) <= 2.0 and trendline_strength >= 70:
-                entry_quality = 'Excellent'
-            elif abs(best_trendline['distance_percent']) <= 3.5 and trendline_strength >= 50:
-                entry_quality = 'Good'
-            else:
-                entry_quality = 'Fair'
+            # Determine overall entry quality
+            if has_fibonacci and has_trendline:
+                if (abs(trendline_data.get('distance_to_trendline_percent', 100)) <= 2.0 and 
+                    abs(fib_result.get('distance_percent', 100)) <= 1.0):
+                    entry_quality = 'Excellent - Double Signal'
+                else:
+                    entry_quality = 'Good - Double Signal'
+            elif has_fibonacci:
+                if abs(fib_result.get('distance_percent', 100)) <= 1.0:
+                    entry_quality = 'Excellent - Fibonacci'
+                else:
+                    entry_quality = 'Good - Fibonacci'
+            else:  # has_trendline only
+                if abs(trendline_data.get('distance_to_trendline_percent', 100)) <= 2.0:
+                    entry_quality = 'Excellent - Trendline'
+                else:
+                    entry_quality = 'Good - Trendline'
             
             # Calculate potential upside to recent high
             potential_upside = ((week_52_high - current_price) / current_price) * 100
             
-            return {
-                'is_golden_trendline': True,
+            # Build result
+            result = {
+                'is_golden_stock': True,
                 'current_price': round(current_price, 2),
-                'trendline_price': round(best_trendline['current_trendline_price'], 2),
-                'distance_to_trendline_percent': round(best_trendline['distance_percent'], 2),
-                'trendline_slope_weekly': round(best_trendline['slope'], 4),
-                'trendline_start_price': round(best_trendline['low1']['price'], 2),
-                'trendline_start_date': best_trendline['low1']['date'].strftime('%Y-%m-%d'),
-                'trendline_end_price': round(best_trendline['low2']['price'], 2),
-                'trendline_end_date': best_trendline['low2']['date'].strftime('%Y-%m-%d'),
-                'timeframe_weeks': round(best_trendline['timeframe_weeks'], 1),
-                'timeframe_months': round(best_trendline['timeframe_weeks'] / 4.33, 1),
-                'trendline_touches': best_trendline['touches'],
-                'trendline_strength': round(trendline_strength, 1),
-                'entry_quality': entry_quality,
                 'week_52_high': round(week_52_high, 2),
                 'week_52_low': round(week_52_low, 2),
                 'potential_upside_percent': round(potential_upside, 2),
-                'analysis_timeframe': 'Weekly',
-                'pattern_type': 'Golden Trendline Touch'
+                'entry_quality': entry_quality,
+                'has_fibonacci': has_fibonacci,
+                'has_trendline': has_trendline,
+                'analysis_timeframe': 'Weekly + Daily',
+                'pattern_type': 'Golden Stock Analysis'
             }
             
+            # Add Fibonacci data if present
+            if has_fibonacci:
+                result.update({
+                    'fibonacci_level': fib_result['level'],
+                    'fibonacci_level_price': fib_result['level_price'],
+                    'fibonacci_distance_percent': fib_result['distance_percent'],
+                    'fibonacci_high_5y': fib_result['high_5y'],
+                    'fibonacci_low_5y': fib_result['low_5y']
+                })
+            
+            # Add trendline data if present
+            if has_trendline:
+                result.update(trendline_data)
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Error detecting Golden Trendline: {e}")
-            return {'is_golden_trendline': False, 'error': str(e)}
+            logger.error(f"Error detecting Golden Stocks: {e}")
+            return {'is_golden_stock': False, 'error': str(e)}
     
     def screen_stock(self, symbol: str, company_name: str, industry: str) -> None:
         """Screen a single stock for all three conditions"""
@@ -751,22 +791,7 @@ class StockScreener:
             
             self.results['diagnostics']['successful_downloads'] += 1
             
-            # Check Fibonacci retracement
-            try:
-                fib_result = self.calculate_fibonacci_levels(data)
-                if fib_result.get('is_near_fibonacci', False):
-                    stock_info = {
-                        'symbol': symbol,
-                        'company_name': company_name,
-                        'industry': industry,
-                        **fib_result
-                    }
-                    self.results['fibonacci_stocks'].append(stock_info)
-                    self.results['diagnostics']['fibonacci_matches'] += 1
-                    logger.info(f"Fibonacci match: {symbol} near {fib_result['level']} level")
-            except Exception as e:
-                logger.warning(f"Fibonacci analysis failed for {symbol}: {e}")
-            
+            # Note: Fibonacci analysis is now combined with Golden Stocks
             # Check volume breakout
             try:
                 volume_result = self.check_volume_breakout(data)
@@ -819,13 +844,13 @@ class StockScreener:
             except Exception as e:
                 logger.warning(f"Elliott Wave analysis failed for {symbol}: {e}")
             
-            # Check Golden Trendline (Golden Stocks)
+            # Check Golden Stocks (Combined Trendline + Fibonacci)
             try:
-                # Use weekly data for trendline analysis
+                # Use weekly data for combined analysis
                 weekly_data = self.get_weekly_data(symbol)
                 if weekly_data is not None and not weekly_data.empty:
-                    golden_result = self.detect_golden_trendline(weekly_data)
-                    if golden_result.get('is_golden_trendline', False):
+                    golden_result = self.detect_golden_stocks_combined(data, weekly_data)
+                    if golden_result.get('is_golden_stock', False):
                         stock_info = {
                             'symbol': symbol,
                             'company_name': company_name,
@@ -834,12 +859,12 @@ class StockScreener:
                         }
                         self.results['golden_stocks'].append(stock_info)
                         self.results['diagnostics']['golden_matches'] += 1
-                        logger.info(f"Golden Trendline match: {symbol} at {golden_result['distance_to_trendline_percent']:.1f}% from trendline")
+                        logger.info(f"Golden Stock match: {symbol} - {golden_result['entry_quality']}")
             except Exception as e:
-                logger.warning(f"Golden Trendline analysis failed for {symbol}: {e}")
+                logger.warning(f"Golden Stocks analysis failed for {symbol}: {e}")
             
-            # Rate limiting to avoid overwhelming the API
-            time.sleep(0.1)
+            # Rate limiting to avoid overwhelming the API - increased delay
+            time.sleep(0.5)  # Increased from 0.1 to 0.5 seconds
             
         except Exception as e:
             logger.error(f"Error screening {symbol}: {e}")
@@ -879,14 +904,7 @@ class StockScreener:
     def sort_results(self) -> None:
         """Sort all results by priority - most relevant opportunities first"""
         try:
-            # Sort Fibonacci stocks: 61.8% first, then 50%, then 38.2%
-            # Within each level, sort by smallest distance to level
-            level_priority = {'61.8%': 1, '50%': 2, '38.2%': 3}
-            
-            self.results['fibonacci_stocks'].sort(key=lambda x: (
-                level_priority.get(x.get('level', '61.8%'), 4),  # Level priority
-                abs(x.get('distance_percent', 100))  # Distance to level (smaller is better)
-            ))
+            # Note: Fibonacci is now combined with Golden Stocks, so no separate sorting needed
             
             # Sort Volume Breakout stocks: Radar Active first, then by proximity to breakout low
             self.results['volume_breakout_stocks'].sort(key=lambda x: (
@@ -907,10 +925,11 @@ class StockScreener:
                 x.get('retracement_percent', 0)  # Deeper retracements first
             ))
             
-            # Sort Golden Stocks: Best entry quality first, then by proximity to trendline
+            # Sort Golden Stocks: Double signals first, then by entry quality, then by proximity
             self.results['golden_stocks'].sort(key=lambda x: (
-                0 if x.get('entry_quality') == 'Excellent' else 1 if x.get('entry_quality') == 'Good' else 2,  # Quality priority
-                abs(x.get('distance_to_trendline_percent', 100)),  # Closer to trendline
+                0 if 'Double Signal' in x.get('entry_quality', '') else 1,  # Double signals first
+                0 if x.get('entry_quality', '').startswith('Excellent') else 1 if x.get('entry_quality', '').startswith('Good') else 2,  # Quality priority
+                abs(x.get('fibonacci_distance_percent', x.get('distance_to_trendline_percent', 100))),  # Closer to signal
                 -x.get('trendline_strength', 0)  # Stronger trendlines first (negative for descending sort)
             ))
             
@@ -928,11 +947,10 @@ class StockScreener:
         - Total stocks processed: {diag['total_stocks_processed']}
         - Successful downloads: {diag['successful_downloads']}
         - Failed downloads: {diag['failed_downloads']}
-        - Fibonacci matches: {diag['fibonacci_matches']}
+        - Golden Stocks matches: {diag['golden_matches']} (Combined Fibonacci + Trendline)
         - Volume breakout matches: {diag['volume_breakout_matches']}
         - W-Pattern matches: {diag['w_pattern_matches']}
         - Elliott Wave matches: {diag['elliott_wave_matches']}
-        - Golden Trendline matches: {diag['golden_matches']}
         - Errors: {len(diag['errors'])}
         """)
     
@@ -971,11 +989,11 @@ class StockScreener:
         
         try:
             # Prepare message
-            fib_count = len(self.results['fibonacci_stocks'])
+            # Prepare message
+            golden_count = len(self.results['golden_stocks'])
             vol_count = len(self.results['volume_breakout_stocks'])
             w_pattern_count = len(self.results['w_pattern_stocks'])
             elliott_count = len(self.results['elliott_wave_stocks'])
-            golden_count = len(self.results['golden_stocks'])
             
             # Count radar alerts
             vol_radar_active = sum(1 for stock in self.results['volume_breakout_stocks'] 
@@ -990,11 +1008,10 @@ class StockScreener:
 
 📊 *Results Summary:*
 • Total Stocks Screened: {total_processed}
-• Fibonacci Retracement: {fib_count} matches
+• Golden Stocks (Fib+Trendline): {golden_count} matches
 • Volume Breakout: {vol_count} matches
 • W-Pattern: {w_pattern_count} matches
 • Elliott Wave (Long-term): {elliott_count} matches
-• Golden Trendline: {golden_count} matches
 
 🚨 *RADAR ALERTS:*
 • Volume Stocks in Radar: {vol_radar_active}
