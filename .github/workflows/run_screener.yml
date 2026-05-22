@@ -3,12 +3,8 @@ name: Stock Yard Screener
 on:
   workflow_dispatch:
   schedule:
-    # Multiple daily runs for 24/7 live feel (IST market hours)
-    - cron: '30 3 * * 1-5'   # 9:00 AM IST - Pre-market
-    - cron: '0 6 * * 1-5'    # 11:30 AM IST - Mid-morning
-    - cron: '30 8 * * 1-5'   # 2:00 PM IST - Mid-day
-    - cron: '0 11 * * 1-5'   # 4:30 PM IST - Post-market
-    - cron: '30 13 * * 1-5'  # 7:00 PM IST - Evening update
+    # True 24/7 operation - Every 4 hours, 7 days a week
+    - cron: '0 */4 * * *'    # Every 4 hours, every day (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC)
 
 permissions:
   contents: write
@@ -41,28 +37,45 @@ jobs:
         GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         RUN_TIME: ${{ github.event.schedule }}
       run: |
-        echo "Starting Stock Yard Screener with Yahoo Finance data..."
+        echo "🚀 Starting Stock Yard Screener with Yahoo Finance data..."
         echo "Scheduled run time: ${RUN_TIME:-manual}"
         echo "Current UTC time: $(date -u)"
         echo "Current IST time: $(TZ='Asia/Kolkata' date)"
+        echo "GitHub Event: ${{ github.event_name }}"
+        echo "Workflow run number: ${{ github.run_number }}"
+        
+        # Check if secrets are available
+        if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+          echo "⚠️ TELEGRAM_BOT_TOKEN not set"
+        else
+          echo "✅ TELEGRAM_BOT_TOKEN is configured"
+        fi
+        
+        if [ -z "$TELEGRAM_CHAT_ID" ]; then
+          echo "⚠️ TELEGRAM_CHAT_ID not set"
+        else
+          echo "✅ TELEGRAM_CHAT_ID is configured"
+        fi
         
         # Set timeout and memory limits for large dataset
+        echo "🔄 Starting screener with 25-minute timeout..."
         timeout 25m python screener.py || {
           echo "⚠️ Screener timed out or failed, creating fallback data..."
-          echo '{"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'","fibonacci_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"elliott_wave_stocks":[],"golden_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"fibonacci_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"elliott_wave_matches":0,"golden_matches":0,"errors":["Screener execution timed out or failed"]}}' > data.json
+          echo '{"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'","golden_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"elliott_wave_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"golden_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"elliott_wave_matches":0,"errors":["Screener execution timed out or failed"]}}' > data.json
         }
         
-        echo "Screener execution completed"
+        echo "✅ Screener execution completed"
     
     - name: Verify results
       run: |
         if [ -f "data.json" ]; then
-          echo "data.json created successfully"
-          echo "File size: $(wc -c < data.json) bytes"
+          echo "✅ data.json created successfully"
+          echo "📊 File size: $(wc -c < data.json) bytes"
+          echo "📄 First 10 lines:"
           head -10 data.json
         else
-          echo "data.json not found - creating fallback"
-          echo '{"timestamp":"2024-12-19T16:30:00.000Z","fibonacci_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"elliott_wave_stocks":[],"golden_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"fibonacci_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"elliott_wave_matches":0,"golden_matches":0,"errors":["Screener execution failed"]}}' > data.json
+          echo "❌ data.json not found - creating fallback"
+          echo '{"timestamp":"2024-12-19T16:30:00.000Z","golden_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"elliott_wave_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"golden_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"elliott_wave_matches":0,"errors":["Screener execution failed"]}}' > data.json
         fi
     
     - name: Commit and push results
@@ -76,14 +89,17 @@ jobs:
         # Commit changes
         git add data.json index.html
         
-        # Create commit message with run context
+        # Create commit message with run context and better formatting
         RUN_CONTEXT="${{ github.event.schedule }}"
         if [ -z "$RUN_CONTEXT" ]; then
           RUN_CONTEXT="manual"
         fi
         
-        COMMIT_MSG="📊 Live update: $(date '+%Y-%m-%d %H:%M:%S UTC') [$RUN_CONTEXT]"
-        git commit -m "$COMMIT_MSG" || echo "No changes to commit"
+        CURRENT_TIME=$(date '+%Y-%m-%d %H:%M:%S UTC')
+        COMMIT_MSG="🔄 Auto-update: $CURRENT_TIME [$RUN_CONTEXT] - Run #${{ github.run_number }}"
+        
+        echo "📝 Commit message: $COMMIT_MSG"
+        git commit -m "$COMMIT_MSG" || echo "ℹ️ No changes to commit"
         
         # Push with retry logic
         for i in {1..3}; do
