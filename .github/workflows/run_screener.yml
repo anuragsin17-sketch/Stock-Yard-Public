@@ -13,7 +13,7 @@ on:
     - cron: '30 8 * * *'     # 02:00 PM IST (08:30 UTC)
     - cron: '30 14 * * *'    # 08:00 PM IST (14:30 UTC)
     - cron: '6 15 * * *'     # 8:36 PM IST (15:06 UTC) - DRY RUN TEST
-    - cron: '*/1 * * * *'    # Every 1 minute - AGGRESSIVE TEST
+    - cron: '*/10 * * * *'   # Every 10 minutes - RELIABLE TEST
 
 permissions:
   contents: write

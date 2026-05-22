@@ -1,2 +1,3 @@
-GitHub Actions Test Trigger - $(Get-Date)
+GitHub Actions Test Trigger - Updated for 10-minute intervals
 This file is used to trigger the workflow for testing purposes.
+Changed from 1-minute to 10-minute intervals for better reliability.
