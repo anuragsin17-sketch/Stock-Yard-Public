@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-22T07:04:25.842500",
+  "timestamp": "2026-05-22T02:08:23.872156",
   "fibonacci_stocks": [
     {
       "symbol": "ICICIGI",
@@ -296,12 +296,12 @@
       "current_price": 126070.0,
       "distance_percent": 0.85,
       "high_5y": 163593.54,
-      "low_5y": 62586.3,
+      "low_5y": 62586.29,
       "week_52_high": 163593.54,
       "week_52_low": 123455.0,
       "all_levels": {
         "61.8%": 101171.06,
-        "50%": 113089.92,
+        "50%": 113089.91,
         "38.2%": 125008.77
       }
     },
@@ -1128,7 +1128,7 @@
       "industry": "Capital Goods",
       "is_near_fibonacci": true,
       "level": "61.8%",
-      "level_price": 3436.94,
+      "level_price": 3436.93,
       "current_price": 3466.4,
       "distance_percent": 0.86,
       "high_5y": 6368.91,
@@ -1136,7 +1136,7 @@
       "week_52_high": 4699.79,
       "week_52_low": 3182.0,
       "all_levels": {
-        "61.8%": 3436.94,
+        "61.8%": 3436.93,
         "50%": 3996.76,
         "38.2%": 4556.59
       }
