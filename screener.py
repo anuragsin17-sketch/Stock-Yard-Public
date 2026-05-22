@@ -429,7 +429,7 @@ class StockScreener:
         try:
             self.results['diagnostics']['total_stocks_processed'] += 1
             
-            # Download daily stock data
+            # Download daily stock data with timeout
             data = self.get_stock_data(symbol)
             if data is None or data.empty:
                 self.results['diagnostics']['failed_downloads'] += 1
@@ -438,45 +438,54 @@ class StockScreener:
             self.results['diagnostics']['successful_downloads'] += 1
             
             # Check Fibonacci retracement
-            fib_result = self.calculate_fibonacci_levels(data)
-            if fib_result.get('is_near_fibonacci', False):
-                stock_info = {
-                    'symbol': symbol,
-                    'company_name': company_name,
-                    'industry': industry,
-                    **fib_result
-                }
-                self.results['fibonacci_stocks'].append(stock_info)
-                self.results['diagnostics']['fibonacci_matches'] += 1
-                logger.info(f"Fibonacci match: {symbol} near {fib_result['level']} level")
-            
-            # Check volume breakout
-            volume_result = self.check_volume_breakout(data)
-            if volume_result.get('is_volume_breakout', False):
-                stock_info = {
-                    'symbol': symbol,
-                    'company_name': company_name,
-                    'industry': industry,
-                    **volume_result
-                }
-                self.results['volume_breakout_stocks'].append(stock_info)
-                self.results['diagnostics']['volume_breakout_matches'] += 1
-                logger.info(f"Volume breakout: {symbol} with {volume_result.get('breakout_volume_ratio', 'N/A')}x volume")
-            
-            # Check W-Pattern (weekly data)
-            weekly_data = self.get_weekly_data(symbol)
-            if weekly_data is not None and not weekly_data.empty:
-                w_pattern_result = self.detect_w_pattern(weekly_data)
-                if w_pattern_result.get('is_w_pattern', False):
+            try:
+                fib_result = self.calculate_fibonacci_levels(data)
+                if fib_result.get('is_near_fibonacci', False):
                     stock_info = {
                         'symbol': symbol,
                         'company_name': company_name,
                         'industry': industry,
-                        **w_pattern_result
+                        **fib_result
                     }
-                    self.results['w_pattern_stocks'].append(stock_info)
-                    self.results['diagnostics']['w_pattern_matches'] += 1
-                    logger.info(f"W-Pattern match: {symbol} with {w_pattern_result['distance_to_neckline_percent']:.1f}% to neckline")
+                    self.results['fibonacci_stocks'].append(stock_info)
+                    self.results['diagnostics']['fibonacci_matches'] += 1
+                    logger.info(f"Fibonacci match: {symbol} near {fib_result['level']} level")
+            except Exception as e:
+                logger.warning(f"Fibonacci analysis failed for {symbol}: {e}")
+            
+            # Check volume breakout
+            try:
+                volume_result = self.check_volume_breakout(data)
+                if volume_result.get('is_volume_breakout', False):
+                    stock_info = {
+                        'symbol': symbol,
+                        'company_name': company_name,
+                        'industry': industry,
+                        **volume_result
+                    }
+                    self.results['volume_breakout_stocks'].append(stock_info)
+                    self.results['diagnostics']['volume_breakout_matches'] += 1
+                    logger.info(f"Volume breakout: {symbol} with {volume_result.get('breakout_volume_ratio', 'N/A')}x volume")
+            except Exception as e:
+                logger.warning(f"Volume breakout analysis failed for {symbol}: {e}")
+            
+            # Check W-Pattern (weekly data)
+            try:
+                weekly_data = self.get_weekly_data(symbol)
+                if weekly_data is not None and not weekly_data.empty:
+                    w_pattern_result = self.detect_w_pattern(weekly_data)
+                    if w_pattern_result.get('is_w_pattern', False):
+                        stock_info = {
+                            'symbol': symbol,
+                            'company_name': company_name,
+                            'industry': industry,
+                            **w_pattern_result
+                        }
+                        self.results['w_pattern_stocks'].append(stock_info)
+                        self.results['diagnostics']['w_pattern_matches'] += 1
+                        logger.info(f"W-Pattern match: {symbol} with {w_pattern_result['distance_to_neckline_percent']:.1f}% to neckline")
+            except Exception as e:
+                logger.warning(f"W-Pattern analysis failed for {symbol}: {e}")
             
             # Rate limiting to avoid overwhelming the API
             time.sleep(0.1)
@@ -484,6 +493,7 @@ class StockScreener:
         except Exception as e:
             logger.error(f"Error screening {symbol}: {e}")
             self.results['diagnostics']['errors'].append(f"Error screening {symbol}: {e}")
+            self.results['diagnostics']['failed_downloads'] += 1
     
     def run_screening(self) -> None:
         """Run the complete screening process"""

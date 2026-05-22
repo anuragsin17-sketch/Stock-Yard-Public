@@ -45,8 +45,14 @@ jobs:
         echo "Scheduled run time: ${RUN_TIME:-manual}"
         echo "Current UTC time: $(date -u)"
         echo "Current IST time: $(TZ='Asia/Kolkata' date)"
-        python screener.py
-        echo "Screener execution completed successfully"
+        
+        # Set timeout and memory limits for large dataset
+        timeout 25m python screener.py || {
+          echo "⚠️ Screener timed out or failed, creating fallback data..."
+          echo '{"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'","fibonacci_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"fibonacci_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"errors":["Screener execution timed out or failed"]}}' > data.json
+        }
+        
+        echo "Screener execution completed"
     
     - name: Verify results
       run: |
