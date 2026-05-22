@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-22T14:26:34.662487",
+  "timestamp": "2026-05-22T15:20:34.189668",
   "golden_stocks": [
     {
       "symbol": "OBEROIRLTY",
@@ -138,7 +138,7 @@
       "pattern_type": "Golden Stock Analysis",
       "trendline_price": 755.28,
       "distance_to_trendline_percent": 0.25,
-      "trendline_slope_daily": 0.129515,
+      "trendline_slope_daily": 0.129514,
       "trendline_start_price": 718.11,
       "trendline_start_date": "2025-08-08",
       "trendline_end_price": 729.89,
@@ -1409,7 +1409,7 @@
       "pattern_type": "Golden Stock Analysis",
       "trendline_price": 1020.82,
       "distance_to_trendline_percent": 4.32,
-      "trendline_slope_daily": 0.737863,
+      "trendline_slope_daily": 0.737862,
       "trendline_start_price": 772.89,
       "trendline_start_date": "2025-06-20",
       "trendline_end_price": 964.0,
@@ -4289,7 +4289,6 @@
       "setup_quality": "Good"
     }
   ],
-  "darvas_box_stocks": [],
   "diagnostics": {
     "total_stocks_processed": 500,
     "successful_downloads": 500,
@@ -4298,7 +4297,6 @@
     "volume_breakout_matches": 55,
     "w_pattern_matches": 37,
     "elliott_wave_matches": 16,
-    "darvas_box_matches": 0,
     "errors": []
   }
 }

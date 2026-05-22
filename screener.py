@@ -170,8 +170,8 @@ class StockScreener:
                 '38.2%': fib_382
             }
             
-            # Check if current price is within 1.5% of key levels
-            tolerance = 0.015  # 1.5%
+            # Check if current price is within 5% of key levels
+            tolerance = 0.05  # 5%
             
             for level_name, level_price in levels.items():
                 if abs(current_price - level_price) / level_price <= tolerance:
