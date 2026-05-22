@@ -88,7 +88,7 @@ jobs:
         # Run our separate Python script cleanly
         python update_html.py
         
-        # Commit changes
+        # Commit changes to private repo
         git add data.json index.html
         
         # Create commit message with run context and better formatting
@@ -103,10 +103,10 @@ jobs:
         echo "📝 Commit message: $COMMIT_MSG"
         git commit -m "$COMMIT_MSG" || echo "ℹ️ No changes to commit"
         
-        # Push with retry logic
+        # Push to private repo
         for i in {1..3}; do
           if git push origin main 2>/dev/null || git push origin master 2>/dev/null; then
-            echo "✅ Successfully pushed changes (attempt $i)"
+            echo "✅ Successfully pushed to private repo (attempt $i)"
             break
           else
             echo "⚠️ Push failed (attempt $i), retrying in 5 seconds..."
@@ -115,3 +115,43 @@ jobs:
         done
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Deploy to public repository
+      run: |
+        echo "🚀 Deploying to public repository..."
+        
+        # Clone the public repository
+        git clone https://x-access-token:${{ secrets.DEPLOY_TOKEN }}@github.com/anuragsin17-sketch/Stock-Yard-Public.git public-repo
+        
+        # Copy files to public repo
+        cp index.html public-repo/
+        cp data.json public-repo/
+        
+        # Navigate to public repo
+        cd public-repo
+        
+        # Configure git
+        git config user.name "GitHub Action"
+        git config user.email "action@github.com"
+        
+        # Add and commit changes
+        git add index.html data.json
+        git commit -m "🔄 Auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC') - Run #${{ github.run_number }}" || echo "ℹ️ No changes to commit"
+        
+        # Push to public repo
+        for i in {1..3}; do
+          if git push origin main 2>/dev/null || git push origin master 2>/dev/null; then
+            echo "✅ Successfully deployed to public repo (attempt $i)"
+            break
+          else
+            echo "⚠️ Deploy failed (attempt $i), retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+        
+        cd ..
+        rm -rf public-repo
+        
+        echo "✅ Deployment complete!"
+      env:
+        DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
