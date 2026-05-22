@@ -3,8 +3,10 @@ name: Stock Yard Screener
 on:
   workflow_dispatch:
   schedule:
-    # True 24/7 operation - Every 4 hours, 7 days a week
-    - cron: '0 */4 * * *'    # Every 4 hours, every day (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC)
+    # Daily runs at specific IST times (7 days a week)
+    - cron: '30 4 * * *'     # 10:00 AM IST (04:30 UTC)
+    - cron: '30 8 * * *'     # 02:00 PM IST (08:30 UTC)
+    - cron: '30 14 * * *'    # 08:00 PM IST (14:30 UTC)
 
 permissions:
   contents: write
