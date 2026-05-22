@@ -740,7 +740,7 @@ class StockScreener:
             weekly_trendline = self.detect_trendline(weekly_data, 'Weekly')
             
             # Create monthly data from weekly
-            monthly_data = weekly_data.resample('M').agg({
+            monthly_data = weekly_data.resample('ME').agg({
                 'Open': 'first',
                 'High': 'max',
                 'Low': 'min',
