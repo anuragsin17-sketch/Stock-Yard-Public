@@ -85,6 +85,18 @@
             text-transform: uppercase;
             letter-spacing: 0.8px;
         }
+        .position-filter-btn {
+            background: rgba(20, 25, 35, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
+        }
+        .position-filter-btn.active {
+            background: linear-gradient(135deg, #065F46, #047857);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .position-filter-btn:hover {
+            border-color: rgba(4, 120, 87, 0.3);
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen" style="background: #0A0E14;">
@@ -3189,13 +3201,62 @@
                     // Build details based on what signals are present
                     let signalDetails = [];
                     
+                    if (stock.has_trendline) {
+                        // Calculate alert status based on distance to trendline
+                        let alertStatus = '';
+                        let alertColor = '';
+                        const distance = Math.abs(stock.distance_to_trendline_percent || 0);
+                        
+                        if (distance <= 2.0) {
+                            alertStatus = '🔥 AT ENTRY';
+                            alertColor = '#DC2626'; // Red
+                        } else if (distance <= 5.0) {
+                            alertStatus = '⚡ NEAR ENTRY';
+                            alertColor = '#D97706'; // Orange
+                        } else if (distance <= 10.0) {
+                            alertStatus = '📍 WATCH';
+                            alertColor = '#047857'; // Green
+                        } else {
+                            alertStatus = '👀 MONITOR';
+                            alertColor = '#64748B'; // Slate
+                        }
+                        
+                        signalDetails.push(`<div class="text-xs mono font-semibold" style="color: ${alertColor};">${alertStatus}</div>`);
+                        signalDetails.push(`<div class="text-xs mono" style="color: #D97706;">Entry Price: ₹${stock.trendline_price.toLocaleString()} | Distance: ${stock.distance_to_trendline_percent > 0 ? '+' : ''}${stock.distance_to_trendline_percent.toFixed(1)}%</div>`);
+                        signalDetails.push(`<div class="text-xs text-slate-500 mono">Strength: ${stock.trendline_strength}% | ${stock.trendline_touches} touches | ${stock.timeframe_months}mo</div>`);
+                    }
+                    
                     if (stock.has_fibonacci) {
-                        signalDetails.push(`<div class="text-xs mono" style="color: #3B82F6;">Fibonacci ${stock.fibonacci_level} at ₹${stock.fibonacci_level_price.toLocaleString()} (${stock.fibonacci_distance_percent > 0 ? '+' : ''}${stock.fibonacci_distance_percent}%)</div>`);
+                        signalDetails.push(`<div class="text-xs mono" style="color: #3B82F6;">Fibonacci: ${stock.fibonacci_distance_percent > 0 ? '+' : ''}${stock.fibonacci_distance_percent.toFixed(1)}%</div>`);
                     }
                     
                     if (stock.has_trendline) {
-                        signalDetails.push(`<div class="text-xs mono" style="color: #D97706;">Trendline at ₹${stock.trendline_price.toLocaleString()} (${stock.distance_to_trendline_percent > 0 ? '+' : ''}${stock.distance_to_trendline_percent}%)</div>`);
+                        // Calculate alert status based on distance to trendline
+                        let alertStatus = '';
+                        let alertColor = '';
+                        const distance = Math.abs(stock.distance_to_trendline_percent || 0);
+                        
+                        if (distance <= 2.0) {
+                            alertStatus = '🔥 AT ENTRY';
+                            alertColor = '#DC2626'; // Red
+                        } else if (distance <= 5.0) {
+                            alertStatus = '⚡ NEAR ENTRY';
+                            alertColor = '#D97706'; // Orange
+                        } else if (distance <= 10.0) {
+                            alertStatus = '📍 WATCH';
+                            alertColor = '#047857'; // Green
+                        } else {
+                            alertStatus = '👀 MONITOR';
+                            alertColor = '#64748B'; // Slate
+                        }
+                        
+                        signalDetails.push(`<div class="text-xs mono font-semibold" style="color: ${alertColor};">${alertStatus}</div>`);
+                        signalDetails.push(`<div class="text-xs mono" style="color: #D97706;">Entry Price: ₹${stock.trendline_price.toLocaleString()} | Distance: ${stock.distance_to_trendline_percent > 0 ? '+' : ''}${stock.distance_to_trendline_percent.toFixed(1)}%</div>`);
                         signalDetails.push(`<div class="text-xs text-slate-500 mono">Strength: ${stock.trendline_strength}% | ${stock.trendline_touches} touches | ${stock.timeframe_months}mo</div>`);
+                    }
+                    
+                    if (stock.has_fibonacci) {
+                        signalDetails.push(`<div class="text-xs mono" style="color: #3B82F6;">Fibonacci ${stock.fibonacci_level} at ₹${stock.fibonacci_level_price.toLocaleString()} (${stock.fibonacci_distance_percent > 0 ? '+' : ''}${stock.fibonacci_distance_percent.toFixed(1)}%)</div>`);
                     }
                     
                     if (stock.has_vertical_line && stock.vertical_line_price) {
@@ -3208,7 +3269,7 @@
                         <div class="mt-2 space-y-1">
                             ${signalDetails.join('')}
                         </div>
-                        <div class="text-xs text-slate-500 mt-2 mono">Upside: ${stock.potential_upside_percent}% | 52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
+                        <div class="text-xs text-slate-500 mt-2 mono">52W Range: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
                         <div class="mt-3">${priorityBadge}</div>
                     `;
                     break;
@@ -3285,7 +3346,7 @@
             document.getElementById('errorMessage').classList.add('hidden');
         }
         
-        // Display performance tracking screen
+        // Display performance tracking screen with position management
         function displayPerformanceTracking() {
             const container = document.getElementById('resultsContainer');
             
@@ -3294,165 +3355,333 @@
                 return;
             }
             
-            // Get all radar-active stocks and sort by potential gain (max to min)
-            const volumeRadarStocks = (screeningData.volume_breakout_stocks || []).filter(stock => 
-                stock.radar_status === 'Active'
-            );
+            // Initialize position tracking from localStorage
+            let positions = JSON.parse(localStorage.getItem('stockPositions') || '[]');
             
-            const wpatternRadarStocks = (screeningData.w_pattern_stocks || []).filter(stock => 
-                stock.radar_status === 'Active'
-            );
+            // Collect all stocks with trigger prices from all tabs
+            const allStocksWithTriggers = [];
             
-            // Calculate potential gains and sort by highest potential first
-            volumeRadarStocks.forEach(stock => {
-                if (stock.breakout_price && stock.current_price) {
-                    stock.potential_gain = (((stock.breakout_price - stock.current_price) / stock.current_price) * 100);
-                } else {
-                    stock.potential_gain = 0;
+            // Golden Stocks
+            (screeningData.golden_stocks || []).forEach(stock => {
+                if (stock.trendline_price) {
+                    allStocksWithTriggers.push({
+                        ...stock,
+                        trigger_price: stock.trendline_price,
+                        source: 'Golden',
+                        source_color: '#047857'
+                    });
                 }
             });
             
-            wpatternRadarStocks.forEach(stock => {
-                if (stock.neckline_peak_price && stock.current_price) {
-                    stock.potential_gain = (((stock.neckline_peak_price - stock.current_price) / stock.current_price) * 100);
-                } else {
-                    stock.potential_gain = 0;
+            // Volume Breakout
+            (screeningData.volume_breakout_stocks || []).forEach(stock => {
+                if (stock.radar_trigger_price) {
+                    allStocksWithTriggers.push({
+                        ...stock,
+                        trigger_price: stock.radar_trigger_price,
+                        source: 'Volume',
+                        source_color: '#DC2626'
+                    });
                 }
             });
             
-            // Sort by potential gain (highest first)
-            volumeRadarStocks.sort((a, b) => (b.potential_gain || 0) - (a.potential_gain || 0));
-            wpatternRadarStocks.sort((a, b) => (b.potential_gain || 0) - (a.potential_gain || 0));
+            // W-Pattern
+            (screeningData.w_pattern_stocks || []).forEach(stock => {
+                if (stock.radar_trigger_price) {
+                    allStocksWithTriggers.push({
+                        ...stock,
+                        trigger_price: stock.radar_trigger_price,
+                        source: 'W-Pattern',
+                        source_color: '#9333EA'
+                    });
+                }
+            });
             
-            const totalRadarStocks = volumeRadarStocks.length + wpatternRadarStocks.length;
+            // Darvas Box
+            (screeningData.darvas_box_stocks || []).forEach(stock => {
+                if (stock.box_low) {
+                    allStocksWithTriggers.push({
+                        ...stock,
+                        trigger_price: stock.box_low,
+                        source: 'Darvas',
+                        source_color: '#D97706'
+                    });
+                }
+            });
+            
+            // Elliott Wave
+            (screeningData.elliott_wave_stocks || []).forEach(stock => {
+                if (stock.golden_pocket_low) {
+                    allStocksWithTriggers.push({
+                        ...stock,
+                        trigger_price: stock.golden_pocket_low,
+                        source: 'Elliott',
+                        source_color: '#6366F1'
+                    });
+                }
+            });
+            
+            // Update positions based on current prices
+            allStocksWithTriggers.forEach(stock => {
+                const existingPosition = positions.find(p => p.symbol === stock.symbol && p.status === 'open');
+                
+                if (existingPosition) {
+                    // Update existing open position
+                    const currentPrice = stock.current_price;
+                    const entryPrice = existingPosition.entry_price;
+                    const priceChange = ((currentPrice - entryPrice) / entryPrice) * 100;
+                    
+                    existingPosition.current_price = currentPrice;
+                    existingPosition.price_change = priceChange;
+                    existingPosition.last_updated = new Date().toISOString();
+                    
+                    // Check if target hit (+20%)
+                    if (priceChange >= 20) {
+                        existingPosition.status = 'closed_target';
+                        existingPosition.exit_price = currentPrice;
+                        existingPosition.exit_date = new Date().toISOString();
+                        existingPosition.final_return = priceChange;
+                    }
+                    // Check if stop loss hit (-5%)
+                    else if (priceChange <= -5) {
+                        existingPosition.status = 'closed_stoploss';
+                        existingPosition.exit_price = currentPrice;
+                        existingPosition.exit_date = new Date().toISOString();
+                        existingPosition.final_return = priceChange;
+                    }
+                } else {
+                    // Check if trigger price reached for new position
+                    const currentPrice = stock.current_price;
+                    const triggerPrice = stock.trigger_price;
+                    const distanceToTrigger = Math.abs((currentPrice - triggerPrice) / triggerPrice) * 100;
+                    
+                    // Position taken if within 2% of trigger price
+                    if (distanceToTrigger <= 2.0 && !positions.find(p => p.symbol === stock.symbol)) {
+                        positions.push({
+                            symbol: stock.symbol,
+                            company_name: stock.company_name,
+                            source: stock.source,
+                            source_color: stock.source_color,
+                            entry_price: triggerPrice,
+                            current_price: currentPrice,
+                            entry_date: new Date().toISOString(),
+                            status: 'open',
+                            target_price: triggerPrice * 1.20, // +20%
+                            stoploss_price: triggerPrice * 0.95, // -5%
+                            price_change: ((currentPrice - triggerPrice) / triggerPrice) * 100,
+                            last_updated: new Date().toISOString()
+                        });
+                    }
+                }
+            });
+            
+            // Save updated positions
+            localStorage.setItem('stockPositions', JSON.stringify(positions));
+            
+            // Filter positions
+            const openPositions = positions.filter(p => p.status === 'open');
+            const closedTargetPositions = positions.filter(p => p.status === 'closed_target');
+            const closedStoplossPositions = positions.filter(p => p.status === 'closed_stoploss');
+            
+            // Calculate statistics
+            const totalPositions = positions.length;
+            const totalOpen = openPositions.length;
+            const totalClosed = closedTargetPositions.length + closedStoplossPositions.length;
+            const winRate = totalClosed > 0 ? ((closedTargetPositions.length / totalClosed) * 100).toFixed(1) : 0;
             
             let html = `
                 <div class="mobile-card rounded-xl p-5 mb-5">
-                    <h3 class="text-lg font-bold text-slate-100 mb-4 tracking-tight">Radar Performance Tracking</h3>
-                    <div class="grid grid-cols-2 gap-5 mb-5">
+                    <h3 class="text-lg font-bold text-slate-100 mb-4 tracking-tight">Position Tracking Dashboard</h3>
+                    <div class="grid grid-cols-3 gap-3 mb-5">
                         <div class="text-center">
-                            <div class="text-3xl font-bold mono" style="color: #DC2626;">${totalRadarStocks}</div>
-                            <div class="text-xs text-slate-400 tracking-wider uppercase mt-1">Active Alerts</div>
+                            <div class="text-2xl font-bold mono" style="color: #D97706;">${totalOpen}</div>
+                            <div class="text-xs text-slate-400 tracking-wider uppercase mt-1">Open</div>
                         </div>
                         <div class="text-center">
-                            <div class="text-3xl font-bold mono" style="color: #047857;">${volumeRadarStocks.length + wpatternRadarStocks.length}</div>
-                            <div class="text-xs text-slate-400 tracking-wider uppercase mt-1">Monitored</div>
+                            <div class="text-2xl font-bold mono" style="color: #047857;">${closedTargetPositions.length}</div>
+                            <div class="text-xs text-slate-400 tracking-wider uppercase mt-1">Target Hit</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold mono" style="color: #DC2626;">${closedStoplossPositions.length}</div>
+                            <div class="text-xs text-slate-400 tracking-wider uppercase mt-1">Stop Loss</div>
                         </div>
                     </div>
-                    <div class="text-xs text-slate-500">
-                        Radar alerts trigger when stocks return to key support levels. Sorted by highest potential gain first.
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="text-center p-3 rounded-lg" style="background: rgba(4, 120, 87, 0.1);">
+                            <div class="text-xl font-bold mono" style="color: #047857;">${winRate}%</div>
+                            <div class="text-xs text-slate-400 tracking-wider uppercase">Win Rate</div>
+                        </div>
+                        <div class="text-center p-3 rounded-lg" style="background: rgba(100, 116, 139, 0.1);">
+                            <div class="text-xl font-bold mono text-slate-300">${totalPositions}</div>
+                            <div class="text-xs text-slate-400 tracking-wider uppercase">Total Tracked</div>
+                        </div>
                     </div>
                 </div>
-            `;
-            
-            // Volume Breakout Radar Stocks (sorted by potential gain)
-            if (volumeRadarStocks.length > 0) {
-                html += `
-                    <div class="mobile-card rounded-xl p-5 mb-5">
-                        <h4 class="text-md font-bold mb-4 tracking-tight" style="color: #047857;">Volume Breakout Radar (${volumeRadarStocks.length}) - Sorted by Potential</h4>
-                `;
                 
-                volumeRadarStocks.forEach((stock, index) => {
-                    const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.symbol}`;
-                    const daysSinceBreakout = stock.days_since_breakout || 0;
-                    const potentialGain = stock.potential_gain ? stock.potential_gain.toFixed(1) : 'N/A';
-                    const rankBadge = index < 3 ? `<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(180, 83, 9, 0.2); color: #D97706;">RANK ${index + 1}</span>` : '';
-                    
-                    html += `
-                        <div class="pl-5 mb-4 last:mb-0" style="border-left: 3px solid #DC2626;">
-                            <div class="flex justify-between items-start">
-                                <div class="flex-1">
-                                    <div class="flex items-center space-x-2 mb-1">
-                                        <a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.symbol}</a>
-                                        ${rankBadge}
-                                    </div>
-                                    <div class="text-xs text-slate-400">${stock.company_name}</div>
-                                    <div class="mt-2 space-y-1">
-                                        <div class="text-xs text-slate-300 mono">Current: ₹${stock.current_price.toLocaleString()}</div>
-                                        <div class="text-xs text-slate-300 mono">Radar Trigger: ₹${stock.radar_trigger_price.toLocaleString()}</div>
-                                        <div class="text-xs text-slate-300 mono">Breakout Price: ₹${stock.breakout_price.toLocaleString()}</div>
-                                        <div class="text-xs font-bold mono" style="color: #047857;">Potential Gain: ${potentialGain}%</div>
-                                        <div class="text-xs text-slate-500">${daysSinceBreakout} days since breakout</div>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">ACTIVE</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += `</div>`;
-            }
-            
-            // W-Pattern Radar Stocks (sorted by potential gain)
-            if (wpatternRadarStocks.length > 0) {
-                html += `
-                    <div class="mobile-card rounded-xl p-5 mb-5">
-                        <h4 class="text-md font-bold mb-4 tracking-tight" style="color: #9333EA;">W-Pattern Radar (${wpatternRadarStocks.length}) - Sorted by Potential</h4>
-                `;
-                
-                wpatternRadarStocks.forEach((stock, index) => {
-                    const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.symbol}`;
-                    const potentialGain = stock.potential_gain ? stock.potential_gain.toFixed(1) : 'N/A';
-                    const rankBadge = index < 3 ? `<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(180, 83, 9, 0.2); color: #D97706;">RANK ${index + 1}</span>` : '';
-                    
-                    html += `
-                        <div class="pl-5 mb-4 last:mb-0" style="border-left: 3px solid #9333EA;">
-                            <div class="flex justify-between items-start">
-                                <div class="flex-1">
-                                    <div class="flex items-center space-x-2 mb-1">
-                                        <a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.symbol}</a>
-                                        ${rankBadge}
-                                    </div>
-                                    <div class="text-xs text-slate-400">${stock.company_name}</div>
-                                    <div class="mt-2 space-y-1">
-                                        <div class="text-xs text-slate-300 mono">Current: ₹${stock.current_price.toLocaleString()}</div>
-                                        <div class="text-xs text-slate-300 mono">Radar Trigger: ₹${stock.radar_trigger_price.toLocaleString()}</div>
-                                        <div class="text-xs text-slate-300 mono">Neckline Target: ₹${stock.neckline_peak_price.toLocaleString()}</div>
-                                        <div class="text-xs font-bold mono" style="color: #047857;">Potential Gain: ${potentialGain}%</div>
-                                        <div class="text-xs text-slate-500">Pattern: ${stock.pattern_timeframe_weeks} weeks</div>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">ACTIVE</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += `</div>`;
-            }
-            
-            // No radar alerts
-            if (totalRadarStocks === 0) {
-                html += `
-                    <div class="mobile-card rounded-xl p-6 text-center">
-                        <div class="text-slate-400 mb-2">No Active Radar Alerts</div>
-                        <div class="text-xs text-slate-500">Radar alerts will appear when stocks return to key support levels</div>
-                    </div>
-                `;
-            }
-            
-            // Performance tracking instructions
-            html += `
-                <div class="mobile-card rounded-xl p-5" style="border-color: rgba(4, 120, 87, 0.2); background: rgba(4, 120, 87, 0.1);">
-                    <h4 class="text-sm font-bold mb-3 tracking-wider uppercase" style="color: #047857;">Radar Tracking Guide</h4>
-                    <div class="text-xs text-slate-300 space-y-2">
-                        <div>• <strong>Volume Radar:</strong> Stocks that returned to breakout day low price</div>
-                        <div>• <strong>W-Pattern Radar:</strong> Stocks that returned to trough low price</div>
-                        <div>• <strong>Potential Gain:</strong> Expected return if stock reaches target price</div>
-                        <div>• <strong>Rankings:</strong> Highest potential gain opportunities first</div>
-                        <div>• <strong>Click stock names</strong> to view charts on TradingView</div>
-                        <div>• Monitor these stocks for potential bounce opportunities</div>
+                <!-- Filter Tabs -->
+                <div class="mobile-card p-3 mb-5">
+                    <div class="flex space-x-2 overflow-x-auto scroll-container">
+                        <button onclick="filterPositions('open')" id="filterOpen" class="position-filter-btn active flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-all">
+                            Open (${totalOpen})
+                        </button>
+                        <button onclick="filterPositions('closed_target')" id="filterTarget" class="position-filter-btn flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-all text-slate-400">
+                            Target Hit (${closedTargetPositions.length})
+                        </button>
+                        <button onclick="filterPositions('closed_stoploss')" id="filterStoploss" class="position-filter-btn flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-all text-slate-400">
+                            Stop Loss (${closedStoplossPositions.length})
+                        </button>
+                        <button onclick="filterPositions('all')" id="filterAll" class="position-filter-btn flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-all text-slate-400">
+                            All (${totalPositions})
+                        </button>
                     </div>
                 </div>
+                
+                <div id="positionsList"></div>
             `;
             
             container.innerHTML = html;
+            
+            // Show open positions by default
+            window.filterPositions('open');
         }
+        
+        // Filter positions by status
+        window.filterPositions = function(filter) {
+            const positions = JSON.parse(localStorage.getItem('stockPositions') || '[]');
+            
+            // Update filter buttons
+            document.querySelectorAll('.position-filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.add('text-slate-400');
+                btn.style.background = 'rgba(20, 25, 35, 0.6)';
+            });
+            
+            const activeBtn = document.getElementById(
+                filter === 'open' ? 'filterOpen' :
+                filter === 'closed_target' ? 'filterTarget' :
+                filter === 'closed_stoploss' ? 'filterStoploss' : 'filterAll'
+            );
+            activeBtn.classList.add('active');
+            activeBtn.classList.remove('text-slate-400');
+            activeBtn.style.background = 'linear-gradient(135deg, #065F46, #047857)';
+            
+            // Filter positions
+            let filteredPositions = positions;
+            if (filter !== 'all') {
+                filteredPositions = positions.filter(p => p.status === filter);
+            }
+            
+            // Sort: open positions by price change (worst first), closed by date (recent first)
+            filteredPositions.sort((a, b) => {
+                if (a.status === 'open' && b.status === 'open') {
+                    return a.price_change - b.price_change; // Worst performing first
+                }
+                return new Date(b.last_updated) - new Date(a.last_updated); // Recent first
+            });
+            
+            const listContainer = document.getElementById('positionsList');
+            
+            if (filteredPositions.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="mobile-card rounded-xl p-6 text-center">
+                        <div class="text-slate-400 mb-2">No ${filter === 'all' ? '' : filter.replace('_', ' ')} positions</div>
+                        <div class="text-xs text-slate-500">Positions will appear when stocks reach trigger prices</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            filteredPositions.forEach(position => {
+                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${position.symbol}`;
+                const priceChange = position.price_change || 0;
+                const priceChangeColor = priceChange >= 0 ? '#047857' : '#DC2626';
+                const priceChangeIcon = priceChange >= 0 ? '▲' : '▼';
+                
+                let statusBadge = '';
+                let borderColor = '';
+                
+                if (position.status === 'open') {
+                    statusBadge = `<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(217, 119, 6, 0.2); color: #D97706;">OPEN</span>`;
+                    borderColor = '#D97706';
+                } else if (position.status === 'closed_target') {
+                    statusBadge = `<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(4, 120, 87, 0.2); color: #047857;">TARGET HIT ✓</span>`;
+                    borderColor = '#047857';
+                } else if (position.status === 'closed_stoploss') {
+                    statusBadge = `<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">STOP LOSS ✗</span>`;
+                    borderColor = '#DC2626';
+                }
+                
+                const entryDate = new Date(position.entry_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+                const exitDate = position.exit_date ? new Date(position.exit_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : null;
+                
+                html += `
+                    <div class="mobile-card rounded-xl p-5 mb-4" style="border-left: 4px solid ${borderColor};">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400 transition-colors">${position.symbol}</a>
+                                    <span class="px-2 py-1 text-xs rounded" style="background: ${position.source_color}20; color: ${position.source_color};">${position.source}</span>
+                                </div>
+                                <div class="text-xs text-slate-400">${position.company_name}</div>
+                            </div>
+                            <div class="text-right">
+                                ${statusBadge}
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <div class="text-xs text-slate-500">Entry Price</div>
+                                <div class="text-sm font-bold mono text-slate-200">₹${position.entry_price.toLocaleString()}</div>
+                                <div class="text-xs text-slate-500 mt-1">${entryDate}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-500">${position.status === 'open' ? 'Current Price' : 'Exit Price'}</div>
+                                <div class="text-sm font-bold mono text-slate-200">₹${(position.status === 'open' ? position.current_price : position.exit_price).toLocaleString()}</div>
+                                ${exitDate ? `<div class="text-xs text-slate-500 mt-1">${exitDate}</div>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-3 mb-3">
+                            <div>
+                                <div class="text-xs text-slate-500">Target</div>
+                                <div class="text-xs font-bold mono" style="color: #047857;">₹${position.target_price.toLocaleString()}</div>
+                                <div class="text-xs text-slate-500">+20%</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-500">Stop Loss</div>
+                                <div class="text-xs font-bold mono" style="color: #DC2626;">₹${position.stoploss_price.toLocaleString()}</div>
+                                <div class="text-xs text-slate-500">-5%</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-500">P&L</div>
+                                <div class="text-sm font-bold mono" style="color: ${priceChangeColor};">${priceChangeIcon} ${Math.abs(priceChange).toFixed(2)}%</div>
+                            </div>
+                        </div>
+                        
+                        ${position.status === 'open' ? `
+                        <div class="mt-3 pt-3 border-t border-slate-700">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-500">To Target: <span class="font-bold mono" style="color: #047857;">${(20 - priceChange).toFixed(1)}%</span></span>
+                                <span class="text-slate-500">To Stop: <span class="font-bold mono" style="color: #DC2626;">${(priceChange + 5).toFixed(1)}%</span></span>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            listContainer.innerHTML = html;
+        };
+        
+        // Add clear positions button (for testing/reset)
+        window.clearAllPositions = function() {
+            if (confirm('Are you sure you want to clear all position history?')) {
+                localStorage.removeItem('stockPositions');
+                displayPerformanceTracking();
+            }
+        };
     </script>
 </body>
 </html>

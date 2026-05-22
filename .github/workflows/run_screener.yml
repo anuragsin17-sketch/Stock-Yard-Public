@@ -89,8 +89,8 @@ jobs:
         # Run our separate Python script cleanly
         python update_html.py
         
-        # Commit changes to private repo
-        git add data.json index.html
+        # Commit changes to private repo (including positions.json)
+        git add data.json index.html positions.json
         
         # Create commit message with run context and better formatting
         RUN_CONTEXT="${{ github.event.schedule }}"
@@ -124,9 +124,10 @@ jobs:
         # Clone the public repository
         git clone https://x-access-token:${{ secrets.DEPLOY_TOKEN }}@github.com/anuragsin17-sketch/Stock-Yard-Public.git public-repo
         
-        # Copy files to public repo
+        # Copy files to public repo (including positions.json)
         cp index.html public-repo/
         cp data.json public-repo/
+        cp positions.json public-repo/
         
         # Navigate to public repo
         cd public-repo
@@ -136,7 +137,7 @@ jobs:
         git config user.email "action@github.com"
         
         # Add and commit changes
-        git add index.html data.json
+        git add index.html data.json positions.json
         git commit -m "🔄 Auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC') - Run #${{ github.run_number }}" || echo "ℹ️ No changes to commit"
         
         # Push to public repo

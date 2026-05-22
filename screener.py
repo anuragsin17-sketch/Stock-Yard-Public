@@ -25,8 +25,7 @@ class StockScreener:
         self.telegram_chat_id = os.environ.get('TELEGRAM_CHAT_ID')
         self.results = {
             'timestamp': datetime.now().isoformat(),
-            'golden_stocks_weekly': [],  # Weekly Trendline + Optional Fibonacci
-            'golden_stocks_monthly': [],  # Monthly Trendline + Optional Fibonacci
+            'golden_stocks': [],  # Trendline + Optional Fibonacci (Weekly or Monthly)
             'volume_breakout_stocks': [],
             'w_pattern_stocks': [],
             'elliott_wave_stocks': [],
@@ -35,8 +34,7 @@ class StockScreener:
                 'total_stocks_processed': 0,
                 'successful_downloads': 0,
                 'failed_downloads': 0,
-                'golden_weekly_matches': 0,
-                'golden_monthly_matches': 0,
+                'golden_matches': 0,
                 'volume_breakout_matches': 0,
                 'w_pattern_matches': 0,
                 'elliott_wave_matches': 0,
@@ -760,30 +758,20 @@ class StockScreener:
             trendline_data = {}
             
             if weekly_trendline and monthly_trendline:
-                # Both available - choose the one closer to current price
-                weekly_distance = abs(weekly_trendline['current_trendline_price'] - current_price) / current_price
-                monthly_distance = abs(monthly_trendline['current_trendline_price'] - current_price) / current_price
-                
-                if weekly_distance < monthly_distance:
-                    has_trendline = True
-                    trendline_data = weekly_trendline
-                    trendline_data['primary_timeframe'] = 'Weekly'
-                    trendline_data['secondary_trendline_price'] = monthly_trendline['current_trendline_price']
-                    trendline_data['secondary_timeframe'] = 'Monthly'
-                else:
-                    has_trendline = True
-                    trendline_data = monthly_trendline
-                    trendline_data['primary_timeframe'] = 'Monthly'
-                    trendline_data['secondary_trendline_price'] = weekly_trendline['current_trendline_price']
-                    trendline_data['secondary_timeframe'] = 'Weekly'
-            elif weekly_trendline:
+                # Both available - prioritize monthly timeframe
                 has_trendline = True
-                trendline_data = weekly_trendline
-                trendline_data['primary_timeframe'] = 'Weekly'
+                trendline_data = monthly_trendline
+                trendline_data['primary_timeframe'] = 'Monthly'
+                trendline_data['secondary_trendline_price'] = weekly_trendline['current_trendline_price']
+                trendline_data['secondary_timeframe'] = 'Weekly'
             elif monthly_trendline:
                 has_trendline = True
                 trendline_data = monthly_trendline
                 trendline_data['primary_timeframe'] = 'Monthly'
+            elif weekly_trendline:
+                has_trendline = True
+                trendline_data = weekly_trendline
+                trendline_data['primary_timeframe'] = 'Weekly'
             
             # Initialize has_fibonacci
             has_fibonacci = fib_result.get('is_near_fibonacci', False)
@@ -1293,17 +1281,27 @@ class StockScreener:
                             **golden_result
                         }
                         
-                        # Determine if this is weekly or monthly based on primary timeframe
+                        # Add to unified golden_stocks array
+                        self.results['golden_stocks'].append(stock_info)
+                        self.results['diagnostics']['golden_matches'] += 1
+                        
+                        # Get trendline touch point and distance
+                        trendline_price = golden_result.get('trendline_price', 0)
+                        current_price = golden_result.get('current_price', 0)
+                        distance_to_trendline = golden_result.get('distance_to_trendline_percent', 0)
                         timeframe = golden_result.get('primary_timeframe', 'Weekly')
                         
-                        if timeframe == 'Weekly':
-                            self.results['golden_stocks_weekly'].append(stock_info)
-                            self.results['diagnostics']['golden_weekly_matches'] += 1
-                            logger.info(f"Golden Stock (Weekly) match: {symbol} - {golden_result['entry_quality']} | Upside: {golden_result.get('potential_upside_percent', 0):.1f}%")
-                        else:  # Monthly
-                            self.results['golden_stocks_monthly'].append(stock_info)
-                            self.results['diagnostics']['golden_monthly_matches'] += 1
-                            logger.info(f"Golden Stock (Monthly) match: {symbol} - {golden_result['entry_quality']} | Upside: {golden_result.get('potential_upside_percent', 0):.1f}%")
+                        # Determine alert status based on distance to trendline
+                        if abs(distance_to_trendline) <= 2.0:
+                            alert = "🔥 AT ENTRY"
+                        elif abs(distance_to_trendline) <= 5.0:
+                            alert = "⚡ NEAR ENTRY"
+                        elif abs(distance_to_trendline) <= 10.0:
+                            alert = "📍 WATCH"
+                        else:
+                            alert = "👀 MONITOR"
+                        
+                        logger.info(f"Golden Stock ({timeframe}) match: {symbol} | Entry: ₹{trendline_price:.2f} | Current: ₹{current_price:.2f} | Distance: {distance_to_trendline:+.1f}% | {alert}")
             except Exception as e:
                 logger.warning(f"Golden Stocks analysis failed for {symbol}: {e}")
             
@@ -1567,4 +1565,26 @@ def main():
         # Don't raise the exception, let the workflow continue
 
 if __name__ == "__main__":
-    main()
+    try:
+        # Run the main screener
+        main()
+        
+        # After screening, update position tracking
+        logger.info("Starting position tracking update...")
+        from position_tracker import PositionTracker
+        
+        # Load screening results
+        with open('data.json', 'r') as f:
+            screening_results = json.load(f)
+        
+        # Initialize position tracker and update positions
+        tracker = PositionTracker()
+        tracker.check_and_update_positions(screening_results)
+        
+        # Get position summary
+        summary = tracker.get_summary()
+        logger.info(f"Position Tracking Summary: {summary['total_open']} open, {summary['total_closed']} closed")
+        
+    except Exception as e:
+        logger.error(f"Error in main execution: {e}")
+        raise
