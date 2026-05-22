@@ -1137,21 +1137,23 @@ class StockScreener:
                     golden_result = self.detect_golden_stocks_combined(data, weekly_data)
                     if golden_result.get('is_golden_stock', False):
                         # Apply 20% minimum upside filter for Fibonacci levels
+                        should_add = True
                         if golden_result.get('has_fibonacci', False):
                             upside_potential = golden_result.get('potential_upside_percent', 0)
                             if upside_potential < 20:
                                 logger.info(f"Golden Stock {symbol} filtered out: {upside_potential:.1f}% upside < 20% minimum")
-                                continue
+                                should_add = False
                         
-                        stock_info = {
-                            'symbol': symbol,
-                            'company_name': company_name,
-                            'industry': industry,
-                            **golden_result
-                        }
-                        self.results['golden_stocks'].append(stock_info)
-                        self.results['diagnostics']['golden_matches'] += 1
-                        logger.info(f"Golden Stock match: {symbol} - {golden_result['entry_quality']}")
+                        if should_add:
+                            stock_info = {
+                                'symbol': symbol,
+                                'company_name': company_name,
+                                'industry': industry,
+                                **golden_result
+                            }
+                            self.results['golden_stocks'].append(stock_info)
+                            self.results['diagnostics']['golden_matches'] += 1
+                            logger.info(f"Golden Stock match: {symbol} - {golden_result['entry_quality']}")
             except Exception as e:
                 logger.warning(f"Golden Stocks analysis failed for {symbol}: {e}")
             
