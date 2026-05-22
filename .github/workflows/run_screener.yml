@@ -7,8 +7,8 @@ on:
     - cron: '30 4 * * *'     # 10:00 AM IST (04:30 UTC)
     - cron: '30 8 * * *'     # 02:00 PM IST (08:30 UTC)
     - cron: '30 14 * * *'    # 08:00 PM IST (14:30 UTC)
-    - cron: '10 11 * * *'    # 04:40 PM IST (11:10 UTC) - DRY RUN TEST
-    - cron: '* * * * *'      # Every minute - TEMPORARY TEST
+    - cron: '6 15 * * *'     # 8:36 PM IST (15:06 UTC) - DRY RUN TEST
+    - cron: '*/5 * * * *'    # Every 5 minutes - TEMPORARY TEST
 
 permissions:
   contents: write
