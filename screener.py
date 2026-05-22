@@ -786,27 +786,31 @@ class StockScreener:
             # Initialize has_fibonacci
             has_fibonacci = fib_result.get('is_near_fibonacci', False)
             
-            # Must have either Fibonacci OR Trendline (or both) to qualify as Golden Stock
-            if not (has_fibonacci or has_trendline):
-                return {'is_golden_stock': False, 'error': 'No Fibonacci or Trendline signals found'}
+            # Detect Vertical Line BEFORE qualification check
+            has_vertical_line = False
+            vertical_line_data = {}
+            try:
+                vertical_result = self.detect_vertical_line_pattern(weekly_data)
+                if vertical_result.get('is_vertical_line', False):
+                    has_vertical_line = True
+                    vertical_line_data = {
+                        'vertical_line_price': vertical_result['vertical_line_price'],
+                        'vertical_line_touch_count': vertical_result['touch_count'],
+                        'vertical_line_signal': vertical_result['signal_strength']
+                    }
+            except Exception as e:
+                logger.warning(f"Vertical line analysis failed in Golden Stocks: {e}")
             
-            # Determine overall entry quality
-            if has_fibonacci and has_trendline:
-                if (abs(trendline_data.get('distance_to_trendline_percent', 100)) <= 2.0 and 
-                    abs(fib_result.get('distance_percent', 100)) <= 1.0):
-                    entry_quality = 'Excellent - Double Signal'
-                else:
-                    entry_quality = 'Good - Double Signal'
-            elif has_fibonacci:
-                if abs(fib_result.get('distance_percent', 100)) <= 1.0:
-                    entry_quality = 'Excellent - Fibonacci'
-                else:
-                    entry_quality = 'Good - Fibonacci'
-            else:  # has_trendline only
-                if abs(trendline_data.get('distance_to_trendline_percent', 100)) <= 2.0:
-                    entry_quality = 'Excellent - Trendline'
-                else:
-                    entry_quality = 'Good - Trendline'
+            # Must have ALL THREE signals: Fibonacci AND Trendline AND Vertical Line
+            if not (has_fibonacci and has_trendline and has_vertical_line):
+                return {'is_golden_stock': False, 'error': 'Requires all three signals: Fibonacci, Trendline, and Vertical Line'}
+            
+            # Determine overall entry quality - all three signals are present
+            if (abs(trendline_data.get('distance_to_trendline_percent', 100)) <= 2.0 and 
+                abs(fib_result.get('distance_percent', 100)) <= 1.0):
+                entry_quality = 'Excellent - Triple Confluence'
+            else:
+                entry_quality = 'Good - Triple Confluence'
             
             # Calculate potential upside to recent high
             potential_upside = ((week_52_high - current_price) / current_price) * 100
@@ -864,6 +868,11 @@ class StockScreener:
                     result['vertical_line_price'] = vertical_result['vertical_line_price']
                     result['vertical_line_touch_count'] = vertical_result['touch_count']
                     result['vertical_line_signal'] = vertical_result['signal_strength']
+                    result['vertical_line_entry_trigger'] = vertical_result['entry_trigger_price']
+                    result['vertical_line_distance_percent'] = vertical_result['distance_to_trigger_abs_percent']
+                    result['vertical_line_alert_status'] = vertical_result['alert_status']
+                    result['vertical_line_position'] = vertical_result['position_vs_trigger']
+                    result['vertical_line_target_price'] = vertical_result['target_price_20_percent']
                 else:
                     result['has_vertical_line'] = False
                     result['vertical_line_price'] = None
@@ -879,7 +888,14 @@ class StockScreener:
             return {'is_golden_stock': False, 'error': str(e)}
     
     def detect_vertical_line_pattern(self, weekly_data: pd.DataFrame) -> Dict:
-        """Detect Vertical Line Pattern - Touch 2 trigger with 20% upside target"""
+        """Detect Vertical Line Pattern - Horizontal support/resistance with multiple touches
+        
+        This detects horizontal price levels that have been tested multiple times (like the 
+        screenshots show - Lupin at 601, BEML at 1200-1300, etc.). These levels act as 
+        entry trigger points when price returns to touch them.
+        
+        Alert Threshold: Within 10% of the vertical line touch point price
+        """
         try:
             if len(weekly_data) < 52:  # Need at least 1 year of weekly data
                 return {'is_vertical_line': False, 'error': 'Insufficient weekly data'}
@@ -895,24 +911,26 @@ class StockScreener:
             week_52_low = min(lows[-52:]) if len(lows) >= 52 else min(lows)
             
             # Look for vertical line pattern (significant support/resistance levels)
-            # Find major horizontal levels that have been tested multiple times
-            analysis_period = min(104, len(weekly_data))  # 2 years or available data
+            # Analyze longer period for better pattern detection (3-5 years if available)
+            analysis_period = min(260, len(weekly_data))  # Up to 5 years of weekly data
             analysis_data = weekly_data.tail(analysis_period)
             
             # Find significant price levels (horizontal support/resistance)
             price_levels = []
-            tolerance = 0.02  # 2% tolerance for level matching
+            tolerance = 0.03  # 3% tolerance for level matching (increased for better grouping)
             
-            # Collect all significant highs and lows
-            for i in range(4, len(analysis_data) - 4):
+            # Collect all significant highs and lows (local extrema)
+            window = 5  # Look at 5 weeks on each side
+            for i in range(window, len(analysis_data) - window):
                 current_high = analysis_data['High'].iloc[i]
                 current_low = analysis_data['Low'].iloc[i]
                 current_date = analysis_data.index[i]
                 
                 # Check if this is a significant high or low
-                surrounding_highs = analysis_data['High'].iloc[i-4:i+5]
-                surrounding_lows = analysis_data['Low'].iloc[i-4:i+5]
+                surrounding_highs = analysis_data['High'].iloc[i-window:i+window+1]
+                surrounding_lows = analysis_data['Low'].iloc[i-window:i+window+1]
                 
+                # Local maximum (resistance)
                 if current_high == surrounding_highs.max():
                     price_levels.append({
                         'price': current_high,
@@ -921,6 +939,7 @@ class StockScreener:
                         'touches': 1
                     })
                 
+                # Local minimum (support)
                 if current_low == surrounding_lows.min():
                     price_levels.append({
                         'price': current_low,
@@ -937,6 +956,8 @@ class StockScreener:
                     if abs(level['price'] - existing['price']) / existing['price'] <= tolerance:
                         existing['touches'] += 1
                         existing['dates'].append(level['date'])
+                        # Update average price for the level
+                        existing['price'] = (existing['price'] * (existing['touches'] - 1) + level['price']) / existing['touches']
                         found_similar = True
                         break
                 
@@ -949,65 +970,82 @@ class StockScreener:
                         'first_touch': level['date']
                     })
             
-            # Find levels with multiple touches (Touch 2 or more)
+            # Find levels with multiple touches (Touch 2 or more) - this is the key pattern
             significant_levels = [level for level in consolidated_levels if level['touches'] >= 2]
             
             if not significant_levels:
                 return {'is_vertical_line': False, 'error': 'No significant vertical line levels found'}
             
-            # Find the most relevant level for current price
+            # Find the most relevant level for current price - ALERT WITHIN 10%
             best_level = None
             min_distance = float('inf')
+            alert_threshold = 0.10  # 10% alert threshold
             
             for level in significant_levels:
                 distance = abs(current_price - level['price']) / level['price']
                 
-                # Check if current price is within 3% of the level
-                if distance <= 0.03 and distance < min_distance:
+                # Check if current price is within 10% of the level (ALERT ZONE)
+                if distance <= alert_threshold and distance < min_distance:
                     min_distance = distance
                     best_level = level
             
             if not best_level:
-                return {'is_vertical_line': False, 'error': 'No relevant vertical line level near current price'}
+                return {'is_vertical_line': False, 'error': 'No relevant vertical line level within 10% of current price'}
             
-            # Calculate 20% upside target
-            target_price = current_price * 1.20
+            # Calculate entry trigger price (the vertical line touch point)
+            entry_trigger_price = best_level['price']
+            
+            # Calculate 20% upside target from entry trigger
+            target_price = entry_trigger_price * 1.20
             upside_potential = ((target_price - current_price) / current_price) * 100
             
-            # Determine if this is Touch 2 (trigger condition)
-            is_touch_2 = best_level['touches'] >= 2
+            # Determine touch count and trigger status
             touch_number = best_level['touches']
+            is_touch_2_or_more = touch_number >= 2
             
-            # Calculate distance to level
-            distance_percent = ((current_price - best_level['price']) / best_level['price']) * 100
+            # Calculate distance to entry trigger (vertical line touch point)
+            distance_percent = ((current_price - entry_trigger_price) / entry_trigger_price) * 100
+            distance_abs_percent = abs(distance_percent)
             
-            # Determine signal strength
-            if is_touch_2 and abs(distance_percent) <= 1.0:
-                signal_strength = 'Excellent - Touch 2 Trigger'
-            elif is_touch_2 and abs(distance_percent) <= 2.0:
-                signal_strength = 'Good - Touch 2 Active'
-            elif touch_number >= 3:
-                signal_strength = 'Strong - Multiple Touches'
+            # Determine signal strength based on proximity to entry trigger
+            if distance_abs_percent <= 2.0:
+                signal_strength = 'EXCELLENT - At Entry Trigger'
+                alert_status = '🔥 IMMEDIATE ENTRY ZONE'
+            elif distance_abs_percent <= 5.0:
+                signal_strength = 'VERY GOOD - Near Entry Trigger'
+                alert_status = '⚡ CLOSE TO ENTRY'
+            elif distance_abs_percent <= 10.0:
+                signal_strength = 'GOOD - Approaching Entry Trigger'
+                alert_status = '📍 WATCH ZONE'
             else:
-                signal_strength = 'Fair - Monitoring'
+                signal_strength = 'MONITORING'
+                alert_status = '👀 MONITORING'
+            
+            # Determine if price is above or below trigger
+            position_vs_trigger = 'ABOVE' if current_price > entry_trigger_price else 'BELOW'
             
             return {
                 'is_vertical_line': True,
                 'current_price': round(current_price, 2),
-                'vertical_line_price': round(best_level['price'], 2),
+                'vertical_line_price': round(entry_trigger_price, 2),  # This is the ENTRY TRIGGER
+                'entry_trigger_price': round(entry_trigger_price, 2),  # Explicit entry trigger field
                 'level_type': best_level['type'],
                 'touch_count': touch_number,
-                'is_touch_2_trigger': is_touch_2,
-                'distance_to_level_percent': round(distance_percent, 2),
+                'is_touch_2_trigger': is_touch_2_or_more,
+                'distance_to_trigger_percent': round(distance_percent, 2),
+                'distance_to_trigger_abs_percent': round(distance_abs_percent, 2),
+                'position_vs_trigger': position_vs_trigger,
                 'target_price_20_percent': round(target_price, 2),
                 'upside_potential_percent': round(upside_potential, 2),
                 'first_touch_date': best_level['first_touch'].strftime('%Y-%m-%d'),
                 'last_touch_date': best_level['dates'][-1].strftime('%Y-%m-%d'),
                 'signal_strength': signal_strength,
+                'alert_status': alert_status,
                 'week_52_high': round(week_52_high, 2),
                 'week_52_low': round(week_52_low, 2),
                 'analysis_timeframe': 'Weekly',
-                'pattern_type': 'Vertical Line Analysis'
+                'pattern_type': 'Vertical Line Entry Trigger',
+                'all_touch_dates': [d.strftime('%Y-%m-%d') for d in best_level['dates']]
             }
             
         except Exception as e:
