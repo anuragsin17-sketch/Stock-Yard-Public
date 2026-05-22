@@ -2,6 +2,11 @@ name: Stock Yard Screener
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: 
+      - '.github/workflows/run_screener.yml'
+      - 'trigger_test.txt'
   schedule:
     # Daily runs at specific IST times (7 days a week)
     - cron: '30 4 * * *'     # 10:00 AM IST (04:30 UTC)
