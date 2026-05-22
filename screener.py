@@ -146,7 +146,7 @@ class StockScreener:
             return None
     
     def calculate_fibonacci_levels(self, data: pd.DataFrame) -> Dict:
-        """Calculate Fibonacci retracement levels"""
+        """Calculate Fibonacci retracement levels - Only 38.2%, 50%, and 61.8%"""
         try:
             high_5y = data['High'].max()
             low_5y = data['Low'].min()
@@ -156,27 +156,22 @@ class StockScreener:
             week_52_high = data['High'].tail(252).max() if len(data) >= 252 else data['High'].max()
             week_52_low = data['Low'].tail(252).min() if len(data) >= 252 else data['Low'].min()
             
-            # Calculate retracement levels
+            # Calculate only the three key retracement levels
             diff = high_5y - low_5y
-            fib_100 = high_5y
             fib_618 = high_5y - (diff * 0.618)
             fib_50 = high_5y - (diff * 0.50)
             fib_382 = high_5y - (diff * 0.382)
-            fib_0 = low_5y
             
             levels = {
-                '100%': fib_100,
                 '61.8%': fib_618,
                 '50%': fib_50,
-                '38.2%': fib_382,
-                '0%': fib_0
+                '38.2%': fib_382
             }
             
             # Check if current price is within 1.5% of key levels
             tolerance = 0.015  # 1.5%
-            key_levels = [fib_100, fib_618, fib_50]
             
-            for level_name, level_price in [('100%', fib_100), ('61.8%', fib_618), ('50%', fib_50)]:
+            for level_name, level_price in levels.items():
                 if abs(current_price - level_price) / level_price <= tolerance:
                     return {
                         'is_near_fibonacci': True,

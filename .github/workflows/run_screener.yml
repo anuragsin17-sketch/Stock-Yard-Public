@@ -3,7 +3,12 @@ name: Stock Yard Screener
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 11 * * 1-5'
+    # Multiple daily runs for 24/7 live feel (IST market hours)
+    - cron: '30 3 * * 1-5'   # 9:00 AM IST - Pre-market
+    - cron: '0 6 * * 1-5'    # 11:30 AM IST - Mid-morning
+    - cron: '30 8 * * 1-5'   # 2:00 PM IST - Mid-day
+    - cron: '0 11 * * 1-5'   # 4:30 PM IST - Post-market
+    - cron: '30 13 * * 1-5'  # 7:00 PM IST - Evening update
 
 permissions:
   contents: write
@@ -34,10 +39,14 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        RUN_TIME: ${{ github.event.schedule }}
       run: |
         echo "Starting Stock Yard Screener with Yahoo Finance data..."
+        echo "Scheduled run time: ${RUN_TIME:-manual}"
+        echo "Current UTC time: $(date -u)"
+        echo "Current IST time: $(TZ='Asia/Kolkata' date)"
         python screener.py
-        echo "Screener execution completed"
+        echo "Screener execution completed successfully"
     
     - name: Verify results
       run: |
@@ -54,8 +63,60 @@ jobs:
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add data.json
-        git commit -m "Update live screening results - $(date '+%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
-        git push origin main || git push origin master
+        
+        # Update HTML with latest data for live embedding
+        if [ -f "data.json" ]; then
+          echo "Updating HTML with latest screening data..."
+          python -c "
+import json
+import re
+from datetime import datetime
+
+# Read the latest data
+with open('data.json', 'r') as f:
+    latest_data = json.load(f)
+
+# Read the HTML file
+with open('index.html', 'r') as f:
+    html_content = f.read()
+
+# Update the embedded LIVE_DATA
+data_str = json.dumps(latest_data, indent=2)
+pattern = r'const LIVE_DATA = \{[^}]+\};'
+replacement = f'const LIVE_DATA = {data_str};'
+
+# Replace the embedded data
+updated_html = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
+
+# Write back to HTML
+with open('index.html', 'w') as f:
+    f.write(updated_html)
+
+print('HTML updated with latest data')
+"
+        fi
+        
+        # Commit changes
+        git add data.json index.html
+        
+        # Create commit message with run context
+        RUN_CONTEXT="${{ github.event.schedule }}"
+        if [ -z "$RUN_CONTEXT" ]; then
+          RUN_CONTEXT="manual"
+        fi
+        
+        COMMIT_MSG="📊 Live update: $(date '+%Y-%m-%d %H:%M:%S UTC') [$RUN_CONTEXT]"
+        git commit -m "$COMMIT_MSG" || echo "No changes to commit"
+        
+        # Push with retry logic
+        for i in {1..3}; do
+          if git push origin main 2>/dev/null || git push origin master 2>/dev/null; then
+            echo "✅ Successfully pushed changes (attempt $i)"
+            break
+          else
+            echo "⚠️ Push failed (attempt $i), retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
