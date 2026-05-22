@@ -29,7 +29,6 @@ class StockScreener:
             'volume_breakout_stocks': [],
             'w_pattern_stocks': [],
             'elliott_wave_stocks': [],
-            'darvas_box_stocks': [],  # Darvas Box analysis
             'diagnostics': {
                 'total_stocks_processed': 0,
                 'successful_downloads': 0,
@@ -38,7 +37,6 @@ class StockScreener:
                 'volume_breakout_matches': 0,
                 'w_pattern_matches': 0,
                 'elliott_wave_matches': 0,
-                'darvas_box_matches': 0,
                 'errors': []
             }
         }
@@ -1033,159 +1031,6 @@ class StockScreener:
             logger.error(f"Error detecting Vertical Line pattern: {e}")
             return {'is_vertical_line': False, 'error': str(e)}
     
-    def detect_darvas_box_pattern(self, data: pd.DataFrame) -> Dict:
-        """Detect Darvas Box Pattern - Multi-timeframe consolidation with progressive targets"""
-        try:
-            if len(data) < 252:  # Need at least 1 year of daily data
-                return {'is_darvas_box': False, 'error': 'Insufficient daily data'}
-            
-            current_price = data['Close'].iloc[-1]
-            
-            # Test multiple timeframes (2-3, 2-4, 2-5 years) - minimum 2 years consolidation
-            timeframes = [
-                {'years': '2-3', 'min_days': 730, 'max_days': 1095, 'target_percent': 100},  # 2-3 years
-                {'years': '2-4', 'min_days': 730, 'max_days': 1460, 'target_percent': 150},  # 2-4 years
-                {'years': '2-5', 'min_days': 730, 'max_days': 1825, 'target_percent': 200}   # 2-5 years
-            ]
-            
-            best_darvas_box = None
-            
-            for timeframe in timeframes:
-                # Check if we have enough data for this timeframe
-                if len(data) < timeframe['max_days']:
-                    continue
-                
-                # Get data for this timeframe range
-                period_data = data.tail(timeframe['max_days'])
-                highs = period_data['High'].values
-                lows = period_data['Low'].values
-                
-                # Find the consolidation range (Darvas Box)
-                # Look for periods where price stayed within a range for extended time
-                
-                # Calculate rolling max and min over different windows
-                window_sizes = [20, 40, 60, 80]  # Different consolidation periods
-                
-                for window in window_sizes:
-                    if len(period_data) < window * 2:
-                        continue
-                    
-                    # Calculate rolling ranges
-                    rolling_high = period_data['High'].rolling(window=window).max()
-                    rolling_low = period_data['Low'].rolling(window=window).min()
-                    rolling_range = ((rolling_high - rolling_low) / rolling_low) * 100
-                    
-                    # Find periods with tight consolidation (range < 15%)
-                    consolidation_periods = rolling_range[rolling_range < 15]
-                    
-                    if len(consolidation_periods) < window // 2:  # Need sustained consolidation
-                        continue
-                    
-                    # Find the most recent significant consolidation
-                    recent_consolidations = consolidation_periods.tail(window)
-                    if len(recent_consolidations) < window // 3:
-                        continue
-                    
-                    # Get the consolidation box boundaries
-                    consolidation_start_idx = recent_consolidations.index[0]
-                    consolidation_end_idx = recent_consolidations.index[-1]
-                    
-                    # Find box boundaries from the consolidation period
-                    consolidation_data = period_data.loc[consolidation_start_idx:consolidation_end_idx]
-                    box_high = consolidation_data['High'].max()
-                    box_low = consolidation_data['Low'].min()
-                    box_range_percent = ((box_high - box_low) / box_low) * 100
-                    
-                    # Validate box criteria
-                    if box_range_percent > 20:  # Box too wide
-                        continue
-                    
-                    # Check if current price is within or near the box
-                    distance_to_box_high = ((current_price - box_high) / box_high) * 100
-                    distance_to_box_low = ((current_price - box_low) / box_low) * 100
-                    
-                    # Check if price is in the box or recently broke out
-                    in_box = box_low <= current_price <= box_high
-                    near_breakout = -5 <= distance_to_box_high <= 10  # Within 5% below to 10% above
-                    
-                    if not (in_box or near_breakout):
-                        continue
-                    
-                    # Calculate consolidation duration
-                    consolidation_days = (consolidation_end_idx - consolidation_start_idx).days
-                    consolidation_months = consolidation_days / 30.44
-                    
-                    # Must have consolidated for at least 24 months (2 years)
-                    if consolidation_months < 24:
-                        continue
-                    
-                    # Calculate target based on timeframe
-                    target_percent = timeframe['target_percent']
-                    if consolidation_months >= 12:  # 1+ year consolidation gets higher target
-                        target_percent = min(target_percent * 1.5, 300)
-                    
-                    target_price = current_price * (1 + target_percent / 100)
-                    
-                    # Determine breakout status
-                    if current_price > box_high * 1.02:  # 2% above box high
-                        breakout_status = 'Confirmed Breakout'
-                        signal_strength = 'Excellent'
-                    elif current_price > box_high:
-                        breakout_status = 'Initial Breakout'
-                        signal_strength = 'Good'
-                    elif current_price >= box_high * 0.98:  # Within 2% of breakout
-                        breakout_status = 'Near Breakout'
-                        signal_strength = 'Good'
-                    else:
-                        breakout_status = 'In Consolidation'
-                        signal_strength = 'Fair'
-                    
-                    # Calculate box strength (longer consolidation = stronger)
-                    box_strength = min(100, (consolidation_months / 12) * 50 + 50)
-                    
-                    darvas_box = {
-                        'timeframe_years': timeframe['years'],
-                        'box_high': round(box_high, 2),
-                        'box_low': round(box_low, 2),
-                        'box_range_percent': round(box_range_percent, 2),
-                        'consolidation_months': round(consolidation_months, 1),
-                        'target_price': round(target_price, 2),
-                        'target_percent': target_percent,
-                        'breakout_status': breakout_status,
-                        'signal_strength': signal_strength,
-                        'box_strength': round(box_strength, 1),
-                        'distance_to_breakout': round(distance_to_box_high, 2),
-                        'consolidation_start': consolidation_start_idx.strftime('%Y-%m-%d'),
-                        'consolidation_end': consolidation_end_idx.strftime('%Y-%m-%d')
-                    }
-                    
-                    # Prefer longer timeframes and stronger signals
-                    if (best_darvas_box is None or 
-                        timeframe['years'] > best_darvas_box['timeframe_years'] or
-                        (timeframe['years'] == best_darvas_box['timeframe_years'] and 
-                         box_strength > best_darvas_box['box_strength'])):
-                        best_darvas_box = darvas_box
-            
-            if not best_darvas_box:
-                return {'is_darvas_box': False, 'error': 'No valid Darvas Box pattern found'}
-            
-            # Calculate 52-week high and low
-            week_52_high = data['High'].tail(252).max() if len(data) >= 252 else data['High'].max()
-            week_52_low = data['Low'].tail(252).min() if len(data) >= 252 else data['Low'].min()
-            
-            return {
-                'is_darvas_box': True,
-                'current_price': round(current_price, 2),
-                'week_52_high': round(week_52_high, 2),
-                'week_52_low': round(week_52_low, 2),
-                'analysis_timeframe': 'Daily Multi-Year',
-                'pattern_type': 'Darvas Box Analysis',
-                **best_darvas_box
-            }
-            
-        except Exception as e:
-            logger.error(f"Error detecting Darvas Box pattern: {e}")
-            return {'is_darvas_box': False, 'error': str(e)}
     
     def screen_stock(self, symbol: str, company_name: str, industry: str) -> None:
         """Screen a single stock for all conditions"""
@@ -1305,23 +1150,6 @@ class StockScreener:
             except Exception as e:
                 logger.warning(f"Golden Stocks analysis failed for {symbol}: {e}")
             
-            # Check Darvas Box Pattern
-            try:
-                darvas_result = self.detect_darvas_box_pattern(data)
-                if darvas_result.get('is_darvas_box', False):
-                    stock_info = {
-                        'symbol': symbol,
-                        'company_name': company_name,
-                        'industry': industry,
-                        'vertical_line_price': vertical_line_price,  # Add vertical line price
-                        **darvas_result
-                    }
-                    self.results['darvas_box_stocks'].append(stock_info)
-                    self.results['diagnostics']['darvas_box_matches'] += 1
-                    logger.info(f"Darvas Box match: {symbol} - {darvas_result['timeframe_years']}Y box, {darvas_result['breakout_status']}")
-            except Exception as e:
-                logger.warning(f"Darvas Box analysis failed for {symbol}: {e}")
-            
             # Rate limiting to avoid overwhelming the API - increased delay
             time.sleep(0.5)  # Increased from 0.1 to 0.5 seconds
             
@@ -1394,14 +1222,6 @@ class StockScreener:
                 -x.get('trendline_strength', 0)  # Stronger trendlines first (negative for descending sort)
             ))
             
-            # Sort Darvas Box stocks: Longer timeframes first, then by breakout status
-            self.results['darvas_box_stocks'].sort(key=lambda x: (
-                0 if x.get('breakout_status') == 'Confirmed Breakout' else 1 if x.get('breakout_status') == 'Initial Breakout' else 2,  # Breakout status
-                -x.get('timeframe_years', 0),  # Longer timeframes first
-                -x.get('box_strength', 0),  # Stronger boxes first
-                abs(x.get('distance_to_breakout', 100))  # Closer to breakout
-            ))
-            
             logger.info("Results sorted by priority")
             
         except Exception as e:
@@ -1420,7 +1240,6 @@ class StockScreener:
         - Volume breakout matches: {diag['volume_breakout_matches']}
         - W-Pattern matches: {diag['w_pattern_matches']}
         - Elliott Wave matches: {diag['elliott_wave_matches']}
-        - Darvas Box matches: {diag['darvas_box_matches']}
         - Errors: {len(diag['errors'])}
         """)
     
@@ -1463,7 +1282,6 @@ class StockScreener:
             vol_count = len(self.results['volume_breakout_stocks'])
             w_pattern_count = len(self.results['w_pattern_stocks'])
             elliott_count = len(self.results['elliott_wave_stocks'])
-            darvas_count = len(self.results['darvas_box_stocks'])
             
             # Count radar alerts
             vol_radar_active = sum(1 for stock in self.results['volume_breakout_stocks'] 
@@ -1478,11 +1296,10 @@ class StockScreener:
 
 📊 *Results Summary:*
 • Total Stocks Screened: {total_processed}
-• Golden Stocks (Fib+Trendline+Vertical): {golden_count} matches
+• Golden Stocks: {golden_count} matches
 • Volume Breakout: {vol_count} matches
 • W-Pattern: {w_pattern_count} matches
 • Elliott Wave (Long-term): {elliott_count} matches
-• Darvas Box (Multi-Year): {darvas_count} matches
 
 🚨 *RADAR ALERTS:*
 • Volume Stocks in Radar: {vol_radar_active}
@@ -1583,7 +1400,6 @@ if __name__ == "__main__":
                 'volume_breakout_stocks': [],
                 'w_pattern_stocks': [],
                 'elliott_wave_stocks': [],
-                'darvas_box_stocks': [],
                 'diagnostics': {
                     'total_stocks_processed': 0,
                     'successful_downloads': 0,
@@ -1592,7 +1408,6 @@ if __name__ == "__main__":
                     'volume_breakout_matches': 0,
                     'w_pattern_matches': 0,
                     'elliott_wave_matches': 0,
-                    'darvas_box_matches': 0,
                     'errors': [f"Main execution error: {e}"]
                 }
             }

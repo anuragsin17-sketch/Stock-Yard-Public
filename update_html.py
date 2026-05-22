@@ -20,12 +20,24 @@ if os.path.exists("data.json"):
     start_pattern = r"const LIVE_DATA = "
     end_pattern = r";\s*\n\s*// Global variables"
     
-    # Use a more flexible regex that captures everything between the patterns
-    pattern = r"(const LIVE_DATA = )(\{.*?\})(;\s*\n\s*// Global variables)"
-    replacement = r"\1" + data_str + r"\3"
+    # Replace the embedded data using string replacement instead of regex
+    start_marker = "const LIVE_DATA = "
+    end_marker = ";\n        \n        // Global variables"
     
-    # Replace the embedded data
-    updated_html = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
+    start_idx = html_content.find(start_marker)
+    if start_idx == -1:
+        print("Could not find LIVE_DATA start marker")
+        exit(1)
+    
+    end_idx = html_content.find(end_marker, start_idx)
+    if end_idx == -1:
+        print("Could not find LIVE_DATA end marker")
+        exit(1)
+    
+    # Replace the data
+    updated_html = (html_content[:start_idx + len(start_marker)] + 
+                   data_str + 
+                   html_content[end_idx:])
 
     # Write back to HTML
     with open("index.html", "w", encoding="utf-8") as f:

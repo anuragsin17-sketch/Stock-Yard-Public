@@ -79,17 +79,6 @@ class PositionTracker:
                     'neckline_price': stock.get('neckline_peak_price')
                 })
         
-        for stock in screening_results.get('darvas_box_stocks', []):
-            if stock.get('box_low'):
-                all_stocks.append({
-                    'symbol': stock['symbol'],
-                    'company_name': stock['company_name'],
-                    'category': 'Darvas Box',
-                    'trigger_price': stock['box_low'],
-                    'current_price': stock['current_price'],
-                    'box_high': stock.get('box_high')
-                })
-        
         for stock in screening_results.get('elliott_wave_stocks', []):
             if stock.get('golden_pocket_low'):
                 all_stocks.append({
