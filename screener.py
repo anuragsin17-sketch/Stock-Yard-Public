@@ -534,8 +534,26 @@ class StockScreener:
     def save_results(self) -> None:
         """Save results to JSON file"""
         try:
+            # Convert NaN values to None for JSON serialization
+            import json
+            import numpy as np
+            
+            def convert_nan(obj):
+                if isinstance(obj, dict):
+                    return {k: convert_nan(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [convert_nan(item) for item in obj]
+                elif isinstance(obj, float) and np.isnan(obj):
+                    return None
+                elif isinstance(obj, np.bool_):
+                    return bool(obj)
+                else:
+                    return obj
+            
+            clean_results = convert_nan(self.results)
+            
             with open('data.json', 'w') as f:
-                json.dump(self.results, f, indent=2)
+                json.dump(clean_results, f, indent=2)
             logger.info("Results saved to data.json")
         except Exception as e:
             logger.error(f"Error saving results: {e}")

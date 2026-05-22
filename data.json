@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-21T23:33:24.448307",
+  "timestamp": "2026-05-22T06:07:32.818391",
   "fibonacci_stocks": [
     {
       "symbol": "TMPV",
@@ -13,14 +13,7 @@
       "high_5y": 419.0,
       "low_5y": 294.3,
       "week_52_high": 419.0,
-      "week_52_low": 294.3,
-      "all_levels": {
-        "100%": 419.0,
-        "61.8%": 341.94,
-        "50%": 356.65,
-        "38.2%": 371.36,
-        "0%": 294.3
-      }
+      "week_52_low": 294.3
     }
   ],
   "volume_breakout_stocks": [
@@ -32,15 +25,32 @@
       "breakout_date": "2026-04-09",
       "breakout_price": 36770.0,
       "breakout_low": 35825.0,
-      "breakout_high": 37570.0,
-      "breakout_volume_ratio": 8.01,
-      "breakout_price_change": 2.32,
-      "current_price": NaN,
-      "retracement_percent": NaN,
-      "days_since_breakout": 28,
-      "pullback_depth_percent": 6.02,
-      "max_price_after_breakout": 38145.0,
-      "pattern_type": "Volume Breakout with Retracement",
+      "current_price": 36500.0,
       "week_52_high": 41945.0,
       "week_52_low": 28610.0,
-      "near_breakout_low": 
+      "radar_status": "Monitoring"
+    }
+  ],
+  "w_pattern_stocks": [
+    {
+      "symbol": "BEL",
+      "company_name": "Bharat Electronics Ltd.",
+      "industry": "Capital Goods",
+      "is_w_pattern": true,
+      "current_price": 413.3,
+      "neckline_peak_price": 473.45,
+      "week_52_high": 500.0,
+      "week_52_low": 350.0,
+      "radar_status": "Monitoring"
+    }
+  ],
+  "diagnostics": {
+    "total_stocks_processed": 204,
+    "successful_downloads": 200,
+    "failed_downloads": 4,
+    "fibonacci_matches": 1,
+    "volume_breakout_matches": 9,
+    "w_pattern_matches": 8,
+    "errors": []
+  }
+}
