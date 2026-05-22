@@ -25,7 +25,8 @@ class StockScreener:
         self.telegram_chat_id = os.environ.get('TELEGRAM_CHAT_ID')
         self.results = {
             'timestamp': datetime.now().isoformat(),
-            'golden_stocks': [],  # Combined Fibonacci + Trendline + Vertical Line
+            'golden_stocks_weekly': [],  # Weekly Trendline + Optional Fibonacci
+            'golden_stocks_monthly': [],  # Monthly Trendline + Optional Fibonacci
             'volume_breakout_stocks': [],
             'w_pattern_stocks': [],
             'elliott_wave_stocks': [],
@@ -34,7 +35,8 @@ class StockScreener:
                 'total_stocks_processed': 0,
                 'successful_downloads': 0,
                 'failed_downloads': 0,
-                'golden_matches': 0,
+                'golden_weekly_matches': 0,
+                'golden_monthly_matches': 0,
                 'volume_breakout_matches': 0,
                 'w_pattern_matches': 0,
                 'elliott_wave_matches': 0,
@@ -786,31 +788,22 @@ class StockScreener:
             # Initialize has_fibonacci
             has_fibonacci = fib_result.get('is_near_fibonacci', False)
             
-            # Detect Vertical Line BEFORE qualification check
-            has_vertical_line = False
-            vertical_line_data = {}
-            try:
-                vertical_result = self.detect_vertical_line_pattern(weekly_data)
-                if vertical_result.get('is_vertical_line', False):
-                    has_vertical_line = True
-                    vertical_line_data = {
-                        'vertical_line_price': vertical_result['vertical_line_price'],
-                        'vertical_line_touch_count': vertical_result['touch_count'],
-                        'vertical_line_signal': vertical_result['signal_strength']
-                    }
-            except Exception as e:
-                logger.warning(f"Vertical line analysis failed in Golden Stocks: {e}")
+            # Must have Trendline (Fibonacci is optional)
+            if not has_trendline:
+                return {'is_golden_stock': False, 'error': 'Requires Trendline signal'}
             
-            # Must have ALL THREE signals: Fibonacci AND Trendline AND Vertical Line
-            if not (has_fibonacci and has_trendline and has_vertical_line):
-                return {'is_golden_stock': False, 'error': 'Requires all three signals: Fibonacci, Trendline, and Vertical Line'}
-            
-            # Determine overall entry quality - all three signals are present
-            if (abs(trendline_data.get('distance_to_trendline_percent', 100)) <= 2.0 and 
-                abs(fib_result.get('distance_percent', 100)) <= 1.0):
-                entry_quality = 'Excellent - Triple Confluence'
+            # Determine overall entry quality
+            if has_fibonacci:
+                if (abs(trendline_data.get('distance_to_trendline_percent', 100)) <= 2.0 and 
+                    abs(fib_result.get('distance_percent', 100)) <= 1.0):
+                    entry_quality = 'Excellent - Trendline + Fibonacci Confluence'
+                else:
+                    entry_quality = 'Good - Trendline + Fibonacci'
             else:
-                entry_quality = 'Good - Triple Confluence'
+                if abs(trendline_data.get('distance_to_trendline_percent', 100)) <= 2.0:
+                    entry_quality = 'Good - Trendline Only'
+                else:
+                    entry_quality = 'Fair - Trendline Only'
             
             # Calculate potential upside to recent high
             potential_upside = ((week_52_high - current_price) / current_price) * 100
@@ -860,7 +853,7 @@ class StockScreener:
                         result['monthly_trendline_price'] = trendline_data['trendline_price']
                         result['weekly_trendline_price'] = None
             
-            # Add Vertical Line analysis to Golden Stocks
+            # Add Vertical Line analysis to Golden Stocks (OPTIONAL - just for entry price info)
             try:
                 vertical_result = self.detect_vertical_line_pattern(weekly_data)
                 if vertical_result.get('is_vertical_line', False):
@@ -1287,7 +1280,7 @@ class StockScreener:
             except Exception as e:
                 logger.warning(f"Elliott Wave analysis failed for {symbol}: {e}")
             
-            # Check Golden Stocks (Combined Trendline + Fibonacci + Vertical Line)
+            # Check Golden Stocks - Separate Weekly and Monthly
             try:
                 # Use weekly data for combined analysis
                 if weekly_data is not None and not weekly_data.empty:
@@ -1299,9 +1292,18 @@ class StockScreener:
                             'industry': industry,
                             **golden_result
                         }
-                        self.results['golden_stocks'].append(stock_info)
-                        self.results['diagnostics']['golden_matches'] += 1
-                        logger.info(f"Golden Stock match: {symbol} - {golden_result['entry_quality']} | Upside: {golden_result.get('potential_upside_percent', 0):.1f}%")
+                        
+                        # Determine if this is weekly or monthly based on primary timeframe
+                        timeframe = golden_result.get('primary_timeframe', 'Weekly')
+                        
+                        if timeframe == 'Weekly':
+                            self.results['golden_stocks_weekly'].append(stock_info)
+                            self.results['diagnostics']['golden_weekly_matches'] += 1
+                            logger.info(f"Golden Stock (Weekly) match: {symbol} - {golden_result['entry_quality']} | Upside: {golden_result.get('potential_upside_percent', 0):.1f}%")
+                        else:  # Monthly
+                            self.results['golden_stocks_monthly'].append(stock_info)
+                            self.results['diagnostics']['golden_monthly_matches'] += 1
+                            logger.info(f"Golden Stock (Monthly) match: {symbol} - {golden_result['entry_quality']} | Upside: {golden_result.get('potential_upside_percent', 0):.1f}%")
             except Exception as e:
                 logger.warning(f"Golden Stocks analysis failed for {symbol}: {e}")
             

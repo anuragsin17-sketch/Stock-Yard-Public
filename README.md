@@ -41,32 +41,36 @@ A 24/7 automated stock screening system that runs completely FREE using GitHub e
 
 ## Screening Logic
 
-### Golden Stocks (Triple Confluence Strategy)
-Golden Stocks require **ALL THREE signals** to be present simultaneously:
+### Golden Stocks (Fibonacci + Trendline Strategy)
+Golden Stocks require **BOTH signals** to be present simultaneously:
 
-1. **Fibonacci Retracement** (38.2%, 50%, or 61.8%)
+1. **Fibonacci Retracement** (38.2%, 50%, or 61.8%) - REQUIRED
    - Calculates 5-year high/low levels
    - Flags stocks within ±1.5% of key Fibonacci levels
    - Shows distance percentage from the level
 
-2. **Ascending Trendline** (Weekly or Monthly)
+2. **Ascending Trendline** (Weekly or Monthly) - REQUIRED
    - Detects upward-sloping support trendlines
    - Requires minimum 3 touches for validation
    - Analyzes both weekly and monthly timeframes
    - Price must be within ±5% of trendline
 
-3. **Vertical Line Entry Trigger** (Horizontal Support/Resistance)
-   - Identifies horizontal price levels with multiple touches (like 601 in Lupin example)
-   - **Entry Trigger**: The vertical line touch point price
-   - **Alert Zone**: Within 10% of the entry trigger price
-   - Minimum 2 touches required (Touch 2 pattern)
-   - Target: 20% upside from entry trigger
-   - Shows exact entry trigger price and distance to it
+3. **Vertical Line Entry Price** (Optional - Information Only)
+   - Identifies horizontal support/resistance levels with multiple touches
+   - Provides exact entry trigger price (e.g., 601 for Lupin, 1200 for BEML)
+   - Shows distance to entry trigger and alert status
+   - **Within 10% alert threshold** - monitors when price approaches entry level
+   - Not required for Golden Stock qualification - just provides entry price info
 
 **Entry Signal Strength:**
-- 🔥 **IMMEDIATE ENTRY ZONE**: Within 2% of vertical line trigger price
-- ⚡ **CLOSE TO ENTRY**: Within 5% of trigger price  
-- 📍 **WATCH ZONE**: Within 10% of trigger price (Alert threshold)
+- 🔥 **EXCELLENT**: Within 2% of trendline AND within 1% of Fibonacci
+- ✅ **GOOD**: Fibonacci + Trendline confluence present
+
+**Vertical Line Alert Zones (Information Only):**
+- 🔥 **IMMEDIATE ENTRY ZONE**: Within 2% of entry trigger price
+- ⚡ **CLOSE TO ENTRY**: Within 5% of entry trigger price  
+- 📍 **WATCH ZONE**: Within 10% of entry trigger price
+- 👀 **MONITORING**: Beyond 10%
 
 ### Volume Breakout
 - Calculates 90-day volume baseline
