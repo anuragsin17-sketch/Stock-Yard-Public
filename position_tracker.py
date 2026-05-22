@@ -109,7 +109,7 @@ class PositionTracker:
         self.save_positions()
     
     def _process_stock(self, stock: Dict):
-        """Process individual stock for position tracking"""
+        """Process individual stock for position tracking with improved logic"""
         symbol = stock['symbol']
         current_price = stock['current_price']
         trigger_price = stock['trigger_price']
@@ -129,18 +129,33 @@ class PositionTracker:
         if not existing_open and distance_to_trigger <= 1.0:
             self._open_position(stock)
         
-        # Check if we should close an existing position (20% target hit)
+        # Check if we should close an existing position
         elif existing_open:
             entry_price = existing_open['entry_price']
             target_price = entry_price * 1.20  # 20% target
+            stoploss_price = entry_price * 0.92  # 8% stop loss (widened from 5%)
             
+            # Calculate current gain
+            current_gain_percent = ((current_price - entry_price) / entry_price) * 100
+            
+            # Trailing stop loss: If position is +10%, move stop to breakeven
+            if current_gain_percent >= 10:
+                stoploss_price = entry_price  # Breakeven stop
+            
+            # Check for target hit (20%)
             if current_price >= target_price:
-                self._close_position(existing_open, current_price, target_price)
+                self._close_position(existing_open, current_price, target_price, 'Target Hit (20%)')
+            
+            # Check for stop loss hit (8% or breakeven)
+            elif current_price <= stoploss_price:
+                reason = 'Stop Loss Hit (8%)' if stoploss_price < entry_price else 'Breakeven Stop Hit'
+                self._close_position(existing_open, current_price, stoploss_price, reason)
             else:
                 # Update current price for open position
                 existing_open['current_price'] = current_price
-                existing_open['current_gain_percent'] = round(((current_price - entry_price) / entry_price) * 100, 2)
+                existing_open['current_gain_percent'] = round(current_gain_percent, 2)
                 existing_open['last_updated'] = datetime.now().isoformat()
+                existing_open['stoploss_price'] = round(stoploss_price, 2)  # Update trailing stop
     
     def _find_position(self, symbol: str, positions_list: List) -> Dict:
         """Find position by symbol"""
@@ -153,6 +168,7 @@ class PositionTracker:
         """Open a new position"""
         entry_price = stock['current_price']
         target_price = entry_price * 1.20  # 20% target
+        stoploss_price = entry_price * 0.92  # 8% stop loss (improved from 5%)
         
         position = {
             'symbol': stock['symbol'],
@@ -160,6 +176,7 @@ class PositionTracker:
             'category': stock['category'],
             'entry_price': round(entry_price, 2),
             'target_price': round(target_price, 2),
+            'stoploss_price': round(stoploss_price, 2),
             'current_price': round(entry_price, 2),
             'current_gain_percent': 0.0,
             'entry_date': datetime.now().isoformat(),
@@ -176,9 +193,9 @@ class PositionTracker:
             position['neckline_price'] = stock['neckline_price']
         
         self.positions['open_positions'].append(position)
-        logger.info(f"✅ Position Taken: {stock['symbol']} at ₹{entry_price:.2f} | Target: ₹{target_price:.2f}")
+        logger.info(f"✅ Position Taken: {stock['symbol']} at ₹{entry_price:.2f} | Target: ₹{target_price:.2f} | Stop: ₹{stoploss_price:.2f}")
     
-    def _close_position(self, position: Dict, exit_price: float, target_price: float):
+    def _close_position(self, position: Dict, exit_price: float, target_or_stop: float, reason: str):
         """Close an existing position"""
         entry_price = position['entry_price']
         gain_percent = ((exit_price - entry_price) / entry_price) * 100
@@ -188,13 +205,14 @@ class PositionTracker:
         position['exit_date'] = datetime.now().isoformat()
         position['gain_percent'] = round(gain_percent, 2)
         position['status'] = 'Position Closed'
-        position['target_hit'] = True
+        position['exit_reason'] = reason
         
         # Move from open to closed
         self.positions['open_positions'].remove(position)
         self.positions['closed_positions'].append(position)
         
-        logger.info(f"🎯 Position Closed: {position['symbol']} | Entry: ₹{entry_price:.2f} | Exit: ₹{exit_price:.2f} | Gain: {gain_percent:.2f}%")
+        emoji = "🎯" if gain_percent > 0 else "🛑"
+        logger.info(f"{emoji} Position Closed: {position['symbol']} | Entry: ₹{entry_price:.2f} | Exit: ₹{exit_price:.2f} | Gain: {gain_percent:+.2f}% | {reason}")
     
     def get_summary(self) -> Dict:
         """Get summary statistics"""

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Backtest Data Loading</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: #fff; }
+        .error { color: #ff6b6b; }
+        .success { color: #51cf66; }
+        .info { color: #74c0fc; }
+        pre { background: #2d2d2d; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Backtest Data Loading Debug</h1>
+    <div id="status">Loading...</div>
+    <div id="data-preview"></div>
+
+    <script>
+        console.log('Starting debug script...');
+        
+        // Test if we can fetch the JSON file
+        fetch('backtest_golden_3years_results.json')
+            .then(response => {
+                console.log('Fetch response:', response);
+                document.getElementById('status').innerHTML = `
+                    <div class="info">Fetch Response Status: ${response.status}</div>
+                    <div class="info">Response OK: ${response.ok}</div>
+                `;
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return response.json();
+            })
+            .then(data => {
+                console.log('Data loaded successfully:', data);
+                document.getElementById('status').innerHTML += '<div class="success">✓ Data loaded successfully!</div>';
+                
+                // Show preview of the data
+                document.getElementById('data-preview').innerHTML = `
+                    <h3>Data Preview:</h3>
+                    <div class="info">Strategy: ${data.strategy}</div>
+                    <div class="info">Total Trades: ${data.summary.total_trades}</div>
+                    <div class="info">Final Capital: ₹${data.summary.final_capital.toLocaleString()}</div>
+                    <div class="info">Total Return: ${data.summary.total_return_percent.toFixed(2)}%</div>
+                    <div class="info">Win Rate: ${data.summary.win_rate.toFixed(2)}%</div>
+                    
+                    <h4>First Trade Sample:</h4>
+                    <pre>${JSON.stringify(data.all_trades[0], null, 2)}</pre>
+                `;
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
+                document.getElementById('status').innerHTML = `
+                    <div class="error">❌ Error loading data: ${error.message}</div>
+                    <div class="info">Make sure you're accessing this via HTTP server (http://localhost:8000/debug_backtest.html)</div>
+                    <div class="info">Direct file:// URLs may not work due to CORS restrictions</div>
+                `;
+            });
+    </script>
+</body>
+</html>
