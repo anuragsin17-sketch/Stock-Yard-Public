@@ -74,16 +74,22 @@
         <!-- Navigation Tabs -->
         <div class="mobile-card rounded-xl p-1">
             <div class="flex">
-                <button id="fibTab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all touch-btn bg-blue-500 text-white">
+                <button id="fibTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn bg-blue-500 text-white">
                     📊 Fibonacci
                 </button>
-                <button id="volTab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all touch-btn text-slate-400">
+                <button id="volTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
                     📈 Volume
                 </button>
-                <button id="wpatTab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all touch-btn text-slate-400">
+                <button id="wpatTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
                     📈 W-Pattern
                 </button>
-                <button id="perfTab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all touch-btn text-slate-400">
+                <button id="elliotTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
+                    🌊 Elliott Wave
+                </button>
+                <button id="goldenTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
+                    ✨ Golden
+                </button>
+                <button id="perfTab" class="tab-btn flex-1 px-3 py-3 text-xs font-medium rounded-lg transition-all touch-btn text-slate-400">
                     📊 Performance
                 </button>
             </div>
@@ -153,6 +159,50 @@
       "radar_status": "Monitoring"
     }
   ],
+  "elliott_wave_stocks": [
+    {
+      "symbol": "SAMPLE",
+      "company_name": "Sample Elliott Wave Stock",
+      "industry": "Sample Industry",
+      "is_elliott_wave": true,
+      "current_price": 1250.0,
+      "golden_pocket_high": 1300.0,
+      "golden_pocket_low": 1200.0,
+      "retracement_percent": 58.5,
+      "weekly_rsi": 35.2,
+      "setup_quality": "Excellent",
+      "wave1_low_date": "2023-01-15",
+      "wave1_high_date": "2024-03-20",
+      "months_since_high": 8.5,
+      "sma_200w": 1225.0
+    }
+  ],
+  "golden_stocks": [
+    {
+      "symbol": "SAMPLE_GOLDEN",
+      "company_name": "Sample Golden Trendline Stock",
+      "industry": "Sample Industry",
+      "is_golden_trendline": true,
+      "current_price": 850.0,
+      "trendline_price": 845.0,
+      "distance_to_trendline_percent": 0.6,
+      "trendline_slope_weekly": 2.5,
+      "trendline_start_price": 720.0,
+      "trendline_start_date": "2023-06-15",
+      "trendline_end_price": 800.0,
+      "trendline_end_date": "2024-02-20",
+      "timeframe_weeks": 45.2,
+      "timeframe_months": 10.4,
+      "trendline_touches": 4,
+      "trendline_strength": 85.5,
+      "entry_quality": "Excellent",
+      "week_52_high": 920.0,
+      "week_52_low": 710.0,
+      "potential_upside_percent": 8.2,
+      "analysis_timeframe": "Weekly",
+      "pattern_type": "Golden Trendline Touch"
+    }
+  ],
   "diagnostics": {
     "total_stocks_processed": 500,
     "successful_downloads": 495,
@@ -160,6 +210,8 @@
     "fibonacci_matches": 1,
     "volume_breakout_matches": 9,
     "w_pattern_matches": 8,
+    "elliott_wave_matches": 1,
+    "golden_matches": 1,
     "errors": []
   }
 };
@@ -192,6 +244,8 @@
             document.getElementById('fibTab').addEventListener('click', () => switchTab('fibonacci'));
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
             document.getElementById('wpatTab').addEventListener('click', () => switchTab('wpattern'));
+            document.getElementById('elliotTab').addEventListener('click', () => switchTab('elliott'));
+            document.getElementById('goldenTab').addEventListener('click', () => switchTab('golden'));
             document.getElementById('perfTab').addEventListener('click', () => switchTab('performance'));
         }
         
@@ -239,6 +293,8 @@
                 fibonacci_stocks: [],
                 volume_breakout_stocks: [],
                 w_pattern_stocks: [],
+                elliott_wave_stocks: [],
+                golden_stocks: [],
                 diagnostics: {
                     total_stocks_processed: 0,
                     successful_downloads: 0,
@@ -246,6 +302,8 @@
                     fibonacci_matches: 0,
                     volume_breakout_matches: 0,
                     w_pattern_matches: 0,
+                    elliott_wave_matches: 0,
+                    golden_matches: 0,
                     errors: ['Live data unavailable - using fallback']
                 }
             };
@@ -260,7 +318,9 @@
             const total = screeningData.diagnostics?.total_stocks_processed || 0;
             const opportunities = (screeningData.fibonacci_stocks?.length || 0) + 
                                (screeningData.volume_breakout_stocks?.length || 0) + 
-                               (screeningData.w_pattern_stocks?.length || 0);
+                               (screeningData.w_pattern_stocks?.length || 0) +
+                               (screeningData.elliott_wave_stocks?.length || 0) +
+                               (screeningData.golden_stocks?.length || 0);
             
             document.getElementById('totalStocks').textContent = total;
             document.getElementById('totalOpportunities').textContent = opportunities;
@@ -287,7 +347,9 @@
             
             const activeBtn = document.getElementById(tab === 'fibonacci' ? 'fibTab' : 
                                                    tab === 'volume' ? 'volTab' : 
-                                                   tab === 'wpattern' ? 'wpatTab' : 'perfTab');
+                                                   tab === 'wpattern' ? 'wpatTab' : 
+                                                   tab === 'elliott' ? 'elliotTab' : 
+                                                   tab === 'golden' ? 'goldenTab' : 'perfTab');
             activeBtn.classList.add('bg-blue-500', 'text-white');
             activeBtn.classList.remove('text-slate-400');
             
@@ -323,6 +385,16 @@
                     stocks = screeningData.w_pattern_stocks || [];
                     title = 'W-Pattern Opportunities';
                     sortingInfo = 'Sorted: Radar Active first, then by proximity to neckline breakout';
+                    break;
+                case 'elliott':
+                    stocks = screeningData.elliott_wave_stocks || [];
+                    title = 'Elliott Wave Long-Term Opportunities';
+                    sortingInfo = 'Sorted: Excellent setups first, then by RSI oversold levels';
+                    break;
+                case 'golden':
+                    stocks = screeningData.golden_stocks || [];
+                    title = 'Golden Trendline Opportunities';
+                    sortingInfo = 'Sorted: Excellent entries first, then by proximity to trendline (Weekly timeframe)';
                     break;
                 case 'performance':
                     displayPerformanceTracking();
@@ -424,6 +496,44 @@
                         <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
                         <div class="text-xs text-orange-400 mt-1">Radar Trigger: ₹${stock.radar_trigger_price}</div>
                         <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
+                    `;
+                    break;
+                case 'elliott':
+                    // Add priority badge for Elliott Wave setups
+                    if (stock.setup_quality === 'Excellent') {
+                        priorityBadge = '<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">⭐ EXCELLENT</span>';
+                    } else if (stock.setup_quality === 'Good') {
+                        priorityBadge = '<span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">✅ GOOD</span>';
+                    }
+                    
+                    details = `
+                        <div class="text-xs text-slate-400 mb-1">${stock.retracement_percent}% Wave 2 Retracement</div>
+                        <div class="text-lg font-bold text-indigo-400">₹${stock.current_price}</div>
+                        <div class="text-xs text-slate-500">Golden Pocket: ₹${stock.golden_pocket_low} - ₹${stock.golden_pocket_high}</div>
+                        <div class="text-xs text-slate-500">Wave 1: ${stock.wave1_low_date} to ${stock.wave1_high_date}</div>
+                        <div class="text-xs text-slate-500">RSI: ${stock.weekly_rsi} | 200W SMA: ₹${stock.sma_200w}</div>
+                        <div class="text-xs text-slate-500">${stock.months_since_high} months since high</div>
+                        <div class="mt-2">${priorityBadge}</div>
+                    `;
+                    break;
+                case 'golden':
+                    // Add priority badge for Golden Trendline entries
+                    if (stock.entry_quality === 'Excellent') {
+                        priorityBadge = '<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">⭐ EXCELLENT</span>';
+                    } else if (stock.entry_quality === 'Good') {
+                        priorityBadge = '<span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">✅ GOOD</span>';
+                    } else {
+                        priorityBadge = '<span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">📊 FAIR</span>';
+                    }
+                    
+                    details = `
+                        <div class="text-xs text-slate-400 mb-1">${Math.abs(stock.distance_to_trendline_percent)}% from trendline</div>
+                        <div class="text-lg font-bold text-yellow-400">₹${stock.current_price}</div>
+                        <div class="text-xs text-slate-500">Trendline: ₹${stock.trendline_price} (${stock.analysis_timeframe})</div>
+                        <div class="text-xs text-slate-500">Timeframe: ${stock.timeframe_months} months (${stock.trendline_touches} touches)</div>
+                        <div class="text-xs text-slate-500">Strength: ${stock.trendline_strength}% | Upside: ${stock.potential_upside_percent}%</div>
+                        <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
+                        <div class="mt-2">${priorityBadge}</div>
                     `;
                     break;
             }
