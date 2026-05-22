@@ -306,19 +306,23 @@
             
             let stocks = [];
             let title = '';
+            let sortingInfo = '';
             
             switch(tab) {
                 case 'fibonacci':
                     stocks = screeningData.fibonacci_stocks || [];
                     title = 'Fibonacci Retracement Opportunities';
+                    sortingInfo = 'Sorted: 38.2% → 50% → 61.8% levels, then by proximity to level';
                     break;
                 case 'volume':
                     stocks = screeningData.volume_breakout_stocks || [];
                     title = 'Volume Breakout Opportunities';
+                    sortingInfo = 'Sorted: Radar Active first, then by proximity to breakout retracement';
                     break;
                 case 'wpattern':
                     stocks = screeningData.w_pattern_stocks || [];
                     title = 'W-Pattern Opportunities';
+                    sortingInfo = 'Sorted: Radar Active first, then by proximity to neckline breakout';
                     break;
                 case 'performance':
                     displayPerformanceTracking();
@@ -336,7 +340,14 @@
                 return;
             }
             
-            let html = '';
+            // Add sorting info header
+            let html = `
+                <div class="mobile-card rounded-xl p-3 mb-3 border-blue-500/20 bg-blue-500/10">
+                    <div class="text-xs text-blue-400 font-medium">📊 ${title}</div>
+                    <div class="text-xs text-slate-400 mt-1">${sortingInfo}</div>
+                </div>
+            `;
+            
             stocks.forEach(stock => {
                 html += createStockCard(stock, tab);
             });
@@ -348,6 +359,7 @@
         function createStockCard(stock, type) {
             let details = '';
             let radarStatus = '';
+            let priorityBadge = '';
             
             // Create clickable stock name with chart link
             const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.symbol}`;
@@ -355,17 +367,32 @@
             
             switch(type) {
                 case 'fibonacci':
+                    // Add priority badge for Fibonacci levels
+                    if (stock.level === '38.2%') {
+                        priorityBadge = '<span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">🎯 HIGH PRIORITY</span>';
+                    } else if (stock.level === '50%') {
+                        priorityBadge = '<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">⚡ MEDIUM</span>';
+                    } else if (stock.level === '61.8%') {
+                        priorityBadge = '<span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">📊 STANDARD</span>';
+                    }
+                    
                     details = `
                         <div class="text-xs text-slate-400 mb-1">Near ${stock.level} level</div>
                         <div class="text-lg font-bold text-emerald-400">₹${stock.current_price}</div>
                         <div class="text-xs text-slate-500">Target: ₹${stock.level_price}</div>
                         <div class="text-xs text-slate-500 mt-1">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
+                        <div class="mt-2">${priorityBadge}</div>
                     `;
                     break;
                 case 'volume':
                     radarStatus = stock.radar_status === 'Active' ? 
                         '<span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">🔴 RADAR ACTIVE</span>' :
                         '<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">🟡 Monitoring</span>';
+                    
+                    // Add priority for radar active stocks
+                    if (stock.radar_status === 'Active') {
+                        priorityBadge = '<span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">🚨 URGENT</span>';
+                    }
                     
                     details = `
                         <div class="text-xs text-slate-400 mb-1">${stock.breakout_volume_ratio}x Volume Spike</div>
@@ -374,13 +401,20 @@
                         <div class="text-xs text-slate-500">Day Low: ₹${stock.breakout_low}</div>
                         <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
                         <div class="text-xs text-orange-400 mt-1">Radar Trigger: ₹${stock.radar_trigger_price}</div>
-                        <div class="mt-2">${radarStatus}</div>
+                        <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
                     `;
                     break;
                 case 'wpattern':
                     radarStatus = stock.radar_status === 'Active' ? 
                         '<span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">🔴 RADAR ACTIVE</span>' :
                         '<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">🟡 Monitoring</span>';
+                    
+                    // Add priority for radar active stocks and close to breakout
+                    if (stock.radar_status === 'Active') {
+                        priorityBadge = '<span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">🚨 URGENT</span>';
+                    } else if (stock.distance_to_neckline_percent && stock.distance_to_neckline_percent < 10) {
+                        priorityBadge = '<span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">🎯 CLOSE</span>';
+                    }
                     
                     details = `
                         <div class="text-xs text-slate-400 mb-1">${stock.distance_to_neckline_percent}% to breakout</div>
@@ -389,7 +423,7 @@
                         <div class="text-xs text-slate-500">Lower Trough: ${stock.lower_trough_date} at ₹${stock.lower_trough_price}</div>
                         <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
                         <div class="text-xs text-orange-400 mt-1">Radar Trigger: ₹${stock.radar_trigger_price}</div>
-                        <div class="mt-2">${radarStatus}</div>
+                        <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
                     `;
                     break;
             }
@@ -446,7 +480,7 @@
                 return;
             }
             
-            // Get all radar-active stocks
+            // Get all radar-active stocks and sort by potential gain (max to min)
             const volumeRadarStocks = (screeningData.volume_breakout_stocks || []).filter(stock => 
                 stock.radar_status === 'Active'
             );
@@ -454,6 +488,27 @@
             const wpatternRadarStocks = (screeningData.w_pattern_stocks || []).filter(stock => 
                 stock.radar_status === 'Active'
             );
+            
+            // Calculate potential gains and sort by highest potential first
+            volumeRadarStocks.forEach(stock => {
+                if (stock.breakout_price && stock.current_price) {
+                    stock.potential_gain = (((stock.breakout_price - stock.current_price) / stock.current_price) * 100);
+                } else {
+                    stock.potential_gain = 0;
+                }
+            });
+            
+            wpatternRadarStocks.forEach(stock => {
+                if (stock.neckline_peak_price && stock.current_price) {
+                    stock.potential_gain = (((stock.neckline_peak_price - stock.current_price) / stock.current_price) * 100);
+                } else {
+                    stock.potential_gain = 0;
+                }
+            });
+            
+            // Sort by potential gain (highest first)
+            volumeRadarStocks.sort((a, b) => (b.potential_gain || 0) - (a.potential_gain || 0));
+            wpatternRadarStocks.sort((a, b) => (b.potential_gain || 0) - (a.potential_gain || 0));
             
             const totalRadarStocks = volumeRadarStocks.length + wpatternRadarStocks.length;
             
@@ -471,35 +526,38 @@
                         </div>
                     </div>
                     <div class="text-xs text-slate-500">
-                        Radar alerts trigger when stocks return to key support levels. Monitor these for potential bounce opportunities.
+                        Radar alerts trigger when stocks return to key support levels. Sorted by highest potential gain first.
                     </div>
                 </div>
             `;
             
-            // Volume Breakout Radar Stocks
+            // Volume Breakout Radar Stocks (sorted by potential gain)
             if (volumeRadarStocks.length > 0) {
                 html += `
                     <div class="mobile-card rounded-xl p-4 mb-4">
-                        <h4 class="text-md font-bold text-blue-400 mb-3">📈 Volume Breakout Radar (${volumeRadarStocks.length})</h4>
+                        <h4 class="text-md font-bold text-blue-400 mb-3">📈 Volume Breakout Radar (${volumeRadarStocks.length}) - Sorted by Potential</h4>
                 `;
                 
-                volumeRadarStocks.forEach(stock => {
+                volumeRadarStocks.forEach((stock, index) => {
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.symbol}`;
                     const daysSinceBreakout = stock.days_since_breakout || 0;
-                    const potentialGain = stock.breakout_price && stock.current_price ? 
-                        (((stock.breakout_price - stock.current_price) / stock.current_price) * 100).toFixed(1) : 'N/A';
+                    const potentialGain = stock.potential_gain ? stock.potential_gain.toFixed(1) : 'N/A';
+                    const rankBadge = index < 3 ? `<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">🏆 TOP ${index + 1}</span>` : '';
                     
                     html += `
                         <div class="border-l-4 border-red-500 pl-4 mb-3 last:mb-0">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
-                                    <a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.symbol}</a>
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.symbol}</a>
+                                        ${rankBadge}
+                                    </div>
                                     <div class="text-xs text-slate-400">${stock.company_name}</div>
                                     <div class="mt-2 space-y-1">
                                         <div class="text-xs text-slate-300">Current: ₹${stock.current_price}</div>
                                         <div class="text-xs text-slate-300">Radar Trigger: ₹${stock.radar_trigger_price}</div>
                                         <div class="text-xs text-slate-300">Breakout Price: ₹${stock.breakout_price}</div>
-                                        <div class="text-xs text-green-400">Potential Gain: ${potentialGain}%</div>
+                                        <div class="text-xs text-green-400 font-bold">Potential Gain: ${potentialGain}%</div>
                                         <div class="text-xs text-slate-500">${daysSinceBreakout} days since breakout</div>
                                     </div>
                                 </div>
@@ -514,29 +572,32 @@
                 html += `</div>`;
             }
             
-            // W-Pattern Radar Stocks
+            // W-Pattern Radar Stocks (sorted by potential gain)
             if (wpatternRadarStocks.length > 0) {
                 html += `
                     <div class="mobile-card rounded-xl p-4 mb-4">
-                        <h4 class="text-md font-bold text-purple-400 mb-3">📈 W-Pattern Radar (${wpatternRadarStocks.length})</h4>
+                        <h4 class="text-md font-bold text-purple-400 mb-3">📈 W-Pattern Radar (${wpatternRadarStocks.length}) - Sorted by Potential</h4>
                 `;
                 
-                wpatternRadarStocks.forEach(stock => {
+                wpatternRadarStocks.forEach((stock, index) => {
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.symbol}`;
-                    const potentialGain = stock.neckline_peak_price && stock.current_price ? 
-                        (((stock.neckline_peak_price - stock.current_price) / stock.current_price) * 100).toFixed(1) : 'N/A';
+                    const potentialGain = stock.potential_gain ? stock.potential_gain.toFixed(1) : 'N/A';
+                    const rankBadge = index < 3 ? `<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">🏆 TOP ${index + 1}</span>` : '';
                     
                     html += `
                         <div class="border-l-4 border-purple-500 pl-4 mb-3 last:mb-0">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
-                                    <a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.symbol}</a>
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.symbol}</a>
+                                        ${rankBadge}
+                                    </div>
                                     <div class="text-xs text-slate-400">${stock.company_name}</div>
                                     <div class="mt-2 space-y-1">
                                         <div class="text-xs text-slate-300">Current: ₹${stock.current_price}</div>
                                         <div class="text-xs text-slate-300">Radar Trigger: ₹${stock.radar_trigger_price}</div>
                                         <div class="text-xs text-slate-300">Neckline Target: ₹${stock.neckline_peak_price}</div>
-                                        <div class="text-xs text-green-400">Potential Gain: ${potentialGain}%</div>
+                                        <div class="text-xs text-green-400 font-bold">Potential Gain: ${potentialGain}%</div>
                                         <div class="text-xs text-slate-500">Pattern: ${stock.pattern_timeframe_weeks} weeks</div>
                                     </div>
                                 </div>
@@ -569,6 +630,7 @@
                         <div>• <strong>Volume Radar:</strong> Stocks that returned to breakout day low price</div>
                         <div>• <strong>W-Pattern Radar:</strong> Stocks that returned to trough low price</div>
                         <div>• <strong>Potential Gain:</strong> Expected return if stock reaches target price</div>
+                        <div>• <strong>TOP Rankings:</strong> Highest potential gain opportunities first</div>
                         <div>• <strong>Click stock names</strong> to view charts on TradingView</div>
                         <div>• Monitor these stocks for potential bounce opportunities</div>
                     </div>

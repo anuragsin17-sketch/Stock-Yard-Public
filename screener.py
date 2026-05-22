@@ -509,8 +509,41 @@ class StockScreener:
             if (idx + 1) % 50 == 0:
                 logger.info(f"Progress: {idx + 1}/{total_stocks} stocks processed")
         
+        # Sort results by priority after screening
+        self.sort_results()
+        
         logger.info("Screening process completed")
         self.log_summary()
+    
+    def sort_results(self) -> None:
+        """Sort all results by priority - most relevant opportunities first"""
+        try:
+            # Sort Fibonacci stocks: 38.2% first, then 50%, then 61.8%
+            # Within each level, sort by smallest distance to level
+            level_priority = {'38.2%': 1, '50%': 2, '61.8%': 3}
+            
+            self.results['fibonacci_stocks'].sort(key=lambda x: (
+                level_priority.get(x.get('level', '61.8%'), 4),  # Level priority
+                abs(x.get('distance_percent', 100))  # Distance to level (smaller is better)
+            ))
+            
+            # Sort Volume Breakout stocks: Radar Active first, then by proximity to breakout low
+            self.results['volume_breakout_stocks'].sort(key=lambda x: (
+                0 if x.get('radar_status') == 'Active' else 1,  # Radar Active first
+                abs(x.get('current_price', 0) - x.get('radar_trigger_price', 0))  # Closer to trigger price
+            ))
+            
+            # Sort W-Pattern stocks: Radar Active first, then by proximity to completing pattern
+            self.results['w_pattern_stocks'].sort(key=lambda x: (
+                0 if x.get('radar_status') == 'Active' else 1,  # Radar Active first
+                x.get('distance_to_neckline_percent', 100)  # Closer to neckline breakout
+            ))
+            
+            logger.info("Results sorted by priority")
+            
+        except Exception as e:
+            logger.error(f"Error sorting results: {e}")
+            # Continue without sorting if there's an error
     
     def log_summary(self) -> None:
         """Log screening summary"""
