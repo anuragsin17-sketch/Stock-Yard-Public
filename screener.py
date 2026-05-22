@@ -1449,7 +1449,7 @@ class StockScreener:
 • W-Pattern Stocks in Radar: {w_radar_active}
 
 📱 *View Full Report:*
-https://anuragsin17-sketch.github.io/Stock-Yard/
+https://anuragsin17-sketch.github.io/Stock-Yard-Public/
 
 _Automated screening completed successfully_"""
             
