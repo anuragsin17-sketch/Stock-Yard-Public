@@ -159,6 +159,12 @@
                         <span>Elliott</span>
                     </div>
                 </button>
+                <button id="performanceTab" class="pill-tab flex-shrink-0 px-4 py-3 text-xs font-medium transition-all touch-btn text-slate-400">
+                    <div class="flex items-center space-x-2">
+                        <span>🎯</span>
+                        <span>Radar</span>
+                    </div>
+                </button>
             </div>
         </div>
 
@@ -307,6 +313,7 @@
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
             document.getElementById('wpatTab').addEventListener('click', () => switchTab('wpattern'));
             document.getElementById('elliotTab').addEventListener('click', () => switchTab('elliott'));
+            document.getElementById('performanceTab').addEventListener('click', () => switchTab('performance'));
         }
         
         // Load data (try fetch first, fallback to embedded)
@@ -408,7 +415,8 @@
             const activeBtn = document.getElementById(tab === 'golden' ? 'goldenTab' : 
                                                    tab === 'darvas' ? 'darvasTab' :
                                                    tab === 'volume' ? 'volTab' : 
-                                                   tab === 'wpattern' ? 'wpatTab' : 'elliotTab');
+                                                   tab === 'wpattern' ? 'wpatTab' : 
+                                                   tab === 'elliott' ? 'elliotTab' : 'performanceTab');
             activeBtn.classList.add('active');
             activeBtn.classList.remove('text-slate-400');
             
@@ -455,6 +463,9 @@
                     title = 'Elliott Wave Long-Term Opportunities';
                     sortingInfo = 'Sorted: Excellent setups first, then by RSI oversold levels';
                     break;
+                case 'performance':
+                    displayPerformanceTracking();
+                    return;
             }
             
             if (stocks.length === 0) {

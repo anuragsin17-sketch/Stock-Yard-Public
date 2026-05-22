@@ -570,8 +570,150 @@ class StockScreener:
             logger.error(f"Error detecting Elliott Wave macro setup: {e}")
             return {'is_elliott_wave': False, 'error': str(e)}
     
+    
+    def detect_trendline(self, price_data: pd.DataFrame, timeframe: str) -> Optional[Dict]:
+        """Detect ascending trendline from price data
+        
+        Args:
+            price_data: DataFrame with OHLC data
+            timeframe: 'Weekly' or 'Monthly'
+            
+        Returns:
+            Dictionary with trendline data or None if no valid trendline found
+        """
+        try:
+            if len(price_data) < 12:  # Need minimum data
+                return None
+            
+            lows = price_data['Low'].values
+            dates = price_data.index
+            current_price = price_data['Close'].iloc[-1]
+            
+            # Use longer analysis period for better trendline detection
+            analysis_period = min(len(price_data), 104 if timeframe == 'Weekly' else 36)  # 2 years
+            analysis_data = price_data.tail(analysis_period)
+            
+            # Find significant lows (local minima)
+            window = 3 if timeframe == 'Weekly' else 2
+            significant_lows = []
+            
+            for i in range(window, len(analysis_data) - window):
+                current_low = analysis_data['Low'].iloc[i]
+                current_date = analysis_data.index[i]
+                
+                # Check if this is a local minimum
+                surrounding_lows = analysis_data['Low'].iloc[i-window:i+window+1]
+                if current_low == surrounding_lows.min():
+                    # Must be significant (at least 5% below recent highs)
+                    recent_high = analysis_data['High'].iloc[max(0, i-8):i+8].max()
+                    if current_low <= recent_high * 0.95:
+                        significant_lows.append({
+                            'price': current_low,
+                            'date': current_date,
+                            'index': i
+                        })
+            
+            if len(significant_lows) < 3:
+                return None
+            
+            # Sort by date
+            significant_lows.sort(key=lambda x: x['date'])
+            
+            # Try different combinations to find best ascending trendline
+            best_trendline = None
+            best_score = 0
+            
+            for i in range(len(significant_lows) - 2):
+                for j in range(i + 2, len(significant_lows)):
+                    low1 = significant_lows[i]
+                    low2 = significant_lows[j]
+                    
+                    # Calculate slope
+                    time_diff_days = (low2['date'] - low1['date']).days
+                    if time_diff_days < (56 if timeframe == 'Weekly' else 180):  # Min 8 weeks or 6 months
+                        continue
+                    
+                    price_diff = low2['price'] - low1['price']
+                    slope = price_diff / time_diff_days  # Price change per day
+                    
+                    if slope <= 0:  # Must be ascending
+                        continue
+                    
+                    # Project to current date
+                    current_days_from_low1 = (dates[-1] - low1['date']).days
+                    current_trendline_price = slope * current_days_from_low1 + low1['price']
+                    
+                    # Check if current price is within ±5% of trendline
+                    distance_percent = ((current_price - current_trendline_price) / current_trendline_price) * 100
+                    
+                    if not (-5.0 <= distance_percent <= 5.0):
+                        continue
+                    
+                    # Score based on touches and consistency
+                    touches = 0
+                    total_deviation = 0
+                    
+                    for low in significant_lows:
+                        days_from_low1 = (low['date'] - low1['date']).days
+                        expected_price = slope * days_from_low1 + low1['price']
+                        deviation = abs(low['price'] - expected_price) / expected_price
+                        
+                        if deviation <= 0.03:  # Within 3%
+                            touches += 1
+                        
+                        total_deviation += deviation
+                    
+                    # Calculate score
+                    avg_deviation = total_deviation / len(significant_lows)
+                    proximity_score = max(0, 5 - abs(distance_percent))
+                    touch_score = touches * 2
+                    consistency_score = max(0, 1 - avg_deviation) * 10
+                    
+                    total_score = proximity_score + touch_score + consistency_score
+                    
+                    if total_score > best_score and touches >= 3:
+                        best_score = total_score
+                        best_trendline = {
+                            'low1': low1,
+                            'low2': low2,
+                            'slope': slope,
+                            'current_trendline_price': current_trendline_price,
+                            'distance_percent': distance_percent,
+                            'touches': touches,
+                            'avg_deviation': avg_deviation,
+                            'score': total_score,
+                            'timeframe_days': current_days_from_low1
+                        }
+            
+            if not best_trendline:
+                return None
+            
+            # Build result
+            trendline_strength = min(100, (best_trendline['touches'] * 20) + (best_trendline['score'] * 5))
+            
+            return {
+                'trendline_price': round(best_trendline['current_trendline_price'], 2),
+                'distance_to_trendline_percent': round(best_trendline['distance_percent'], 2),
+                'trendline_slope_daily': round(best_trendline['slope'], 6),
+                'trendline_start_price': round(best_trendline['low1']['price'], 2),
+                'trendline_start_date': best_trendline['low1']['date'].strftime('%Y-%m-%d'),
+                'trendline_end_price': round(best_trendline['low2']['price'], 2),
+                'trendline_end_date': best_trendline['low2']['date'].strftime('%Y-%m-%d'),
+                'timeframe_days': round(best_trendline['timeframe_days'], 1),
+                'timeframe_months': round(best_trendline['timeframe_days'] / 30.44, 1),
+                'trendline_touches': best_trendline['touches'],
+                'trendline_strength': round(trendline_strength, 1)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error detecting {timeframe} trendline: {e}")
+            return None
+    
     def detect_golden_stocks_combined(self, data: pd.DataFrame, weekly_data: pd.DataFrame) -> Dict:
-        """Combined Golden Stocks analysis - Trendline + Fibonacci + Vertical Line analysis"""
+        """Combined Golden Stocks analysis - Trendline + Fibonacci + Vertical Line analysis
+        
+        Analyzes both weekly and monthly timeframes for trendline detection
+        """
         try:
             if len(weekly_data) < 52:  # Need at least 1 year of weekly data
                 return {'is_golden_stock': False, 'error': 'Insufficient weekly data'}
@@ -586,138 +728,63 @@ class StockScreener:
             week_52_high = max(highs[-52:]) if len(highs) >= 52 else max(highs)
             week_52_low = min(lows[-52:]) if len(lows) >= 52 else min(lows)
             
+            # Calculate 200 EMA on weekly data
+            ema_200 = None
+            if len(weekly_data) >= 200:
+                ema_200 = weekly_data['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
+            
             # First check Fibonacci levels from daily data
             fib_result = self.calculate_fibonacci_levels(data)
             
-            # Then check trendline from weekly data
+            # Detect trendlines on both weekly and monthly timeframes
+            weekly_trendline = self.detect_trendline(weekly_data, 'Weekly')
             
-            # Use longer timeframe for trendline analysis (18-24 months of weekly data)
-            analysis_period = min(104, len(weekly_data))  # 2 years or available data
-            analysis_data = weekly_data.tail(analysis_period)
+            # Create monthly data from weekly
+            monthly_data = weekly_data.resample('M').agg({
+                'Open': 'first',
+                'High': 'max',
+                'Low': 'min',
+                'Close': 'last',
+                'Volume': 'sum'
+            }).dropna()
             
-            # Find significant lows for trendline calculation
-            # Look for major support levels (local minima over 4-week periods)
-            window = 4
-            significant_lows = []
+            monthly_trendline = None
+            if len(monthly_data) >= 24:  # Need at least 2 years of monthly data
+                monthly_trendline = self.detect_trendline(monthly_data, 'Monthly')
             
-            for i in range(window, len(analysis_data) - window):
-                current_low = analysis_data['Low'].iloc[i]
-                current_date = analysis_data.index[i]
-                
-                # Check if this is a local minimum
-                surrounding_lows = analysis_data['Low'].iloc[i-window:i+window+1]
-                if current_low == surrounding_lows.min():
-                    # Additional filter: must be a significant low (not just minor dip)
-                    # Check if it's at least 5% below recent highs
-                    recent_high = analysis_data['High'].iloc[max(0, i-8):i+8].max()
-                    if current_low <= recent_high * 0.95:  # At least 5% below recent high
-                        significant_lows.append({
-                            'price': current_low,
-                            'date': current_date,
-                            'index': i,
-                            'weeks_ago': len(analysis_data) - i - 1
-                        })
             
-            # Initialize results
-            has_fibonacci = fib_result.get('is_near_fibonacci', False)
+            # Determine which trendline to use (prefer the one closer to current price)
             has_trendline = False
             trendline_data = {}
             
-            # Only proceed with trendline if we have enough data
-            if len(significant_lows) >= 3:
-                # Sort by date (oldest first)
-                significant_lows.sort(key=lambda x: x['date'])
+            if weekly_trendline and monthly_trendline:
+                # Both available - choose the one closer to current price
+                weekly_distance = abs(weekly_trendline['current_trendline_price'] - current_price) / current_price
+                monthly_distance = abs(monthly_trendline['current_trendline_price'] - current_price) / current_price
                 
-                # Try different combinations of lows to find the best ascending trendline
-                best_trendline = None
-                best_score = 0
-                
-                # Test trendlines using different combinations of significant lows
-                for i in range(len(significant_lows) - 2):
-                    for j in range(i + 2, len(significant_lows)):  # Skip adjacent points
-                        low1 = significant_lows[i]
-                        low2 = significant_lows[j]
-                        
-                        # Calculate trendline slope (must be ascending)
-                        weeks_diff = (low2['date'] - low1['date']).days / 7
-                        if weeks_diff <= 8:  # Points too close together
-                            continue
-                            
-                        price_diff = low2['price'] - low1['price']
-                        slope = price_diff / weeks_diff  # Price change per week
-                        
-                        if slope <= 0:  # Must be ascending trendline
-                            continue
-                        
-                        # Calculate trendline equation: price = slope * weeks_from_low1 + low1_price
-                        # Project trendline to current date
-                        current_weeks_from_low1 = (dates[-1] - low1['date']).days / 7
-                        current_trendline_price = slope * current_weeks_from_low1 + low1['price']
-                        
-                        # Check if current price is within 2-5% of trendline
-                        distance_percent = ((current_price - current_trendline_price) / current_trendline_price) * 100
-                        
-                        if not (-5.0 <= distance_percent <= 5.0):  # Must be within ±5%
-                            continue
-                        
-                        # Score the trendline based on:
-                        # 1. How many other lows it touches/supports
-                        # 2. How close current price is to trendline
-                        # 3. Consistency of the trendline
-                        
-                        touches = 0
-                        total_deviation = 0
-                        
-                        for low in significant_lows:
-                            weeks_from_low1 = (low['date'] - low1['date']).days / 7
-                            expected_price = slope * weeks_from_low1 + low1['price']
-                            deviation = abs(low['price'] - expected_price) / expected_price
-                            
-                            if deviation <= 0.03:  # Within 3% of trendline
-                                touches += 1
-                            
-                            total_deviation += deviation
-                        
-                        # Calculate score (higher is better)
-                        avg_deviation = total_deviation / len(significant_lows)
-                        proximity_score = max(0, 5 - abs(distance_percent))  # Closer to trendline = higher score
-                        touch_score = touches * 2  # More touches = higher score
-                        consistency_score = max(0, 1 - avg_deviation) * 10  # Lower deviation = higher score
-                        
-                        total_score = proximity_score + touch_score + consistency_score
-                        
-                        if total_score > best_score:
-                            best_score = total_score
-                            best_trendline = {
-                                'low1': low1,
-                                'low2': low2,
-                                'slope': slope,
-                                'current_trendline_price': current_trendline_price,
-                                'distance_percent': distance_percent,
-                                'touches': touches,
-                                'avg_deviation': avg_deviation,
-                                'score': total_score,
-                                'timeframe_weeks': current_weeks_from_low1
-                            }
-                
-                # Check if we found a valid trendline
-                if best_trendline and best_trendline['touches'] >= 3:
+                if weekly_distance < monthly_distance:
                     has_trendline = True
-                    trendline_strength = min(100, (best_trendline['touches'] * 20) + (best_trendline['score'] * 5))
-                    
-                    trendline_data = {
-                        'trendline_price': round(best_trendline['current_trendline_price'], 2),
-                        'distance_to_trendline_percent': round(best_trendline['distance_percent'], 2),
-                        'trendline_slope_weekly': round(best_trendline['slope'], 4),
-                        'trendline_start_price': round(best_trendline['low1']['price'], 2),
-                        'trendline_start_date': best_trendline['low1']['date'].strftime('%Y-%m-%d'),
-                        'trendline_end_price': round(best_trendline['low2']['price'], 2),
-                        'trendline_end_date': best_trendline['low2']['date'].strftime('%Y-%m-%d'),
-                        'timeframe_weeks': round(best_trendline['timeframe_weeks'], 1),
-                        'timeframe_months': round(best_trendline['timeframe_weeks'] / 4.33, 1),
-                        'trendline_touches': best_trendline['touches'],
-                        'trendline_strength': round(trendline_strength, 1)
-                    }
+                    trendline_data = weekly_trendline
+                    trendline_data['primary_timeframe'] = 'Weekly'
+                    trendline_data['secondary_trendline_price'] = monthly_trendline['current_trendline_price']
+                    trendline_data['secondary_timeframe'] = 'Monthly'
+                else:
+                    has_trendline = True
+                    trendline_data = monthly_trendline
+                    trendline_data['primary_timeframe'] = 'Monthly'
+                    trendline_data['secondary_trendline_price'] = weekly_trendline['current_trendline_price']
+                    trendline_data['secondary_timeframe'] = 'Weekly'
+            elif weekly_trendline:
+                has_trendline = True
+                trendline_data = weekly_trendline
+                trendline_data['primary_timeframe'] = 'Weekly'
+            elif monthly_trendline:
+                has_trendline = True
+                trendline_data = monthly_trendline
+                trendline_data['primary_timeframe'] = 'Monthly'
+            
+            # Initialize has_fibonacci
+            has_fibonacci = fib_result.get('is_near_fibonacci', False)
             
             # Must have either Fibonacci OR Trendline (or both) to qualify as Golden Stock
             if not (has_fibonacci or has_trendline):
@@ -750,11 +817,12 @@ class StockScreener:
                 'current_price': round(current_price, 2),
                 'week_52_high': round(week_52_high, 2),
                 'week_52_low': round(week_52_low, 2),
+                'ema_200': round(ema_200, 2) if ema_200 else None,
                 'potential_upside_percent': round(potential_upside, 2),
                 'entry_quality': entry_quality,
                 'has_fibonacci': has_fibonacci,
                 'has_trendline': has_trendline,
-                'analysis_timeframe': 'Weekly + Daily',
+                'analysis_timeframe': 'Weekly + Monthly + Daily',
                 'pattern_type': 'Golden Stock Analysis'
             }
             
@@ -771,6 +839,22 @@ class StockScreener:
             # Add trendline data if present
             if has_trendline:
                 result.update(trendline_data)
+                # Add both weekly and monthly trendline prices if available
+                if 'secondary_trendline_price' in trendline_data:
+                    if trendline_data['primary_timeframe'] == 'Weekly':
+                        result['weekly_trendline_price'] = trendline_data['trendline_price']
+                        result['monthly_trendline_price'] = trendline_data['secondary_trendline_price']
+                    else:
+                        result['monthly_trendline_price'] = trendline_data['trendline_price']
+                        result['weekly_trendline_price'] = trendline_data['secondary_trendline_price']
+                else:
+                    # Only one timeframe available
+                    if trendline_data.get('primary_timeframe') == 'Weekly':
+                        result['weekly_trendline_price'] = trendline_data['trendline_price']
+                        result['monthly_trendline_price'] = None
+                    else:
+                        result['monthly_trendline_price'] = trendline_data['trendline_price']
+                        result['weekly_trendline_price'] = None
             
             # Add Vertical Line analysis to Golden Stocks
             try:
@@ -938,23 +1022,22 @@ class StockScreener:
             
             current_price = data['Close'].iloc[-1]
             
-            # Test multiple timeframes (1, 2, 3, 4, 5 years)
+            # Test multiple timeframes (2-3, 2-4, 2-5 years) - minimum 2 years consolidation
             timeframes = [
-                {'years': 1, 'days': 252, 'target_percent': 50},
-                {'years': 2, 'days': 504, 'target_percent': 100},
-                {'years': 3, 'days': 756, 'target_percent': 150},
-                {'years': 4, 'days': 1008, 'target_percent': 200},
-                {'years': 5, 'days': 1260, 'target_percent': 250}
+                {'years': '2-3', 'min_days': 730, 'max_days': 1095, 'target_percent': 100},  # 2-3 years
+                {'years': '2-4', 'min_days': 730, 'max_days': 1460, 'target_percent': 150},  # 2-4 years
+                {'years': '2-5', 'min_days': 730, 'max_days': 1825, 'target_percent': 200}   # 2-5 years
             ]
             
             best_darvas_box = None
             
             for timeframe in timeframes:
-                if len(data) < timeframe['days']:
+                # Check if we have enough data for this timeframe
+                if len(data) < timeframe['max_days']:
                     continue
                 
-                # Get data for this timeframe
-                period_data = data.tail(timeframe['days'])
+                # Get data for this timeframe range
+                period_data = data.tail(timeframe['max_days'])
                 highs = period_data['High'].values
                 lows = period_data['Low'].values
                 
@@ -1013,8 +1096,8 @@ class StockScreener:
                     consolidation_days = (consolidation_end_idx - consolidation_start_idx).days
                     consolidation_months = consolidation_days / 30.44
                     
-                    # Must have consolidated for at least 3 months
-                    if consolidation_months < 3:
+                    # Must have consolidated for at least 24 months (2 years)
+                    if consolidation_months < 24:
                         continue
                     
                     # Calculate target based on timeframe
