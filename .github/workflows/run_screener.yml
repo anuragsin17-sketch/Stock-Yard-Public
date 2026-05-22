@@ -8,7 +8,7 @@ on:
     - cron: '30 8 * * *'     # 02:00 PM IST (08:30 UTC)
     - cron: '30 14 * * *'    # 08:00 PM IST (14:30 UTC)
     - cron: '6 15 * * *'     # 8:36 PM IST (15:06 UTC) - DRY RUN TEST
-    - cron: '*/5 * * * *'    # Every 5 minutes - TEMPORARY TEST
+    - cron: '*/1 * * * *'    # Every 1 minute - AGGRESSIVE TEST
 
 permissions:
   contents: write
@@ -18,6 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - name: Debug GitHub Actions
+      run: |
+        echo "🔍 GitHub Actions Debug Info"
+        echo "Event: ${{ github.event_name }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "SHA: ${{ github.sha }}"
+        echo "Time: $(date)"
+        echo "Trigger: ${{ github.event.schedule }}"
+    
     - name: Checkout
       uses: actions/checkout@v4
       with:
