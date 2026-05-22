@@ -790,6 +790,10 @@ class StockScreener:
             
             return result
             
+        except Exception as e:
+            logger.error(f"Error detecting Golden Stocks combined: {e}")
+            return {'is_golden_stock': False, 'error': str(e)}
+    
     def detect_vertical_line_pattern(self, weekly_data: pd.DataFrame) -> Dict:
         """Detect Vertical Line Pattern - Touch 2 trigger with 20% upside target"""
         try:
@@ -922,6 +926,10 @@ class StockScreener:
                 'pattern_type': 'Vertical Line Analysis'
             }
             
+        except Exception as e:
+            logger.error(f"Error detecting Vertical Line pattern: {e}")
+            return {'is_vertical_line': False, 'error': str(e)}
+    
     def detect_darvas_box_pattern(self, data: pd.DataFrame) -> Dict:
         """Detect Darvas Box Pattern - Multi-timeframe consolidation with progressive targets"""
         try:
