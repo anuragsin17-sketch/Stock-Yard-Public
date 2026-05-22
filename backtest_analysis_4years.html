@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Golden Stocks 5-Year Backtest Analysis (2019-2024)</title>
+    <title>Golden Stocks 4-Year Backtest Analysis (2020-2024)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -104,11 +104,11 @@
     <div class="max-w-7xl mx-auto">
         <!-- Header -->
         <div class="card mb-6">
-            <h1 class="text-3xl font-bold mb-2" style="color: #047857;">Golden Stocks Strategy - 5 Year Backtest Analysis</h1>
-            <p class="text-gray-400">Period: May 23, 2019 to May 22, 2024 | Initial Capital: ₹10,00,000</p>
+            <h1 class="text-3xl font-bold mb-2" style="color: #047857;">Golden Stocks Strategy - 4 Year Backtest Analysis</h1>
+            <p class="text-gray-400">Period: May 23, 2020 to May 22, 2024 | Initial Capital: ₹10,00,000</p>
             <div class="performance-highlight mt-4">
                 <div class="text-lg font-bold" style="color: #10B981;">🚀 Extended Historical Performance Analysis</div>
-                <p class="text-sm text-gray-300 mt-2">This 5-year backtest covers major market events including COVID-19 crash (2020), recovery rally (2021), and recent market cycles, providing comprehensive strategy validation.</p>
+                <p class="text-sm text-gray-300 mt-2">This 4-year backtest covers major market events including COVID-19 crash (2020), recovery rally (2021-2022), and recent market cycles, providing comprehensive strategy validation.</p>
             </div>
         </div>
 
@@ -143,7 +143,7 @@
 
         <!-- Performance Comparison -->
         <div class="card mb-6">
-            <h3 class="text-xl font-bold mb-4">📈 5-Year Performance Highlights</h3>
+            <h3 class="text-xl font-bold mb-4">📈 4-Year Performance Highlights</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="performance-highlight">
                     <div class="text-lg font-bold" style="color: #10B981;">Market Resilience</div>
@@ -163,7 +163,7 @@
         <!-- Charts -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div class="card">
-                <h3 class="text-xl font-bold mb-4">Capital Growth Over 5 Years</h3>
+                <h3 class="text-xl font-bold mb-4">Capital Growth Over 4 Years</h3>
                 <canvas id="capitalChart"></canvas>
             </div>
             <div class="card">
@@ -186,7 +186,7 @@
 
         <!-- Filters -->
         <div class="card">
-            <h3 class="text-xl font-bold mb-4">Trade Analysis - 5 Year History</h3>
+            <h3 class="text-xl font-bold mb-4">Trade Analysis - 4 Year History</h3>
             <div class="flex flex-wrap gap-3 mb-4">
                 <button class="filter-btn active" onclick="filterTrades('all')">All Trades (<span id="allCount">0</span>)</button>
                 <button class="filter-btn" onclick="filterTrades('winners')">Winners (<span id="winCount">0</span>)</button>
@@ -241,7 +241,7 @@
             return reasons.join('');
         }
         
-        fetch('backtest_golden_5years_results.json')
+        fetch('backtest_golden_4years_results.json')
             .then(response => response.json())
             .then(data => {
                 backtestData = data;
@@ -254,7 +254,7 @@
             .catch(error => {
                 console.error('Error loading data:', error);
                 document.getElementById('tradesContainer').innerHTML = 
-                    '<div class="card text-center text-red-400">Error loading 5-year backtest data. Please run the backtest first: python backtest_golden_5years.py</div>';
+                    '<div class="card text-center text-red-400">Error loading 4-year backtest data. Please run the backtest first: python backtest_golden_4years.py</div>';
             });
 
         function updateSummaryStats(summary) {
@@ -266,7 +266,7 @@
             document.getElementById('avgHolding').textContent = Math.round(summary.avg_holding_days);
             document.getElementById('avgHoldingWeeks').textContent = `~${Math.round(summary.avg_holding_days / 7)} Weeks`;
             
-            const annualizedReturn = summary.total_return_percent / 5;
+            const annualizedReturn = summary.total_return_percent / 4;
             document.getElementById('annualizedReturn').textContent = `${annualizedReturn.toFixed(1)}%`;
             
             // Profit factor rating
@@ -527,10 +527,10 @@
             new Chart(monthlyCtx, {
                 type: 'bar',
                 data: {
-                    labels: ['2019', '2020', '2021', '2022', '2023', '2024'],
+                    labels: ['2020', '2021', '2022', '2023', '2024'],
                     datasets: [{
                         label: 'Annual Returns (%)',
-                        data: [0, 0, 0, 0, 0, summary.total_return_percent / 5], // Simplified
+                        data: [0, 0, 0, 0, summary.total_return_percent / 4], // Simplified
                         backgroundColor: '#10B981'
                     }]
                 },

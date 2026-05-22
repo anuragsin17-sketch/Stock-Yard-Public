@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Golden Stocks Strategy - 5 Year Backtest (2019-2024)
-Local testing with extended historical data
+Golden Stocks Strategy - 4 Year Backtest (2020-2024)
+Local testing with 4 years of historical data for faster execution
 """
 
 import pandas as pd
@@ -17,9 +17,9 @@ import time
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class GoldenStocksBacktest5Y:
+class GoldenStocksBacktest4Y:
     def __init__(self):
-        self.start_date = "2019-05-23"  # 5 years ago
+        self.start_date = "2020-05-23"  # 4 years ago
         self.end_date = "2024-05-22"    # Recent end
         self.initial_capital = 1000000  # ₹10 lakhs
         self.current_capital = self.initial_capital
@@ -31,7 +31,7 @@ class GoldenStocksBacktest5Y:
         self.trades = []
         self.open_positions = []
         
-        logger.info(f"🚀 Starting 5-Year Golden Stocks Backtest")
+        logger.info(f"🚀 Starting 4-Year Golden Stocks Backtest")
         logger.info(f"📅 Period: {self.start_date} to {self.end_date}")
         logger.info(f"💰 Initial Capital: ₹{self.initial_capital:,}")
         logger.info(f"📊 Position Size: {self.position_size_percent}% per trade")
@@ -42,7 +42,7 @@ class GoldenStocksBacktest5Y:
             df = pd.read_csv('ind_nifty500list.csv')
             symbols = df['Symbol'].tolist()
             logger.info(f"📋 Loaded {len(symbols)} stocks from NIFTY 500")
-            return symbols[:20]  # Test with first 20 stocks for faster execution
+            return symbols  # Use all 500 stocks for comprehensive backtest
         except Exception as e:
             logger.error(f"Error loading stock universe: {e}")
             # Fallback to major stocks
@@ -58,8 +58,8 @@ class GoldenStocksBacktest5Y:
             ticker_symbol = f"{symbol}.NS"
             ticker = yf.Ticker(ticker_symbol)
             
-            # Download 5+ years of data to ensure we have enough
-            data = ticker.history(start="2019-01-01", end="2024-12-31")
+            # Download 4+ years of data to ensure we have enough
+            data = ticker.history(start="2020-01-01", end="2024-12-31")
             
             if data.empty:
                 logger.warning(f"No data for {symbol}")
@@ -145,7 +145,7 @@ class GoldenStocksBacktest5Y:
             # Get data up to the current date
             historical_data = data_tz_naive[data_tz_naive.index <= date_naive]
             
-            if len(historical_data) < 252:  # Need at least 1 year of data
+            if len(historical_data) < 200:  # Need at least 200 days of data (reduced from 252)
                 return None
             
             current_price = historical_data['Close'].iloc[-1]
@@ -157,10 +157,10 @@ class GoldenStocksBacktest5Y:
             
             trendline_price = trendline_result['trendline_price']
             
-            # Check if price is near trendline (within 1%)
+            # Check if price is near trendline (within 2% instead of 1%)
             distance_to_trendline = (current_price - trendline_price) / trendline_price
             
-            if not (-0.01 <= distance_to_trendline <= 0.01):  # Must be within 1% of trendline
+            if not (-0.02 <= distance_to_trendline <= 0.02):  # Must be within 2% of trendline
                 return None
             
             # Additional Golden Stock criteria
@@ -391,10 +391,10 @@ class GoldenStocksBacktest5Y:
                 self.exit_position(position, exit_details)
                 self.open_positions.remove(position)
             
-            # Look for new Golden Stock entries (limit to avoid over-diversification)
-            if len(self.open_positions) < 5:  # Max 5 open positions for faster testing
+            # Look for new Golden Stock entries (allow proper diversification)
+            if len(self.open_positions) < 20:  # Max 20 open positions for realistic portfolio
                 for symbol in symbols:
-                    if symbol in stock_data and len(self.open_positions) < 5:
+                    if symbol in stock_data and len(self.open_positions) < 20:
                         # Skip if already have position in this stock
                         if any(pos['symbol'] == symbol for pos in self.open_positions):
                             continue
@@ -406,7 +406,7 @@ class GoldenStocksBacktest5Y:
                         current_date_naive = current_date.tz_localize(None) if current_date.tz else current_date
                         
                         available_data = data_tz_naive[data_tz_naive.index <= current_date_naive]
-                        if len(available_data) > 252:  # Need sufficient history
+                        if len(available_data) > 200:  # Need sufficient history (reduced from 252)
                             # Pass the original timezone-aware data to the function
                             entry_result = self.is_golden_stock_entry(data, current_date)
                             if entry_result:
@@ -440,14 +440,31 @@ class GoldenStocksBacktest5Y:
         
         self.open_positions = []
         
-        logger.info("✅ 5-year backtest completed!")
+        logger.info("✅ 4-year backtest completed!")
     
     def generate_summary(self) -> Dict:
         """Generate backtest summary statistics"""
-        if not self.trades:
-            return {}
-        
         total_trades = len(self.trades)
+        
+        if total_trades == 0:
+            return {
+                'initial_capital': self.initial_capital,
+                'final_capital': self.current_capital,
+                'net_profit': 0,
+                'total_return_percent': 0,
+                'total_trades': 0,
+                'winning_trades': 0,
+                'losing_trades': 0,
+                'win_rate': 0,
+                'profit_factor': 0,
+                'avg_holding_days': 0,
+                'target_hits': 0,
+                'stoploss_hits': 0,
+                'breakeven_hits': 0,
+                'total_profit': 0,
+                'total_loss': 0
+            }
+        
         winning_trades = len([t for t in self.trades if t['profit_loss'] > 0])
         losing_trades = len([t for t in self.trades if t['profit_loss'] < 0])
         
@@ -497,7 +514,7 @@ class GoldenStocksBacktest5Y:
             'all_trades': self.trades
         }
         
-        filename = 'backtest_golden_5years_results.json'
+        filename = 'backtest_golden_4years_results.json'
         with open(filename, 'w') as f:
             json.dump(results, f, indent=2, default=str)
         
@@ -505,14 +522,14 @@ class GoldenStocksBacktest5Y:
         
         # Print summary
         logger.info("=" * 60)
-        logger.info("📊 5-YEAR GOLDEN STOCKS BACKTEST SUMMARY")
+        logger.info("📊 4-YEAR GOLDEN STOCKS BACKTEST SUMMARY")
         logger.info("=" * 60)
         logger.info(f"Period: {self.start_date} to {self.end_date}")
         logger.info(f"Initial Capital: ₹{summary['initial_capital']:,}")
         logger.info(f"Final Capital: ₹{summary['final_capital']:,.0f}")
         logger.info(f"Net Profit: ₹{summary['net_profit']:,.0f}")
         logger.info(f"Total Return: {summary['total_return_percent']:.2f}%")
-        logger.info(f"Annualized Return: {(summary['total_return_percent'] / 5):.2f}%")
+        logger.info(f"Annualized Return: {(summary['total_return_percent'] / 4):.2f}%")
         logger.info("")
         logger.info(f"Total Trades: {summary['total_trades']}")
         logger.info(f"Winning Trades: {summary['winning_trades']}")
@@ -529,8 +546,8 @@ class GoldenStocksBacktest5Y:
         logger.info("=" * 60)
 
 def main():
-    """Run the 5-year Golden Stocks backtest"""
-    backtest = GoldenStocksBacktest5Y()
+    """Run the 4-year Golden Stocks backtest"""
+    backtest = GoldenStocksBacktest4Y()
     backtest.run_backtest()
     backtest.save_results()
 
