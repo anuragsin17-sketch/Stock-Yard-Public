@@ -32,6 +32,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas yfinance requests numpy openpyxl
     
+    - name: Test basic functionality
+      run: |
+        echo "🧪 Testing basic Python functionality..."
+        python -c "import pandas as pd; import yfinance as yf; print('✅ Dependencies OK')"
+        python -c "import screener; print('✅ Screener module OK')"
+        echo "✅ Basic tests passed"
+    
     - name: Run Yahoo Finance screener
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -61,8 +68,8 @@ jobs:
         fi
         
         # Set timeout and memory limits for large dataset
-        echo "🔄 Starting screener with 20-minute timeout..."
-        timeout 20m python screener.py || {
+        echo "🔄 Starting screener with 15-minute timeout..."
+        timeout 15m python screener.py || {
           echo "⚠️ Screener timed out or failed, creating fallback data..."
           echo '{"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'","golden_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"elliott_wave_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"golden_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"elliott_wave_matches":0,"errors":["Screener execution timed out or failed"]}}' > data.json
         }

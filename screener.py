@@ -1340,13 +1340,9 @@ class StockScreener:
             logger.error("No stocks to process")
             return
         
-        # Process each stock (limit to 50 for GitHub Actions to avoid timeout)
-        total_stocks = min(len(stocks_df), 50)
-        limited_stocks = stocks_df.head(50)
-        
-        logger.info(f"Processing {total_stocks} stocks (limited for GitHub Actions)")
-        
-        for idx, row in limited_stocks.iterrows():
+        # Process each stock - revert to original working version
+        total_stocks = len(stocks_df)
+        for idx, row in stocks_df.iterrows():
             symbol = row['Symbol']
             company_name = row['Company Name']
             industry = row['Industry']
@@ -1354,8 +1350,8 @@ class StockScreener:
             logger.info(f"Processing {idx + 1}/{total_stocks}: {symbol}")
             self.screen_stock(symbol, company_name, industry)
             
-            # Progress update every 10 stocks (since we're processing fewer)
-            if (idx + 1) % 10 == 0:
+            # Progress update every 50 stocks
+            if (idx + 1) % 50 == 0:
                 logger.info(f"Progress: {idx + 1}/{total_stocks} stocks processed")
         
         # Sort results by priority after screening
