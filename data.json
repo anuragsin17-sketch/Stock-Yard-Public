@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-22T10:48:29.559013",
+  "timestamp": "2026-05-22T11:22:55.849528",
   "golden_stocks": [],
   "volume_breakout_stocks": [
     {
@@ -2533,13 +2533,13 @@
       "industry": "Construction Materials",
       "vertical_line_price": null,
       "is_elliott_wave": true,
-      "wave1_low": 17571.46,
+      "wave1_low": 17571.47,
       "wave1_low_date": "2022-06-20",
       "wave1_high": 32335.05,
       "wave1_high_date": "2025-07-21",
       "current_price": 24785.0,
       "golden_pocket_high": 24953.26,
-      "golden_pocket_low": 23211.15,
+      "golden_pocket_low": 23211.16,
       "retracement_percent": 51.14,
       "weekly_rsi": 43.53,
       "sma_200w": 25881.05,
