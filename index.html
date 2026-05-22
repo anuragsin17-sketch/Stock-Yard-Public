@@ -135,12 +135,6 @@
                         <span>Golden</span>
                     </div>
                 </button>
-                <button id="verticalTab" class="pill-tab flex-shrink-0 px-4 py-3 text-xs font-medium transition-all touch-btn text-slate-400">
-                    <div class="flex items-center space-x-2">
-                        <span>📏</span>
-                        <span>Vertical</span>
-                    </div>
-                </button>
                 <button id="darvasTab" class="pill-tab flex-shrink-0 px-4 py-3 text-xs font-medium transition-all touch-btn text-slate-400">
                     <div class="flex items-center space-x-2">
                         <span>📦</span>
@@ -309,7 +303,6 @@
             
             // Tab buttons
             document.getElementById('goldenTab').addEventListener('click', () => switchTab('golden'));
-            document.getElementById('verticalTab').addEventListener('click', () => switchTab('vertical'));
             document.getElementById('darvasTab').addEventListener('click', () => switchTab('darvas'));
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
             document.getElementById('wpatTab').addEventListener('click', () => switchTab('wpattern'));
@@ -358,7 +351,6 @@
             screeningData = {
                 timestamp: new Date().toISOString(),
                 golden_stocks: [],
-                vertical_line_stocks: [],
                 darvas_box_stocks: [],
                 volume_breakout_stocks: [],
                 w_pattern_stocks: [],
@@ -368,7 +360,6 @@
                     successful_downloads: 0,
                     failed_downloads: 0,
                     golden_matches: 0,
-                    vertical_line_matches: 0,
                     darvas_box_matches: 0,
                     volume_breakout_matches: 0,
                     w_pattern_matches: 0,
@@ -386,7 +377,6 @@
             // Update stats
             const total = screeningData.diagnostics?.total_stocks_processed || 0;
             const opportunities = (screeningData.golden_stocks?.length || 0) + 
-                               (screeningData.vertical_line_stocks?.length || 0) +
                                (screeningData.darvas_box_stocks?.length || 0) +
                                (screeningData.volume_breakout_stocks?.length || 0) + 
                                (screeningData.w_pattern_stocks?.length || 0) +
@@ -416,7 +406,6 @@
             });
             
             const activeBtn = document.getElementById(tab === 'golden' ? 'goldenTab' : 
-                                                   tab === 'vertical' ? 'verticalTab' :
                                                    tab === 'darvas' ? 'darvasTab' :
                                                    tab === 'volume' ? 'volTab' : 
                                                    tab === 'wpattern' ? 'wpatTab' : 'elliotTab');
@@ -444,12 +433,7 @@
                 case 'golden':
                     stocks = screeningData.golden_stocks || [];
                     title = 'Golden Stocks Opportunities';
-                    sortingInfo = 'Sorted: Double signals first, then by entry quality (Weekly + Daily analysis)';
-                    break;
-                case 'vertical':
-                    stocks = screeningData.vertical_line_stocks || [];
-                    title = 'Vertical Line Analysis';
-                    sortingInfo = 'Sorted: Touch 2 triggers first, then by signal strength (20%+ upside target)';
+                    sortingInfo = 'Sorted: Double signals first, then by entry quality (Fib+Trendline+Vertical)';
                     break;
                 case 'darvas':
                     stocks = screeningData.darvas_box_stocks || [];
@@ -470,15 +454,6 @@
                     stocks = screeningData.elliott_wave_stocks || [];
                     title = 'Elliott Wave Long-Term Opportunities';
                     sortingInfo = 'Sorted: Excellent setups first, then by RSI oversold levels';
-                    break;
-                case 'golden':
-                    stocks = screeningData.golden_stocks || [];
-                    title = 'Golden Trendline Opportunities';
-                    sortingInfo = 'Sorted: Excellent entries first, then by proximity to trendline (Weekly timeframe)';
-                    break;
-                case 'performance':
-                    displayPerformanceTracking();
-                    return;
                     break;
             }
             
@@ -535,24 +510,6 @@
             const stockNameHtml = `<a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.symbol}</a>`;
             
             switch(type) {
-                case 'fibonacci':
-                    // Add priority badge for Fibonacci levels
-                    if (stock.level === '38.2%') {
-                        priorityBadge = '<span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">🎯 HIGH PRIORITY</span>';
-                    } else if (stock.level === '50%') {
-                        priorityBadge = '<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">⚡ MEDIUM</span>';
-                    } else if (stock.level === '61.8%') {
-                        priorityBadge = '<span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">📊 STANDARD</span>';
-                    }
-                    
-                    details = `
-                        <div class="text-xs text-slate-400 mb-1">Near ${stock.level} level</div>
-                        <div class="text-lg font-bold text-emerald-400">₹${stock.current_price}</div>
-                        <div class="text-xs text-slate-500">Target: ₹${stock.level_price}</div>
-                        <div class="text-xs text-slate-500 mt-1">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
-                        <div class="mt-2">${priorityBadge}</div>
-                    `;
-                    break;
                 case 'volume':
                     radarStatus = stock.radar_status === 'Active' ? 
                         '<span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">🔴 RADAR ACTIVE</span>' :
@@ -563,11 +520,16 @@
                         priorityBadge = '<span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">🚨 URGENT</span>';
                     }
                     
+                    // Add vertical line price if available
+                    const volVerticalLine = stock.vertical_line_price ? 
+                        `<div class="text-xs text-cyan-400">📏 Vertical Line: ₹${stock.vertical_line_price}</div>` : '';
+                    
                     details = `
                         <div class="text-xs text-slate-400 mb-1">${stock.breakout_volume_ratio}x Volume Spike</div>
                         <div class="text-lg font-bold text-blue-400">₹${stock.current_price}</div>
                         <div class="text-xs text-slate-500">Breakout: ${stock.breakout_date} at ₹${stock.breakout_price}</div>
                         <div class="text-xs text-slate-500">Day Low: ₹${stock.breakout_low}</div>
+                        ${volVerticalLine}
                         <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
                         <div class="text-xs text-orange-400 mt-1">Radar Trigger: ₹${stock.radar_trigger_price}</div>
                         <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
@@ -585,11 +547,16 @@
                         priorityBadge = '<span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">🎯 CLOSE</span>';
                     }
                     
+                    // Add vertical line price if available
+                    const wpatVerticalLine = stock.vertical_line_price ? 
+                        `<div class="text-xs text-cyan-400">📏 Vertical Line: ₹${stock.vertical_line_price}</div>` : '';
+                    
                     details = `
                         <div class="text-xs text-slate-400 mb-1">${stock.distance_to_neckline_percent}% to breakout</div>
                         <div class="text-lg font-bold text-purple-400">₹${stock.current_price}</div>
                         <div class="text-xs text-slate-500">Target: ₹${stock.neckline_peak_price}</div>
                         <div class="text-xs text-slate-500">Lower Trough: ${stock.lower_trough_date} at ₹${stock.lower_trough_price}</div>
+                        ${wpatVerticalLine}
                         <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
                         <div class="text-xs text-orange-400 mt-1">Radar Trigger: ₹${stock.radar_trigger_price}</div>
                         <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
@@ -603,11 +570,16 @@
                         priorityBadge = '<span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">✅ GOOD</span>';
                     }
                     
+                    // Add vertical line price if available
+                    const elliottVerticalLine = stock.vertical_line_price ? 
+                        `<div class="text-xs text-cyan-400">📏 Vertical Line: ₹${stock.vertical_line_price}</div>` : '';
+                    
                     details = `
                         <div class="text-xs text-slate-400 mb-1">${stock.retracement_percent}% Wave 2 Retracement</div>
                         <div class="text-lg font-bold text-indigo-400">₹${stock.current_price}</div>
                         <div class="text-xs text-slate-500">Golden Pocket: ₹${stock.golden_pocket_low} - ₹${stock.golden_pocket_high}</div>
                         <div class="text-xs text-slate-500">Wave 1: ${stock.wave1_low_date} to ${stock.wave1_high_date}</div>
+                        ${elliottVerticalLine}
                         <div class="text-xs text-slate-500">RSI: ${stock.weekly_rsi} | 200W SMA: ₹${stock.sma_200w}</div>
                         <div class="text-xs text-slate-500">${stock.months_since_high} months since high</div>
                         <div class="mt-2">${priorityBadge}</div>
@@ -639,6 +611,10 @@
                         signalDetails.push(`<div class="text-xs text-slate-500">Strength: ${stock.trendline_strength}% | ${stock.trendline_touches} touches | ${stock.timeframe_months}mo</div>`);
                     }
                     
+                    if (stock.has_vertical_line && stock.vertical_line_price) {
+                        signalDetails.push(`<div class="text-xs text-cyan-400">📏 Vertical Line at ₹${stock.vertical_line_price}</div>`);
+                    }
+                    
                     details = `
                         <div class="text-xs text-slate-400 mb-2">${stock.entry_quality}</div>
                         <div class="text-2xl font-bold" style="background: linear-gradient(135deg, #10B981, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">₹${stock.current_price}</div>
@@ -646,26 +622,6 @@
                             ${signalDetails.join('')}
                         </div>
                         <div class="text-xs text-slate-500 mt-2">Upside: ${stock.potential_upside_percent}% | 52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
-                        <div class="mt-3">${priorityBadge}</div>
-                    `;
-                    break;
-                case 'vertical':
-                    // Add priority badge for Vertical Line entries
-                    if (stock.is_touch_2_trigger) {
-                        priorityBadge = '<span class="signal-badge" style="background: linear-gradient(135deg, #DC2626, #B91C1C); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;">🚨 TOUCH 2</span>';
-                    } else if (stock.signal_strength && stock.signal_strength.includes('Strong')) {
-                        priorityBadge = '<span class="signal-badge" style="background: linear-gradient(135deg, #F59E0B, #D97706); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;">💪 STRONG</span>';
-                    } else if (stock.signal_strength && stock.signal_strength.includes('Good')) {
-                        priorityBadge = '<span class="signal-badge" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;">✅ GOOD</span>';
-                    }
-                    
-                    details = `
-                        <div class="text-xs text-slate-400 mb-2">${stock.signal_strength}</div>
-                        <div class="text-2xl font-bold text-red-400">₹${stock.current_price}</div>
-                        <div class="text-xs text-yellow-400 mt-2">📏 ${stock.level_type} Line: ₹${stock.vertical_line_price} (${stock.distance_to_level_percent > 0 ? '+' : ''}${stock.distance_to_level_percent}%)</div>
-                        <div class="text-xs text-slate-500">Touch ${stock.touch_count} | Target: ₹${stock.target_price_20_percent} (+${stock.upside_potential_percent}%)</div>
-                        <div class="text-xs text-slate-500">Period: ${stock.first_touch_date} to ${stock.last_touch_date}</div>
-                        <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
                         <div class="mt-3">${priorityBadge}</div>
                     `;
                     break;
@@ -679,12 +635,17 @@
                         priorityBadge = '<span class="signal-badge" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;">📈 NEAR</span>';
                     }
                     
+                    // Add vertical line price if available
+                    const darvasVerticalLine = stock.vertical_line_price ? 
+                        `<div class="text-xs text-cyan-400">📏 Vertical Line: ₹${stock.vertical_line_price}</div>` : '';
+                    
                     details = `
                         <div class="text-xs text-slate-400 mb-2">${stock.breakout_status}</div>
                         <div class="text-2xl font-bold text-purple-400">₹${stock.current_price}</div>
                         <div class="text-xs text-blue-400 mt-2">📦 Timeframe: ${stock.timeframe_years} Years</div>
                         <div class="text-xs text-slate-500">Box: ₹${stock.box_low} - ₹${stock.box_high} (${stock.box_range_percent}%)</div>
                         <div class="text-xs text-slate-500">Consolidation: ${stock.consolidation_months} months | Strength: ${stock.box_strength}%</div>
+                        ${darvasVerticalLine}
                         <div class="text-xs text-green-400">Target: ₹${stock.target_price} (+${stock.target_percent}%)</div>
                         <div class="text-xs text-slate-500">52W: ₹${stock.week_52_low} - ₹${stock.week_52_high}</div>
                         <div class="mt-3">${priorityBadge}</div>

@@ -25,12 +25,11 @@ class StockScreener:
         self.telegram_chat_id = os.environ.get('TELEGRAM_CHAT_ID')
         self.results = {
             'timestamp': datetime.now().isoformat(),
-            'golden_stocks': [],  # Combined Fibonacci + Trendline
+            'golden_stocks': [],  # Combined Fibonacci + Trendline + Vertical Line
             'volume_breakout_stocks': [],
             'w_pattern_stocks': [],
             'elliott_wave_stocks': [],
-            'vertical_line_stocks': [],  # New Vertical Line analysis
-            'darvas_box_stocks': [],  # New Darvas Box analysis
+            'darvas_box_stocks': [],  # Darvas Box analysis
             'diagnostics': {
                 'total_stocks_processed': 0,
                 'successful_downloads': 0,
@@ -39,8 +38,7 @@ class StockScreener:
                 'volume_breakout_matches': 0,
                 'w_pattern_matches': 0,
                 'elliott_wave_matches': 0,
-                'vertical_line_matches': 0,  # New counter
-                'darvas_box_matches': 0,  # New counter
+                'darvas_box_matches': 0,
                 'errors': []
             }
         }
@@ -573,7 +571,7 @@ class StockScreener:
             return {'is_elliott_wave': False, 'error': str(e)}
     
     def detect_golden_stocks_combined(self, data: pd.DataFrame, weekly_data: pd.DataFrame) -> Dict:
-        """Combined Golden Stocks analysis - Trendline + Fibonacci analysis"""
+        """Combined Golden Stocks analysis - Trendline + Fibonacci + Vertical Line analysis"""
         try:
             if len(weekly_data) < 52:  # Need at least 1 year of weekly data
                 return {'is_golden_stock': False, 'error': 'Insufficient weekly data'}
@@ -773,6 +771,22 @@ class StockScreener:
             # Add trendline data if present
             if has_trendline:
                 result.update(trendline_data)
+            
+            # Add Vertical Line analysis to Golden Stocks
+            try:
+                vertical_result = self.detect_vertical_line_pattern(weekly_data)
+                if vertical_result.get('is_vertical_line', False):
+                    result['has_vertical_line'] = True
+                    result['vertical_line_price'] = vertical_result['vertical_line_price']
+                    result['vertical_line_touch_count'] = vertical_result['touch_count']
+                    result['vertical_line_signal'] = vertical_result['signal_strength']
+                else:
+                    result['has_vertical_line'] = False
+                    result['vertical_line_price'] = None
+            except Exception as e:
+                logger.warning(f"Vertical line analysis failed in Golden Stocks: {e}")
+                result['has_vertical_line'] = False
+                result['vertical_line_price'] = None
             
             return result
             
@@ -1064,7 +1078,7 @@ class StockScreener:
             return {'is_darvas_box': False, 'error': str(e)}
     
     def screen_stock(self, symbol: str, company_name: str, industry: str) -> None:
-        """Screen a single stock for all three conditions"""
+        """Screen a single stock for all conditions"""
         try:
             self.results['diagnostics']['total_stocks_processed'] += 1
             
@@ -1076,6 +1090,19 @@ class StockScreener:
             
             self.results['diagnostics']['successful_downloads'] += 1
             
+            # Get weekly data once for all analyses that need it
+            weekly_data = self.get_weekly_data(symbol)
+            
+            # Get vertical line price for all patterns (if weekly data available)
+            vertical_line_price = None
+            if weekly_data is not None and not weekly_data.empty:
+                try:
+                    vertical_result = self.detect_vertical_line_pattern(weekly_data)
+                    if vertical_result.get('is_vertical_line', False):
+                        vertical_line_price = vertical_result.get('vertical_line_price')
+                except Exception as e:
+                    logger.warning(f"Vertical line detection failed for {symbol}: {e}")
+            
             # Note: Fibonacci analysis is now combined with Golden Stocks
             # Check volume breakout
             try:
@@ -1085,6 +1112,7 @@ class StockScreener:
                         'symbol': symbol,
                         'company_name': company_name,
                         'industry': industry,
+                        'vertical_line_price': vertical_line_price,  # Add vertical line price
                         **volume_result
                     }
                     self.results['volume_breakout_stocks'].append(stock_info)
@@ -1095,7 +1123,6 @@ class StockScreener:
             
             # Check W-Pattern (weekly data)
             try:
-                weekly_data = self.get_weekly_data(symbol)
                 if weekly_data is not None and not weekly_data.empty:
                     w_pattern_result = self.detect_w_pattern(weekly_data)
                     if w_pattern_result.get('is_w_pattern', False):
@@ -1103,6 +1130,7 @@ class StockScreener:
                             'symbol': symbol,
                             'company_name': company_name,
                             'industry': industry,
+                            'vertical_line_price': vertical_line_price,  # Add vertical line price
                             **w_pattern_result
                         }
                         self.results['w_pattern_stocks'].append(stock_info)
@@ -1121,6 +1149,7 @@ class StockScreener:
                             'symbol': symbol,
                             'company_name': company_name,
                             'industry': industry,
+                            'vertical_line_price': vertical_line_price,  # Add vertical line price
                             **elliott_result
                         }
                         self.results['elliott_wave_stocks'].append(stock_info)
@@ -1129,10 +1158,9 @@ class StockScreener:
             except Exception as e:
                 logger.warning(f"Elliott Wave analysis failed for {symbol}: {e}")
             
-            # Check Golden Stocks (Combined Trendline + Fibonacci)
+            # Check Golden Stocks (Combined Trendline + Fibonacci + Vertical Line)
             try:
                 # Use weekly data for combined analysis
-                weekly_data = self.get_weekly_data(symbol)
                 if weekly_data is not None and not weekly_data.empty:
                     golden_result = self.detect_golden_stocks_combined(data, weekly_data)
                     if golden_result.get('is_golden_stock', False):
@@ -1157,29 +1185,6 @@ class StockScreener:
             except Exception as e:
                 logger.warning(f"Golden Stocks analysis failed for {symbol}: {e}")
             
-            # Check Vertical Line Pattern
-            try:
-                weekly_data = self.get_weekly_data(symbol)
-                if weekly_data is not None and not weekly_data.empty:
-                    vertical_result = self.detect_vertical_line_pattern(weekly_data)
-                    if vertical_result.get('is_vertical_line', False):
-                        # Apply 20% minimum upside filter
-                        upside_potential = vertical_result.get('upside_potential_percent', 0)
-                        if upside_potential >= 20:
-                            stock_info = {
-                                'symbol': symbol,
-                                'company_name': company_name,
-                                'industry': industry,
-                                **vertical_result
-                            }
-                            self.results['vertical_line_stocks'].append(stock_info)
-                            self.results['diagnostics']['vertical_line_matches'] += 1
-                            logger.info(f"Vertical Line match: {symbol} - Touch {vertical_result['touch_count']} at ₹{vertical_result['vertical_line_price']}")
-                        else:
-                            logger.info(f"Vertical Line {symbol} filtered out: {upside_potential:.1f}% upside < 20% minimum")
-            except Exception as e:
-                logger.warning(f"Vertical Line analysis failed for {symbol}: {e}")
-            
             # Check Darvas Box Pattern
             try:
                 darvas_result = self.detect_darvas_box_pattern(data)
@@ -1188,6 +1193,7 @@ class StockScreener:
                         'symbol': symbol,
                         'company_name': company_name,
                         'industry': industry,
+                        'vertical_line_price': vertical_line_price,  # Add vertical line price
                         **darvas_result
                     }
                     self.results['darvas_box_stocks'].append(stock_info)
@@ -1266,14 +1272,6 @@ class StockScreener:
                 -x.get('trendline_strength', 0)  # Stronger trendlines first (negative for descending sort)
             ))
             
-            # Sort Vertical Line stocks: Touch 2 triggers first, then by proximity to level
-            self.results['vertical_line_stocks'].sort(key=lambda x: (
-                0 if x.get('is_touch_2_trigger', False) else 1,  # Touch 2 triggers first
-                0 if x.get('signal_strength', '').startswith('Excellent') else 1 if x.get('signal_strength', '').startswith('Good') else 2,  # Signal strength
-                abs(x.get('distance_to_level_percent', 100)),  # Closer to level
-                -x.get('touch_count', 0)  # More touches first
-            ))
-            
             # Sort Darvas Box stocks: Longer timeframes first, then by breakout status
             self.results['darvas_box_stocks'].sort(key=lambda x: (
                 0 if x.get('breakout_status') == 'Confirmed Breakout' else 1 if x.get('breakout_status') == 'Initial Breakout' else 2,  # Breakout status
@@ -1296,11 +1294,10 @@ class StockScreener:
         - Total stocks processed: {diag['total_stocks_processed']}
         - Successful downloads: {diag['successful_downloads']}
         - Failed downloads: {diag['failed_downloads']}
-        - Golden Stocks matches: {diag['golden_matches']} (Combined Fibonacci + Trendline)
+        - Golden Stocks matches: {diag['golden_matches']} (Fibonacci + Trendline + Vertical Line)
         - Volume breakout matches: {diag['volume_breakout_matches']}
         - W-Pattern matches: {diag['w_pattern_matches']}
         - Elliott Wave matches: {diag['elliott_wave_matches']}
-        - Vertical Line matches: {diag['vertical_line_matches']}
         - Darvas Box matches: {diag['darvas_box_matches']}
         - Errors: {len(diag['errors'])}
         """)
@@ -1340,12 +1337,10 @@ class StockScreener:
         
         try:
             # Prepare message
-            # Prepare message
             golden_count = len(self.results['golden_stocks'])
             vol_count = len(self.results['volume_breakout_stocks'])
             w_pattern_count = len(self.results['w_pattern_stocks'])
             elliott_count = len(self.results['elliott_wave_stocks'])
-            vertical_count = len(self.results['vertical_line_stocks'])
             darvas_count = len(self.results['darvas_box_stocks'])
             
             # Count radar alerts
@@ -1361,11 +1356,10 @@ class StockScreener:
 
 📊 *Results Summary:*
 • Total Stocks Screened: {total_processed}
-• Golden Stocks (Fib+Trendline): {golden_count} matches
+• Golden Stocks (Fib+Trendline+Vertical): {golden_count} matches
 • Volume Breakout: {vol_count} matches
 • W-Pattern: {w_pattern_count} matches
 • Elliott Wave (Long-term): {elliott_count} matches
-• Vertical Line (Touch 2): {vertical_count} matches
 • Darvas Box (Multi-Year): {darvas_count} matches
 
 🚨 *RADAR ALERTS:*
@@ -1390,9 +1384,6 @@ _Automated screening completed successfully_"""
                 logger.info("Telegram notification sent successfully")
             else:
                 logger.error(f"Failed to send Telegram notification: {response.text}")
-                
-        except Exception as e:
-            logger.error(f"Error sending Telegram notification: {e}")
                 
         except Exception as e:
             logger.error(f"Error sending Telegram notification: {e}")
@@ -1427,7 +1418,6 @@ def main():
         fallback_data = {
             'timestamp': datetime.now().isoformat(),
             'golden_stocks': [],
-            'vertical_line_stocks': [],
             'darvas_box_stocks': [],
             'volume_breakout_stocks': [],
             'w_pattern_stocks': [],
@@ -1437,7 +1427,6 @@ def main():
                 'successful_downloads': 0,
                 'failed_downloads': 0,
                 'golden_matches': 0,
-                'vertical_line_matches': 0,
                 'darvas_box_matches': 0,
                 'volume_breakout_matches': 0,
                 'w_pattern_matches': 0,
