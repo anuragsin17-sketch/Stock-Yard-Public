@@ -158,16 +158,16 @@
         <!-- Navigation Tabs -->
         <div class="mobile-card p-3">
             <div class="flex space-x-3 overflow-x-auto scroll-container">
-                <button id="goldenTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn active">
-                    <div class="flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-                        <span>Golden</span>
-                    </div>
-                </button>
-                <button id="volTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
+                <button id="volTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn active">
                     <div class="flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                         <span>Volume</span>
+                    </div>
+                </button>
+                <button id="trendlineTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                        <span>Trendline</span>
                     </div>
                 </button>
                 <button id="performanceTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
@@ -198,7 +198,7 @@
     <script>
         // Embedded live data (updated by GitHub Actions)
         const LIVE_DATA = {
-  "timestamp": "2026-05-22T15:20:34.189668",
+  "timestamp": "2026-05-23T15:37:53.380242",
   "golden_stocks": [
     {
       "symbol": "OBEROIRLTY",
@@ -321,45 +321,6 @@
       "vertical_line_target_price": 4512.13
     },
     {
-      "symbol": "CAMS",
-      "company_name": "Computer Age Management Services Ltd.",
-      "industry": "Financial Services",
-      "is_golden_stock": true,
-      "current_price": 757.2,
-      "week_52_high": 860.94,
-      "week_52_low": 611.4,
-      "ema_200": null,
-      "potential_upside_percent": 13.7,
-      "entry_quality": "Good - Trendline Only",
-      "has_fibonacci": false,
-      "has_trendline": true,
-      "analysis_timeframe": "Weekly + Monthly + Daily",
-      "pattern_type": "Golden Stock Analysis",
-      "trendline_price": 755.28,
-      "distance_to_trendline_percent": 0.25,
-      "trendline_slope_daily": 0.129514,
-      "trendline_start_price": 718.11,
-      "trendline_start_date": "2025-08-08",
-      "trendline_end_price": 729.89,
-      "trendline_end_date": "2025-11-07",
-      "timeframe_days": 287,
-      "timeframe_months": 9.4,
-      "trendline_touches": 4,
-      "trendline_strength": 100,
-      "primary_timeframe": "Weekly",
-      "weekly_trendline_price": 755.28,
-      "monthly_trendline_price": null,
-      "has_vertical_line": true,
-      "vertical_line_price": 815.6,
-      "vertical_line_touch_count": 2,
-      "vertical_line_signal": "GOOD - Approaching Entry Trigger",
-      "vertical_line_entry_trigger": 815.6,
-      "vertical_line_distance_percent": 7.16,
-      "vertical_line_alert_status": "\ud83d\udccd WATCH ZONE",
-      "vertical_line_position": "BELOW",
-      "vertical_line_target_price": 978.71
-    },
-    {
       "symbol": "FEDERALBNK",
       "company_name": "Federal Bank Ltd.",
       "industry": "Financial Services",
@@ -422,45 +383,6 @@
       "monthly_trendline_price": null,
       "has_vertical_line": false,
       "vertical_line_price": null
-    },
-    {
-      "symbol": "PETRONET",
-      "company_name": "Petronet LNG Ltd.",
-      "industry": "Oil Gas & Consumable Fuels",
-      "is_golden_stock": true,
-      "current_price": 272.35,
-      "week_52_high": 326.4,
-      "week_52_low": 235.35,
-      "ema_200": null,
-      "potential_upside_percent": 19.85,
-      "entry_quality": "Good - Trendline Only",
-      "has_fibonacci": false,
-      "has_trendline": true,
-      "analysis_timeframe": "Weekly + Monthly + Daily",
-      "pattern_type": "Golden Stock Analysis",
-      "trendline_price": 273.3,
-      "distance_to_trendline_percent": -0.35,
-      "trendline_slope_daily": 0.04558,
-      "trendline_start_price": 261.18,
-      "trendline_start_date": "2025-08-29",
-      "trendline_end_price": 264.69,
-      "trendline_end_date": "2025-11-14",
-      "timeframe_days": 266,
-      "timeframe_months": 8.7,
-      "trendline_touches": 5,
-      "trendline_strength": 100,
-      "primary_timeframe": "Weekly",
-      "weekly_trendline_price": 273.3,
-      "monthly_trendline_price": null,
-      "has_vertical_line": true,
-      "vertical_line_price": 261.46,
-      "vertical_line_touch_count": 2,
-      "vertical_line_signal": "VERY GOOD - Near Entry Trigger",
-      "vertical_line_entry_trigger": 261.46,
-      "vertical_line_distance_percent": 4.16,
-      "vertical_line_alert_status": "\u26a1 CLOSE TO ENTRY",
-      "vertical_line_position": "ABOVE",
-      "vertical_line_target_price": 313.75
     },
     {
       "symbol": "TVSMOTOR",
@@ -795,11 +717,16 @@
       "week_52_low": 1450.0,
       "ema_200": null,
       "potential_upside_percent": 23.1,
-      "entry_quality": "Good - Trendline Only",
-      "has_fibonacci": false,
+      "entry_quality": "Good - Trendline + Fibonacci",
+      "has_fibonacci": true,
       "has_trendline": true,
       "analysis_timeframe": "Weekly + Monthly + Daily",
       "pattern_type": "Golden Stock Analysis",
+      "fibonacci_level": "38.2%",
+      "fibonacci_level_price": 1627.54,
+      "fibonacci_distance_percent": 1.82,
+      "fibonacci_high_5y": 2405.45,
+      "fibonacci_low_5y": 369.04,
       "trendline_price": 1688.91,
       "distance_to_trendline_percent": -1.88,
       "trendline_slope_daily": 0.006494,
@@ -887,6 +814,256 @@
       "vertical_line_alert_status": "\ud83d\udd25 IMMEDIATE ENTRY ZONE",
       "vertical_line_position": "ABOVE",
       "vertical_line_target_price": 6371.63
+    },
+    {
+      "symbol": "CUB",
+      "company_name": "City Union Bank Ltd.",
+      "industry": "Financial Services",
+      "is_golden_stock": true,
+      "current_price": 248.55,
+      "week_52_high": 324.1,
+      "week_52_low": 185.3,
+      "ema_200": null,
+      "potential_upside_percent": 30.4,
+      "entry_quality": "Good - Trendline + Fibonacci",
+      "has_fibonacci": true,
+      "has_trendline": true,
+      "analysis_timeframe": "Weekly + Monthly + Daily",
+      "pattern_type": "Golden Stock Analysis",
+      "fibonacci_level": "38.2%",
+      "fibonacci_level_price": 240.61,
+      "fibonacci_distance_percent": 3.3,
+      "fibonacci_high_5y": 324.1,
+      "fibonacci_low_5y": 105.54,
+      "trendline_price": 237.04,
+      "distance_to_trendline_percent": 4.86,
+      "trendline_slope_daily": 0.168112,
+      "trendline_start_price": 193.5,
+      "trendline_start_date": "2025-09-05",
+      "trendline_end_price": 226.45,
+      "trendline_end_date": "2026-03-20",
+      "timeframe_days": 259,
+      "timeframe_months": 8.5,
+      "trendline_touches": 3,
+      "trendline_strength": 100,
+      "primary_timeframe": "Weekly",
+      "weekly_trendline_price": 237.04,
+      "monthly_trendline_price": null,
+      "has_vertical_line": true,
+      "vertical_line_price": 228.41,
+      "vertical_line_touch_count": 2,
+      "vertical_line_signal": "GOOD - Approaching Entry Trigger",
+      "vertical_line_entry_trigger": 228.41,
+      "vertical_line_distance_percent": 8.82,
+      "vertical_line_alert_status": "\ud83d\udccd WATCH ZONE",
+      "vertical_line_position": "ABOVE",
+      "vertical_line_target_price": 274.1
+    },
+    {
+      "symbol": "PETRONET",
+      "company_name": "Petronet LNG Ltd.",
+      "industry": "Oil Gas & Consumable Fuels",
+      "is_golden_stock": true,
+      "current_price": 272.35,
+      "week_52_high": 326.4,
+      "week_52_low": 235.35,
+      "ema_200": null,
+      "potential_upside_percent": 19.85,
+      "entry_quality": "Good - Trendline + Fibonacci",
+      "has_fibonacci": true,
+      "has_trendline": true,
+      "analysis_timeframe": "Weekly + Monthly + Daily",
+      "pattern_type": "Golden Stock Analysis",
+      "fibonacci_level": "50%",
+      "fibonacci_level_price": 262.1,
+      "fibonacci_distance_percent": 3.91,
+      "fibonacci_high_5y": 363.34,
+      "fibonacci_low_5y": 160.85,
+      "trendline_price": 273.3,
+      "distance_to_trendline_percent": -0.35,
+      "trendline_slope_daily": 0.04558,
+      "trendline_start_price": 261.18,
+      "trendline_start_date": "2025-08-29",
+      "trendline_end_price": 264.69,
+      "trendline_end_date": "2025-11-14",
+      "timeframe_days": 266,
+      "timeframe_months": 8.7,
+      "trendline_touches": 5,
+      "trendline_strength": 100,
+      "primary_timeframe": "Weekly",
+      "weekly_trendline_price": 273.3,
+      "monthly_trendline_price": null,
+      "has_vertical_line": true,
+      "vertical_line_price": 261.46,
+      "vertical_line_touch_count": 2,
+      "vertical_line_signal": "VERY GOOD - Near Entry Trigger",
+      "vertical_line_entry_trigger": 261.46,
+      "vertical_line_distance_percent": 4.16,
+      "vertical_line_alert_status": "\u26a1 CLOSE TO ENTRY",
+      "vertical_line_position": "ABOVE",
+      "vertical_line_target_price": 313.75
+    },
+    {
+      "symbol": "PIDILITIND",
+      "company_name": "Pidilite Industries Ltd.",
+      "industry": "Chemicals",
+      "is_golden_stock": true,
+      "current_price": 1478.4,
+      "week_52_high": 1574.95,
+      "week_52_low": 1259.0,
+      "ema_200": null,
+      "potential_upside_percent": 6.53,
+      "entry_quality": "Good - Trendline + Fibonacci",
+      "has_fibonacci": true,
+      "has_trendline": true,
+      "analysis_timeframe": "Weekly + Monthly + Daily",
+      "pattern_type": "Golden Stock Analysis",
+      "fibonacci_level": "38.2%",
+      "fibonacci_level_price": 1416.78,
+      "fibonacci_distance_percent": 4.35,
+      "fibonacci_high_5y": 1695.86,
+      "fibonacci_low_5y": 965.29,
+      "trendline_price": 1443.64,
+      "distance_to_trendline_percent": 2.41,
+      "trendline_slope_daily": 0.039232,
+      "trendline_start_price": 1430.19,
+      "trendline_start_date": "2025-06-13",
+      "trendline_end_price": 1437.6,
+      "trendline_end_date": "2025-12-19",
+      "timeframe_days": 343,
+      "timeframe_months": 11.3,
+      "trendline_touches": 6,
+      "trendline_strength": 100,
+      "primary_timeframe": "Weekly",
+      "weekly_trendline_price": 1443.64,
+      "monthly_trendline_price": null,
+      "has_vertical_line": true,
+      "vertical_line_price": 1430.4,
+      "vertical_line_touch_count": 2,
+      "vertical_line_signal": "VERY GOOD - Near Entry Trigger",
+      "vertical_line_entry_trigger": 1430.4,
+      "vertical_line_distance_percent": 3.36,
+      "vertical_line_alert_status": "\u26a1 CLOSE TO ENTRY",
+      "vertical_line_position": "ABOVE",
+      "vertical_line_target_price": 1716.48
+    },
+    {
+      "symbol": "ITI",
+      "company_name": "ITI Ltd.",
+      "industry": "Telecommunication",
+      "is_golden_stock": true,
+      "current_price": 288.6,
+      "week_52_high": 372.85,
+      "week_52_low": 237.0,
+      "ema_200": null,
+      "potential_upside_percent": 29.19,
+      "entry_quality": "Good - Trendline + Fibonacci",
+      "has_fibonacci": true,
+      "has_trendline": true,
+      "analysis_timeframe": "Weekly + Monthly + Daily",
+      "pattern_type": "Golden Stock Analysis",
+      "fibonacci_level": "61.8%",
+      "fibonacci_level_price": 276.47,
+      "fibonacci_distance_percent": 4.39,
+      "fibonacci_high_5y": 592.7,
+      "fibonacci_low_5y": 81.0,
+      "trendline_price": 302.64,
+      "distance_to_trendline_percent": -4.64,
+      "trendline_slope_daily": 0.06,
+      "trendline_start_price": 285.0,
+      "trendline_start_date": "2025-08-01",
+      "trendline_end_price": 293.4,
+      "trendline_end_date": "2025-12-19",
+      "timeframe_days": 294,
+      "timeframe_months": 9.7,
+      "trendline_touches": 4,
+      "trendline_strength": 100,
+      "primary_timeframe": "Weekly",
+      "weekly_trendline_price": 302.64,
+      "monthly_trendline_price": null,
+      "has_vertical_line": false,
+      "vertical_line_price": null
+    },
+    {
+      "symbol": "OIL",
+      "company_name": "Oil India Ltd.",
+      "industry": "Oil Gas & Consumable Fuels",
+      "is_golden_stock": true,
+      "current_price": 499.75,
+      "week_52_high": 531.0,
+      "week_52_low": 374.37,
+      "ema_200": null,
+      "potential_upside_percent": 6.25,
+      "entry_quality": "Good - Trendline + Fibonacci",
+      "has_fibonacci": true,
+      "has_trendline": true,
+      "analysis_timeframe": "Weekly + Monthly + Daily",
+      "pattern_type": "Golden Stock Analysis",
+      "fibonacci_level": "38.2%",
+      "fibonacci_level_price": 476.98,
+      "fibonacci_distance_percent": 4.77,
+      "fibonacci_high_5y": 729.69,
+      "fibonacci_low_5y": 68.15,
+      "trendline_price": 479.56,
+      "distance_to_trendline_percent": 4.21,
+      "trendline_slope_daily": 0.399329,
+      "trendline_start_price": 395.7,
+      "trendline_start_date": "2025-10-24",
+      "trendline_end_price": 454.4,
+      "trendline_end_date": "2026-03-20",
+      "timeframe_days": 210,
+      "timeframe_months": 6.9,
+      "trendline_touches": 3,
+      "trendline_strength": 100,
+      "primary_timeframe": "Weekly",
+      "weekly_trendline_price": 479.56,
+      "monthly_trendline_price": null,
+      "has_vertical_line": false,
+      "vertical_line_price": null
+    },
+    {
+      "symbol": "CAMS",
+      "company_name": "Computer Age Management Services Ltd.",
+      "industry": "Financial Services",
+      "is_golden_stock": true,
+      "current_price": 757.2,
+      "week_52_high": 860.94,
+      "week_52_low": 611.4,
+      "ema_200": null,
+      "potential_upside_percent": 13.7,
+      "entry_quality": "Good - Trendline + Fibonacci",
+      "has_fibonacci": true,
+      "has_trendline": true,
+      "analysis_timeframe": "Weekly + Monthly + Daily",
+      "pattern_type": "Golden Stock Analysis",
+      "fibonacci_level": "38.2%",
+      "fibonacci_level_price": 795.4,
+      "fibonacci_distance_percent": -4.8,
+      "fibonacci_high_5y": 1051.2,
+      "fibonacci_low_5y": 381.57,
+      "trendline_price": 755.28,
+      "distance_to_trendline_percent": 0.25,
+      "trendline_slope_daily": 0.129514,
+      "trendline_start_price": 718.11,
+      "trendline_start_date": "2025-08-08",
+      "trendline_end_price": 729.89,
+      "trendline_end_date": "2025-11-07",
+      "timeframe_days": 287,
+      "timeframe_months": 9.4,
+      "trendline_touches": 4,
+      "trendline_strength": 100,
+      "primary_timeframe": "Weekly",
+      "weekly_trendline_price": 755.28,
+      "monthly_trendline_price": null,
+      "has_vertical_line": true,
+      "vertical_line_price": 815.6,
+      "vertical_line_touch_count": 2,
+      "vertical_line_signal": "GOOD - Approaching Entry Trigger",
+      "vertical_line_entry_trigger": 815.6,
+      "vertical_line_distance_percent": 7.16,
+      "vertical_line_alert_status": "\ud83d\udccd WATCH ZONE",
+      "vertical_line_position": "BELOW",
+      "vertical_line_target_price": 978.71
     },
     {
       "symbol": "BEL",
@@ -1004,45 +1181,6 @@
       "vertical_line_alert_status": "\u26a1 CLOSE TO ENTRY",
       "vertical_line_position": "BELOW",
       "vertical_line_target_price": 478.2
-    },
-    {
-      "symbol": "PIDILITIND",
-      "company_name": "Pidilite Industries Ltd.",
-      "industry": "Chemicals",
-      "is_golden_stock": true,
-      "current_price": 1478.4,
-      "week_52_high": 1574.95,
-      "week_52_low": 1259.0,
-      "ema_200": null,
-      "potential_upside_percent": 6.53,
-      "entry_quality": "Fair - Trendline Only",
-      "has_fibonacci": false,
-      "has_trendline": true,
-      "analysis_timeframe": "Weekly + Monthly + Daily",
-      "pattern_type": "Golden Stock Analysis",
-      "trendline_price": 1443.64,
-      "distance_to_trendline_percent": 2.41,
-      "trendline_slope_daily": 0.039232,
-      "trendline_start_price": 1430.19,
-      "trendline_start_date": "2025-06-13",
-      "trendline_end_price": 1437.6,
-      "trendline_end_date": "2025-12-19",
-      "timeframe_days": 343,
-      "timeframe_months": 11.3,
-      "trendline_touches": 6,
-      "trendline_strength": 100,
-      "primary_timeframe": "Weekly",
-      "weekly_trendline_price": 1443.64,
-      "monthly_trendline_price": null,
-      "has_vertical_line": true,
-      "vertical_line_price": 1430.4,
-      "vertical_line_touch_count": 2,
-      "vertical_line_signal": "VERY GOOD - Near Entry Trigger",
-      "vertical_line_entry_trigger": 1430.4,
-      "vertical_line_distance_percent": 3.36,
-      "vertical_line_alert_status": "\u26a1 CLOSE TO ENTRY",
-      "vertical_line_position": "ABOVE",
-      "vertical_line_target_price": 1716.48
     },
     {
       "symbol": "RADICO",
@@ -1560,38 +1698,6 @@
       "vertical_line_target_price": 2216.28
     },
     {
-      "symbol": "OIL",
-      "company_name": "Oil India Ltd.",
-      "industry": "Oil Gas & Consumable Fuels",
-      "is_golden_stock": true,
-      "current_price": 499.75,
-      "week_52_high": 531.0,
-      "week_52_low": 374.37,
-      "ema_200": null,
-      "potential_upside_percent": 6.25,
-      "entry_quality": "Fair - Trendline Only",
-      "has_fibonacci": false,
-      "has_trendline": true,
-      "analysis_timeframe": "Weekly + Monthly + Daily",
-      "pattern_type": "Golden Stock Analysis",
-      "trendline_price": 479.56,
-      "distance_to_trendline_percent": 4.21,
-      "trendline_slope_daily": 0.399329,
-      "trendline_start_price": 395.7,
-      "trendline_start_date": "2025-10-24",
-      "trendline_end_price": 454.4,
-      "trendline_end_date": "2026-03-20",
-      "timeframe_days": 210,
-      "timeframe_months": 6.9,
-      "trendline_touches": 3,
-      "trendline_strength": 100,
-      "primary_timeframe": "Weekly",
-      "weekly_trendline_price": 479.56,
-      "monthly_trendline_price": null,
-      "has_vertical_line": false,
-      "vertical_line_price": null
-    },
-    {
       "symbol": "CCL",
       "company_name": "CCL Products (I) Ltd.",
       "industry": "Fast Moving Consumer Goods",
@@ -1608,7 +1714,7 @@
       "pattern_type": "Golden Stock Analysis",
       "trendline_price": 1020.82,
       "distance_to_trendline_percent": 4.32,
-      "trendline_slope_daily": 0.737862,
+      "trendline_slope_daily": 0.737863,
       "trendline_start_price": 772.89,
       "trendline_start_date": "2025-06-20",
       "trendline_end_price": 964.0,
@@ -1661,38 +1767,6 @@
       "vertical_line_alert_status": "\ud83d\udd25 IMMEDIATE ENTRY ZONE",
       "vertical_line_position": "ABOVE",
       "vertical_line_target_price": 1889.36
-    },
-    {
-      "symbol": "ITI",
-      "company_name": "ITI Ltd.",
-      "industry": "Telecommunication",
-      "is_golden_stock": true,
-      "current_price": 288.6,
-      "week_52_high": 372.85,
-      "week_52_low": 237.0,
-      "ema_200": null,
-      "potential_upside_percent": 29.19,
-      "entry_quality": "Fair - Trendline Only",
-      "has_fibonacci": false,
-      "has_trendline": true,
-      "analysis_timeframe": "Weekly + Monthly + Daily",
-      "pattern_type": "Golden Stock Analysis",
-      "trendline_price": 302.64,
-      "distance_to_trendline_percent": -4.64,
-      "trendline_slope_daily": 0.06,
-      "trendline_start_price": 285.0,
-      "trendline_start_date": "2025-08-01",
-      "trendline_end_price": 293.4,
-      "trendline_end_date": "2025-12-19",
-      "timeframe_days": 294,
-      "timeframe_months": 9.7,
-      "trendline_touches": 4,
-      "trendline_strength": 100,
-      "primary_timeframe": "Weekly",
-      "weekly_trendline_price": 302.64,
-      "monthly_trendline_price": null,
-      "has_vertical_line": false,
-      "vertical_line_price": null
     },
     {
       "symbol": "TATASTEEL",
@@ -1789,45 +1863,6 @@
       "monthly_trendline_price": null,
       "has_vertical_line": false,
       "vertical_line_price": null
-    },
-    {
-      "symbol": "CUB",
-      "company_name": "City Union Bank Ltd.",
-      "industry": "Financial Services",
-      "is_golden_stock": true,
-      "current_price": 248.55,
-      "week_52_high": 324.1,
-      "week_52_low": 185.3,
-      "ema_200": null,
-      "potential_upside_percent": 30.4,
-      "entry_quality": "Fair - Trendline Only",
-      "has_fibonacci": false,
-      "has_trendline": true,
-      "analysis_timeframe": "Weekly + Monthly + Daily",
-      "pattern_type": "Golden Stock Analysis",
-      "trendline_price": 237.04,
-      "distance_to_trendline_percent": 4.86,
-      "trendline_slope_daily": 0.168112,
-      "trendline_start_price": 193.5,
-      "trendline_start_date": "2025-09-05",
-      "trendline_end_price": 226.45,
-      "trendline_end_date": "2026-03-20",
-      "timeframe_days": 259,
-      "timeframe_months": 8.5,
-      "trendline_touches": 3,
-      "trendline_strength": 100,
-      "primary_timeframe": "Weekly",
-      "weekly_trendline_price": 237.04,
-      "monthly_trendline_price": null,
-      "has_vertical_line": true,
-      "vertical_line_price": 228.41,
-      "vertical_line_touch_count": 2,
-      "vertical_line_signal": "GOOD - Approaching Entry Trigger",
-      "vertical_line_entry_trigger": 228.41,
-      "vertical_line_distance_percent": 8.82,
-      "vertical_line_alert_status": "\ud83d\udccd WATCH ZONE",
-      "vertical_line_position": "ABOVE",
-      "vertical_line_target_price": 274.1
     },
     {
       "symbol": "DRREDDY",
@@ -4544,7 +4579,6 @@
             });
             
             // Tab buttons
-            document.getElementById('goldenTab').addEventListener('click', () => switchTab('golden'));
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
             document.getElementById('performanceTab').addEventListener('click', () => switchTab('performance'));
         }
@@ -4558,20 +4592,7 @@
             // Collect all priority stocks (AT ENTRY or radar status)
             const priorityStocks = [];
             
-            // Check golden stocks
-            screeningData.golden_stocks?.forEach(stock => {
-                const distance = Math.abs(stock.distance_to_trendline_percent || 100);
-                if (distance <= 2.0) { // AT ENTRY threshold
-                    priorityStocks.push({
-                        symbol: stock.symbol,
-                        type: 'golden',
-                        entryPrice: stock.trendline_price,
-                        currentPrice: stock.current_price
-                    });
-                }
-            });
-            
-            # Check volume breakout stocks
+            // Check volume breakout stocks
             screeningData.volume_breakout_stocks?.forEach(stock => {
                 if (stock.radar_status === 'Active' || stock.near_breakout_low) {
                     priorityStocks.push({
@@ -4626,7 +4647,6 @@
         // Update stock price in screeningData
         function updateStockPrice(symbol, type, newPrice) {
             const stockArrays = {
-                'golden': 'golden_stocks',
                 'volume': 'volume_breakout_stocks'
             };
             
@@ -4639,9 +4659,6 @@
                 stock.current_price = newPrice;
                 
                 // Recalculate distance percentages
-                if (type === 'golden' && stock.trendline_price) {
-                    stock.distance_to_trendline_percent = ((newPrice - stock.trendline_price) / stock.trendline_price) * 100;
-                }
                 if (type === 'volume' && stock.radar_trigger_price) {
                     stock.distance_to_trigger_abs_percent = Math.abs(((newPrice - stock.radar_trigger_price) / stock.radar_trigger_price) * 100);
                 }
@@ -4730,15 +4747,11 @@
             console.warn('⚠️ Using fallback data');
             screeningData = {
                 timestamp: new Date().toISOString(),
-                golden_stocks: [],
                 volume_breakout_stocks: [],
-                w_pattern_stocks: [],
-                elliott_wave_stocks: [],
                 diagnostics: {
                     total_stocks_processed: 0,
                     successful_downloads: 0,
                     failed_downloads: 0,
-                    golden_matches: 0,
                     volume_breakout_matches: 0,
                     errors: ['Live data unavailable - using fallback']
                 }
@@ -4752,8 +4765,7 @@
             
             // Update stats
             const total = screeningData.diagnostics?.total_stocks_processed || 0;
-            const opportunities = (screeningData.golden_stocks?.length || 0) + 
-                               (screeningData.volume_breakout_stocks?.length || 0);
+            const opportunities = (screeningData.volume_breakout_stocks?.length || 0);
             
             document.getElementById('totalStocks').textContent = total.toLocaleString();
             document.getElementById('totalOpportunities').textContent = opportunities.toLocaleString();
@@ -4785,8 +4797,7 @@
                 btn.classList.add('text-slate-400');
             });
             
-            const activeBtn = document.getElementById(tab === 'golden' ? 'goldenTab' : 
-                                                   tab === 'volume' ? 'volTab' : 'performanceTab');
+            const activeBtn = document.getElementById(tab === 'volume' ? 'volTab' : 'performanceTab');
             activeBtn.classList.add('active');
             activeBtn.classList.remove('text-slate-400');
             
@@ -4808,15 +4819,10 @@
             let sortingInfo = '';
             
             switch(tab) {
-                case 'golden':
-                    stocks = screeningData.golden_stocks || [];
-                    title = 'Golden Stocks Opportunities';
-                    sortingInfo = 'Sorted: Dual-signal confirmations first, then by entry quality (Fibonacci + Trendline + Vertical)';
-                    break;
                 case 'volume':
                     stocks = screeningData.volume_breakout_stocks || [];
-                    title = 'Volume Breakout Opportunities';
-                    sortingInfo = 'Sorted: Active radar first, then by proximity to breakout retracement';
+                    title = '';
+                    sortingInfo = '';
                     break;
                 case 'performance':
                     displayPerformanceTracking();
@@ -4833,13 +4839,16 @@
                 return;
             }
             
-            // Add sorting info header
-            let html = `
-                <div class="mobile-card rounded-xl p-4 mb-4" style="border-color: rgba(4, 120, 87, 0.2); background: rgba(4, 120, 87, 0.1);">
-                    <div class="text-xs font-semibold tracking-wider uppercase" style="color: #047857;">${title}</div>
-                    <div class="text-xs text-slate-400 mt-2">${sortingInfo}</div>
-                </div>
-            `;
+            // Add header if title exists
+            let html = '';
+            if (title && sortingInfo) {
+                html = `
+                    <div class="mobile-card rounded-xl p-4 mb-4" style="border-color: rgba(4, 120, 87, 0.2); background: rgba(4, 120, 87, 0.1);">
+                        <div class="text-xs font-semibold tracking-wider uppercase" style="color: #047857;">${title}</div>
+                        <div class="text-xs text-slate-400 mt-2">${sortingInfo}</div>
+                    </div>
+                `;
+            }
             
             stocks.forEach(stock => {
                 html += createStockCard(stock, tab);
@@ -4903,70 +4912,6 @@
                         <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
                         <div class="text-xs mono mt-1" style="color: #D97706;">Radar Trigger: ₹${stock.radar_trigger_price.toLocaleString()}</div>
                         <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
-                    `;
-                    break;
-                case 'golden':
-                    // Add priority badge for Golden Stocks entries (Combined Fibonacci + Trendline)
-                    if (stock.entry_quality && stock.entry_quality.includes('Double Signal')) {
-                        if (stock.entry_quality.includes('Excellent')) {
-                            priorityBadge = '<span class="signal-badge mono" style="background: linear-gradient(135deg, #B8860B, #D4AF37); color: white; border-radius: 20px; padding: 6px 16px; font-size: 11px; font-weight: 600; letter-spacing: 0.8px;">DUAL-SIGNAL ALPHA</span>';
-                        } else {
-                            priorityBadge = '<span class="signal-badge mono" style="background: linear-gradient(135deg, #065F46, #047857); color: white; border-radius: 20px; padding: 6px 16px; font-size: 11px; font-weight: 600; letter-spacing: 0.8px;">CONFLUENT SETUP</span>';
-                        }
-                    } else if (stock.entry_quality && stock.entry_quality.includes('Excellent')) {
-                        priorityBadge = '<span class="signal-badge mono" style="background: linear-gradient(135deg, #1E40AF, #1D4ED8); color: white; border-radius: 20px; padding: 6px 16px; font-size: 11px; font-weight: 600; letter-spacing: 0.8px;">HIGH CONVICTION</span>';
-                    } else if (stock.entry_quality && stock.entry_quality.includes('Good')) {
-                        priorityBadge = '<span class="signal-badge mono" style="background: linear-gradient(135deg, #065F46, #047857); color: white; border-radius: 20px; padding: 6px 16px; font-size: 11px; font-weight: 600; letter-spacing: 0.8px;">VALIDATED SETUP</span>';
-                    }
-                    
-                    // Build details based on what signals are present
-                    let signalDetails = [];
-                    
-                    if (stock.has_trendline) {
-                        // Calculate alert status based on distance to trendline
-                        let alertStatus = '';
-                        let alertColor = '';
-                        const distance = Math.abs(stock.distance_to_trendline_percent || 0);
-                        
-                        if (distance <= 2.0) {
-                            alertStatus = '🔥 AT ENTRY';
-                            alertColor = '#DC2626'; // Red
-                        } else if (distance <= 5.0) {
-                            alertStatus = '⚡ NEAR ENTRY';
-                            alertColor = '#D97706'; // Orange
-                        } else if (distance <= 10.0) {
-                            alertStatus = '📍 WATCH';
-                            alertColor = '#047857'; // Green
-                        } else {
-                            alertStatus = '👀 MONITOR';
-                            alertColor = '#64748B'; // Slate
-                        }
-                        
-                        signalDetails.push(`<div class="text-xs mono font-semibold" style="color: ${alertColor};">${alertStatus}</div>`);
-                        signalDetails.push(`<div class="text-xs mono" style="color: #D97706;">Entry Price: ₹${stock.trendline_price.toLocaleString()} | Distance: ${stock.distance_to_trendline_percent > 0 ? '+' : ''}${stock.distance_to_trendline_percent.toFixed(1)}%</div>`);
-                        signalDetails.push(`<div class="text-xs text-slate-500 mono">Strength: ${stock.trendline_strength}% | ${stock.trendline_touches} touches | ${stock.timeframe_months}mo</div>`);
-                    }
-                    
-                    if (stock.has_fibonacci) {
-                        signalDetails.push(`<div class="text-xs mono" style="color: #3B82F6;">Fibonacci ${stock.fibonacci_level} at ₹${stock.fibonacci_level_price.toLocaleString()} (${stock.fibonacci_distance_percent > 0 ? '+' : ''}${stock.fibonacci_distance_percent.toFixed(1)}%)</div>`);
-                    }
-                    
-                    if (stock.has_vertical_line && stock.vertical_line_price) {
-                        signalDetails.push(`<div class="text-xs mono" style="color: #06B6D4;">Vertical Line at ₹${stock.vertical_line_price.toLocaleString()}</div>`);
-                    }
-                    
-                    details = `
-                        <div class="text-xs text-slate-400 mb-2">${stock.entry_quality}</div>
-                        <div class="text-2xl font-bold mono flex items-center" style="background: linear-gradient(135deg, #065F46, #047857); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-                            ₹${stock.current_price.toLocaleString()}
-                            ${stock.is_live_updated ? '<span class="ml-3 px-2 py-1 text-xs rounded-full" style="background: rgba(34, 197, 94, 0.2); color: #22C55E;">LIVE</span>' : ''}
-                        </div>
-                        ${stock.live_change_percent ? `<div class="text-sm mono ${stock.live_change_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}">(${stock.live_change_percent >= 0 ? '+' : ''}${stock.live_change_percent.toFixed(2)}%)</div>` : ''}
-                        <div class="mt-2 space-y-1">
-                            ${signalDetails.join('')}
-                        </div>
-                        <div class="text-xs text-slate-500 mt-2 mono">52W Range: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
-                        <div class="mt-3">${priorityBadge}</div>
                     `;
                     break;
                 case 'darvas':
@@ -5056,18 +5001,6 @@
             
             // Collect all stocks with trigger prices from all tabs
             const allStocksWithTriggers = [];
-            
-            // Golden Stocks
-            (screeningData.golden_stocks || []).forEach(stock => {
-                if (stock.trendline_price) {
-                    allStocksWithTriggers.push({
-                        ...stock,
-                        trigger_price: stock.trendline_price,
-                        source: 'Golden',
-                        source_color: '#047857'
-                    });
-                }
-            });
             
             // Volume Breakout
             (screeningData.volume_breakout_stocks || []).forEach(stock => {
