@@ -3281,6 +3281,7 @@
             
             // Tab buttons
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
+            document.getElementById('trendlineTab').addEventListener('click', () => switchTab('trendline'));
             document.getElementById('performanceTab').addEventListener('click', () => switchTab('performance'));
         }
         
@@ -3498,7 +3499,11 @@
                 btn.classList.add('text-slate-400');
             });
             
-            const activeBtn = document.getElementById(tab === 'volume' ? 'volTab' : 'performanceTab');
+            const activeBtn = document.getElementById(
+                tab === 'volume' ? 'volTab' : 
+                tab === 'trendline' ? 'trendlineTab' : 
+                'performanceTab'
+            );
             activeBtn.classList.add('active');
             activeBtn.classList.remove('text-slate-400');
             
@@ -3525,6 +3530,9 @@
                     title = '';
                     sortingInfo = '';
                     break;
+                case 'trendline':
+                    displayTrendlineScreen();
+                    return;
                 case 'performance':
                     displayPerformanceTracking();
                     return;
@@ -3686,6 +3694,102 @@
         // Hide error message
         function hideError() {
             document.getElementById('errorMessage').classList.add('hidden');
+        }
+        
+        // Display trendline screen with Fibonacci grid analysis
+        async function displayTrendlineScreen() {
+            const container = document.getElementById('resultsContainer');
+            
+            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Loading trendline data...</div>';
+            
+            try {
+                const response = await fetch('./trendline_screen.json', {
+                    method: 'GET',
+                    headers: { 'Cache-Control': 'no-cache' },
+                    cache: 'no-store'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load trendline data');
+                }
+                
+                const trendlineStocks = await response.json();
+                
+                if (!trendlineStocks || trendlineStocks.length === 0) {
+                    container.innerHTML = `
+                        <div class="mobile-card rounded-xl p-6 text-center">
+                            <div class="text-slate-400 mb-2">No trendline opportunities found</div>
+                            <div class="text-xs text-slate-500">Check back after market hours for updated screening results</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                
+                trendlineStocks.forEach(stock => {
+                    // Determine status badge
+                    let statusBadge = '';
+                    if (stock.notificationTrigger || stock.distanceRemaining <= 1.0) {
+                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide animate-pulse" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">🎯 CRITICAL ENTRY</span>';
+                    } else if (stock.distanceRemaining <= 5.0) {
+                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(234, 179, 8, 0.2); color: #EAB308;">👀 WATCHLIST</span>';
+                    } else {
+                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(59, 130, 246, 0.2); color: #3B82F6;">📊 MONITORING</span>';
+                    }
+                    
+                    // Create clickable stock name with chart link
+                    const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.ticker}`;
+                    const stockNameHtml = `<a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.ticker}</a>`;
+                    
+                    html += `
+                        <div class="stock-card mb-4">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="text-lg font-bold mb-1">${stockNameHtml}</div>
+                                    <div class="text-xs text-slate-400 mb-3">${stock.patternZone}</div>
+                                    
+                                    <div class="text-lg font-bold mono flex items-center mb-2" style="color: #047857;">
+                                        ₹${stock.currentPrice.toLocaleString()}
+                                    </div>
+                                    
+                                    <div class="text-xs mono mb-1" style="color: #3B82F6;">
+                                        Entry Trigger: ₹${stock.triggerPrice.toLocaleString()}
+                                    </div>
+                                    <div class="text-xs mono mb-1" style="color: #D97706;">
+                                        Distance: ${stock.distanceRemaining.toFixed(2)}%
+                                    </div>
+                                    <div class="text-xs mono mb-1" style="color: #10B981;">
+                                        Target Exit: ₹${stock.positionSizing.pivotTargetExit.toLocaleString()}
+                                    </div>
+                                    <div class="text-xs mono mb-1" style="color: #DC2626;">
+                                        Stop Loss: ₹${stock.positionSizing.strictStopLoss.toLocaleString()}
+                                    </div>
+                                    <div class="text-xs text-slate-500 mono mb-1">
+                                        Position: ${stock.positionSizing.sharesToBuy} shares @ ₹${stock.positionSizing.allocatedAmount.toLocaleString()}
+                                    </div>
+                                    <div class="text-xs text-slate-500 mono mb-2">
+                                        Fib Match: ${stock.fibLevelMatch}
+                                    </div>
+                                    
+                                    <div class="mt-2">${statusBadge}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading trendline data:', error);
+                container.innerHTML = `
+                    <div class="mobile-card rounded-xl p-6 text-center">
+                        <div class="text-red-400 mb-2">⚠️ Error Loading Trendline Data</div>
+                        <div class="text-xs text-slate-500">${error.message}</div>
+                    </div>
+                `;
+            }
         }
         
         // Display performance tracking screen with position management
