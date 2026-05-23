@@ -29,7 +29,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas yfinance requests numpy openpyxl
+        pip install pandas yfinance requests numpy openpyxl scipy
     
     - name: Test basic functionality
       run: |
@@ -74,6 +74,18 @@ jobs:
         
         echo "✅ Screener execution completed"
     
+    - name: Run trendline scanner
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        echo "📊 Running trendline scanner..."
+        python update_feed.py || {
+          echo "⚠️ Trendline scanner failed, creating empty data..."
+          echo '[]' > trendline_screen.json
+        }
+        echo "✅ Trendline scanner completed"
+    
     - name: Verify results
       run: |
         if [ -f "data.json" ]; then
@@ -95,7 +107,7 @@ jobs:
         python update_html.py || echo "⚠️ update_html.py failed, continuing..."
         
         # Commit changes to private repo
-        git add data.json index.html
+        git add data.json index.html trendline_screen.json
         
         # Create commit message with run context and better formatting
         RUN_CONTEXT="${{ github.event.schedule }}"
@@ -132,6 +144,7 @@ jobs:
         # Copy files to public repo
         cp index.html public-repo/
         cp data.json public-repo/
+        cp trendline_screen.json public-repo/ || echo "⚠️ trendline_screen.json not found"
         
         # Navigate to public repo
         cd public-repo
@@ -141,7 +154,7 @@ jobs:
         git config user.email "action@github.com"
         
         # Add and commit changes
-        git add index.html data.json
+        git add index.html data.json trendline_screen.json
         git commit -m "🔄 Auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC') - Run #${{ github.run_number }}" || echo "ℹ️ No changes to commit"
         
         # Push to public repo
