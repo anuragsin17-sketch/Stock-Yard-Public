@@ -27,16 +27,12 @@ class StockScreener:
             'timestamp': datetime.now().isoformat(),
             'golden_stocks': [],  # Trendline + Optional Fibonacci (Weekly or Monthly)
             'volume_breakout_stocks': [],
-            'w_pattern_stocks': [],
-            'elliott_wave_stocks': [],
             'diagnostics': {
                 'total_stocks_processed': 0,
                 'successful_downloads': 0,
                 'failed_downloads': 0,
                 'golden_matches': 0,
                 'volume_breakout_matches': 0,
-                'w_pattern_matches': 0,
-                'elliott_wave_matches': 0,
                 'errors': []
             }
         }
@@ -305,127 +301,6 @@ class StockScreener:
             logger.error(f"Error checking volume breakout: {e}")
             return {'is_volume_breakout': False, 'error': str(e)}
     
-    def detect_w_pattern(self, weekly_data: pd.DataFrame) -> Dict:
-        """Detect Weekly W-Pattern (Double Bottom) formation"""
-        try:
-            if len(weekly_data) < 20:  # Need at least 20 weeks of data
-                return {'is_w_pattern': False, 'error': 'Insufficient weekly data'}
-            
-            closes = weekly_data['Close'].values
-            lows = weekly_data['Low'].values
-            highs = weekly_data['High'].values
-            
-            # Calculate 52-week high and low
-            week_52_high = max(highs) if len(highs) >= 52 else max(highs)
-            week_52_low = min(lows) if len(lows) >= 52 else min(lows)
-            
-            # Find local minima and maxima using a rolling window approach
-            window = 3  # Look for peaks/troughs over 3-week periods
-            
-            # Identify potential troughs (local minima)
-            troughs = []
-            for i in range(window, len(lows) - window):
-                if lows[i] == min(lows[i-window:i+window+1]):
-                    troughs.append((i, lows[i], weekly_data.index[i]))
-            
-            # Identify potential peaks (local maxima) 
-            peaks = []
-            for i in range(window, len(highs) - window):
-                if highs[i] == max(highs[i-window:i+window+1]):
-                    peaks.append((i, highs[i], weekly_data.index[i]))
-            
-            if len(troughs) < 2 or len(peaks) < 1:
-                return {'is_w_pattern': False, 'error': 'Insufficient pivot points'}
-            
-            # Look for W-pattern in the most recent data (last 6 months)
-            recent_weeks = min(26, len(weekly_data))  # 6 months or available data
-            start_idx = len(weekly_data) - recent_weeks
-            
-            # Filter pivots to recent period
-            recent_troughs = [(i, price, date) for i, price, date in troughs if i >= start_idx]
-            recent_peaks = [(i, price, date) for i, price, date in peaks if i >= start_idx]
-            
-            if len(recent_troughs) < 2:
-                return {'is_w_pattern': False, 'error': 'No recent double bottom pattern'}
-            
-            # Find the best W-pattern candidate
-            current_price = closes[-1]
-            
-            for i in range(len(recent_troughs) - 1):
-                t1_idx, t1_price, t1_date = recent_troughs[i]
-                
-                for j in range(i + 1, len(recent_troughs)):
-                    t2_idx, t2_price, t2_date = recent_troughs[j]
-                    
-                    # Find peak between the two troughs
-                    intermediate_peaks = [p for p in recent_peaks if t1_idx < p[0] < t2_idx]
-                    if not intermediate_peaks:
-                        continue
-                    
-                    # Get the highest peak between troughs
-                    p1_idx, p1_price, p1_date = max(intermediate_peaks, key=lambda x: x[1])
-                    
-                    # Validate W-pattern conditions
-                    # 1. T2 should be within tolerance of T1 (equal +/-2% OR higher low up to +8%)
-                    t1_tolerance_low = t1_price * 0.98  # -2%
-                    t1_tolerance_high = t1_price * 1.08  # +8%
-                    
-                    if not (t1_tolerance_low <= t2_price <= t1_tolerance_high):
-                        continue
-                    
-                    # 2. Peak should be significantly higher than troughs (at least 15% above)
-                    if p1_price < max(t1_price, t2_price) * 1.15:
-                        continue
-                    
-                    # 3. Current price should be recovering from T2 (at least 2% above T2)
-                    if current_price < t2_price * 1.02:
-                        continue
-                    
-                    # 4. Current price should not have broken above neckline yet (leave room for breakout)
-                    if current_price >= p1_price * 0.98:  # Within 2% of neckline
-                        continue
-                    
-                    # Calculate metrics
-                    distance_to_neckline = ((p1_price - current_price) / current_price) * 100
-                    t2_vs_t1_percent = ((t2_price - t1_price) / t1_price) * 100
-                    recovery_from_t2 = ((current_price - t2_price) / t2_price) * 100
-                    
-                    # Determine which trough is lower for radar tracking
-                    lower_trough_price = min(t1_price, t2_price)
-                    lower_trough_date = t1_date if t1_price <= t2_price else t2_date
-                    
-                    # Check if current price is near the lower trough (radar condition)
-                    near_trough_low = abs(current_price - lower_trough_price) / lower_trough_price <= 0.02  # Within 2%
-                    
-                    # Valid W-pattern found
-                    return {
-                        'is_w_pattern': True,
-                        'left_trough_price': round(t1_price, 2),
-                        'left_trough_date': t1_date.strftime('%Y-%m-%d'),
-                        'right_trough_price': round(t2_price, 2),
-                        'right_trough_date': t2_date.strftime('%Y-%m-%d'),
-                        'neckline_peak_price': round(p1_price, 2),
-                        'neckline_peak_date': p1_date.strftime('%Y-%m-%d'),
-                        'current_price': round(current_price, 2),
-                        'distance_to_neckline_percent': round(distance_to_neckline, 2),
-                        't2_vs_t1_percent': round(t2_vs_t1_percent, 2),
-                        'recovery_from_t2_percent': round(recovery_from_t2, 2),
-                        'pattern_timeframe_weeks': t2_idx - t1_idx + 1,
-                        'week_52_high': round(week_52_high, 2),
-                        'week_52_low': round(week_52_low, 2),
-                        'lower_trough_price': round(lower_trough_price, 2),
-                        'lower_trough_date': lower_trough_date.strftime('%Y-%m-%d'),
-                        'radar_trigger_price': round(lower_trough_price, 2),
-                        'near_trough_low': near_trough_low,
-                        'radar_status': 'Active' if near_trough_low else 'Monitoring'
-                    }
-            
-            return {'is_w_pattern': False, 'error': 'No valid W-pattern found in recent data'}
-            
-        except Exception as e:
-            logger.error(f"Error detecting W-pattern: {e}")
-            return {'is_w_pattern': False, 'error': str(e)}
-    
     def get_macro_data(self, symbol: str) -> Optional[pd.DataFrame]:
         """Download maximum historical data for Elliott Wave macro analysis"""
         try:
@@ -465,109 +340,6 @@ class StockScreener:
         except Exception as e:
             logger.error(f"Error calculating RSI: {e}")
             return pd.Series()
-    
-    def detect_elliott_wave_macro(self, macro_data: pd.DataFrame) -> Dict:
-        """Detect Elliott Wave macro setup with Golden Pocket analysis"""
-        try:
-            if len(macro_data) < 200:  # Need at least 4 years of weekly data
-                return {'is_elliott_wave': False, 'error': 'Insufficient macro data'}
-            
-            closes = macro_data['Close'].values
-            highs = macro_data['High'].values
-            lows = macro_data['Low'].values
-            current_price = closes[-1]
-            
-            # Calculate 200-week SMA (4-year moving average)
-            sma_200w = macro_data['Close'].rolling(window=200).mean()
-            current_sma_200w = sma_200w.iloc[-1] if not sma_200w.empty else None
-            
-            # Find macro highs and lows over past 48 months (208 weeks)
-            analysis_period = min(208, len(macro_data))
-            recent_data = macro_data.tail(analysis_period)
-            
-            # Find absolute highest peak and lowest trough in the analysis period
-            macro_high = recent_data['High'].max()
-            macro_low = recent_data['Low'].min()
-            macro_high_date = recent_data[recent_data['High'] == macro_high].index[0]
-            macro_low_date = recent_data[recent_data['Low'] == macro_low].index[0]
-            
-            # Ensure we have a proper Wave 1 structure (low before high)
-            if macro_low_date >= macro_high_date:
-                return {'is_elliott_wave': False, 'error': 'Invalid Wave 1 structure'}
-            
-            # Calculate Fibonacci retracement levels from Wave 1 (macro_low to macro_high)
-            wave1_range = macro_high - macro_low
-            fib_618 = macro_high - (wave1_range * 0.618)  # Golden ratio
-            fib_50 = macro_high - (wave1_range * 0.50)    # 50% retracement
-            
-            # Golden Pocket: 50% to 61.8% retracement zone
-            golden_pocket_high = fib_50
-            golden_pocket_low = fib_618
-            
-            # Check if current price is in the Golden Pocket
-            in_golden_pocket = golden_pocket_low <= current_price <= golden_pocket_high
-            
-            if not in_golden_pocket:
-                return {'is_elliott_wave': False, 'error': 'Not in Golden Pocket zone'}
-            
-            # Calculate weekly RSI
-            weekly_rsi = self.calculate_rsi(macro_data['Close'], period=14)
-            current_rsi = weekly_rsi.iloc[-1] if not weekly_rsi.empty else None
-            
-            # Check RSI conditions (oversold or beginning to curl up)
-            rsi_condition = current_rsi is not None and (current_rsi < 40 or 
-                           (len(weekly_rsi) > 5 and current_rsi > weekly_rsi.iloc[-5]))
-            
-            if not rsi_condition:
-                return {'is_elliott_wave': False, 'error': 'RSI conditions not met'}
-            
-            # Check 200-week SMA alignment (should be near Golden Pocket)
-            sma_alignment = (current_sma_200w is not None and 
-                           abs(current_sma_200w - ((golden_pocket_high + golden_pocket_low) / 2)) / 
-                           current_sma_200w <= 0.15)  # Within 15% of Golden Pocket center
-            
-            # Calculate time since macro high (Wave 2 duration)
-            weeks_since_high = len(macro_data[macro_data.index > macro_high_date])
-            months_since_high = weeks_since_high / 4.33  # Convert to months
-            
-            # Wave 2 should be 6-18 months duration
-            wave2_duration_valid = 6 <= months_since_high <= 18
-            
-            # Calculate retracement percentage
-            retracement_percent = ((macro_high - current_price) / (macro_high - macro_low)) * 100
-            
-            # Calculate distance to Golden Pocket boundaries
-            distance_to_fib50 = abs(current_price - fib_50) / current_price * 100
-            distance_to_fib618 = abs(current_price - fib_618) / current_price * 100
-            
-            # All conditions must be met for a valid Elliott Wave setup
-            if in_golden_pocket and rsi_condition and sma_alignment and wave2_duration_valid:
-                return {
-                    'is_elliott_wave': True,
-                    'wave1_low': round(macro_low, 2),
-                    'wave1_low_date': macro_low_date.strftime('%Y-%m-%d'),
-                    'wave1_high': round(macro_high, 2),
-                    'wave1_high_date': macro_high_date.strftime('%Y-%m-%d'),
-                    'current_price': round(current_price, 2),
-                    'golden_pocket_high': round(golden_pocket_high, 2),  # 50% level
-                    'golden_pocket_low': round(golden_pocket_low, 2),   # 61.8% level
-                    'retracement_percent': round(retracement_percent, 2),
-                    'weekly_rsi': round(current_rsi, 2),
-                    'sma_200w': round(current_sma_200w, 2),
-                    'months_since_high': round(months_since_high, 1),
-                    'distance_to_fib50': round(distance_to_fib50, 2),
-                    'distance_to_fib618': round(distance_to_fib618, 2),
-                    'wave1_duration_months': round((macro_high_date - macro_low_date).days / 30.44, 1),
-                    'sma_alignment': sma_alignment,
-                    'setup_quality': 'Excellent' if (current_rsi < 35 and sma_alignment) else 'Good'
-                }
-            
-            return {'is_elliott_wave': False, 'error': 'Elliott Wave conditions not fully met'}
-            
-        except Exception as e:
-            logger.error(f"Error detecting Elliott Wave macro setup: {e}")
-            return {'is_elliott_wave': False, 'error': str(e)}
-    
     
     def detect_trendline(self, price_data: pd.DataFrame, timeframe: str) -> Optional[Dict]:
         """Detect ascending trendline from price data
@@ -1076,43 +848,6 @@ class StockScreener:
             except Exception as e:
                 logger.warning(f"Volume breakout analysis failed for {symbol}: {e}")
             
-            # Check W-Pattern (weekly data)
-            try:
-                if weekly_data is not None and not weekly_data.empty:
-                    w_pattern_result = self.detect_w_pattern(weekly_data)
-                    if w_pattern_result.get('is_w_pattern', False):
-                        stock_info = {
-                            'symbol': symbol,
-                            'company_name': company_name,
-                            'industry': industry,
-                            'vertical_line_price': vertical_line_price,  # Add vertical line price
-                            **w_pattern_result
-                        }
-                        self.results['w_pattern_stocks'].append(stock_info)
-                        self.results['diagnostics']['w_pattern_matches'] += 1
-                        logger.info(f"W-Pattern match: {symbol} with {w_pattern_result['distance_to_neckline_percent']:.1f}% to neckline")
-            except Exception as e:
-                logger.warning(f"W-Pattern analysis failed for {symbol}: {e}")
-            
-            # Check Elliott Wave macro setup
-            try:
-                macro_data = self.get_macro_data(symbol)
-                if macro_data is not None and not macro_data.empty:
-                    elliott_result = self.detect_elliott_wave_macro(macro_data)
-                    if elliott_result.get('is_elliott_wave', False):
-                        stock_info = {
-                            'symbol': symbol,
-                            'company_name': company_name,
-                            'industry': industry,
-                            'vertical_line_price': vertical_line_price,  # Add vertical line price
-                            **elliott_result
-                        }
-                        self.results['elliott_wave_stocks'].append(stock_info)
-                        self.results['diagnostics']['elliott_wave_matches'] += 1
-                        logger.info(f"Elliott Wave match: {symbol} in Golden Pocket with {elliott_result['retracement_percent']:.1f}% retracement")
-            except Exception as e:
-                logger.warning(f"Elliott Wave analysis failed for {symbol}: {e}")
-            
             # Check Golden Stocks - Separate Weekly and Monthly
             try:
                 # Use weekly data for combined analysis
@@ -1201,19 +936,6 @@ class StockScreener:
                 abs(x.get('current_price', 0) - x.get('radar_trigger_price', 0))  # Closer to trigger price
             ))
             
-            # Sort W-Pattern stocks: Radar Active first, then by proximity to completing pattern
-            self.results['w_pattern_stocks'].sort(key=lambda x: (
-                0 if x.get('radar_status') == 'Active' else 1,  # Radar Active first
-                x.get('distance_to_neckline_percent', 100)  # Closer to neckline breakout
-            ))
-            
-            # Sort Elliott Wave stocks: Best setup quality first, then by RSI (most oversold first)
-            self.results['elliott_wave_stocks'].sort(key=lambda x: (
-                0 if x.get('setup_quality') == 'Excellent' else 1,  # Excellent setups first
-                x.get('weekly_rsi', 100),  # Most oversold first (lower RSI)
-                x.get('retracement_percent', 0)  # Deeper retracements first
-            ))
-            
             # Sort Golden Stocks: Double signals first, then by entry quality, then by proximity
             self.results['golden_stocks'].sort(key=lambda x: (
                 0 if 'Double Signal' in x.get('entry_quality', '') else 1,  # Double signals first
@@ -1238,8 +960,6 @@ class StockScreener:
         - Failed downloads: {diag['failed_downloads']}
         - Golden Stocks matches: {diag['golden_matches']} (Fibonacci + Trendline + Vertical Line)
         - Volume breakout matches: {diag['volume_breakout_matches']}
-        - W-Pattern matches: {diag['w_pattern_matches']}
-        - Elliott Wave matches: {diag['elliott_wave_matches']}
         - Errors: {len(diag['errors'])}
         """)
     
@@ -1280,14 +1000,10 @@ class StockScreener:
             # Prepare message
             golden_count = len(self.results['golden_stocks'])
             vol_count = len(self.results['volume_breakout_stocks'])
-            w_pattern_count = len(self.results['w_pattern_stocks'])
-            elliott_count = len(self.results['elliott_wave_stocks'])
             
             # Count radar alerts
             vol_radar_active = sum(1 for stock in self.results['volume_breakout_stocks'] 
                                  if stock.get('radar_status') == 'Active')
-            w_radar_active = sum(1 for stock in self.results['w_pattern_stocks'] 
-                               if stock.get('radar_status') == 'Active')
             
             total_processed = self.results['diagnostics']['total_stocks_processed']
             
@@ -1298,8 +1014,6 @@ class StockScreener:
 • Total Stocks Screened: {total_processed}
 • Golden Stocks: {golden_count} matches
 • Volume Breakout: {vol_count} matches
-• W-Pattern: {w_pattern_count} matches
-• Elliott Wave (Long-term): {elliott_count} matches
 
 🚨 *RADAR ALERTS:*
 • Volume Stocks in Radar: {vol_radar_active}
@@ -1357,19 +1071,13 @@ def main():
         fallback_data = {
             'timestamp': datetime.now().isoformat(),
             'golden_stocks': [],
-            'darvas_box_stocks': [],
             'volume_breakout_stocks': [],
-            'w_pattern_stocks': [],
-            'elliott_wave_stocks': [],
             'diagnostics': {
                 'total_stocks_processed': 0,
                 'successful_downloads': 0,
                 'failed_downloads': 0,
                 'golden_matches': 0,
-                'darvas_box_matches': 0,
                 'volume_breakout_matches': 0,
-                'w_pattern_matches': 0,
-                'elliott_wave_matches': 0,
                 'errors': [f"Critical error: {e}"]
             }
         }
@@ -1398,16 +1106,12 @@ if __name__ == "__main__":
                 'timestamp': datetime.now().isoformat(),
                 'golden_stocks': [],
                 'volume_breakout_stocks': [],
-                'w_pattern_stocks': [],
-                'elliott_wave_stocks': [],
                 'diagnostics': {
                     'total_stocks_processed': 0,
                     'successful_downloads': 0,
                     'failed_downloads': 0,
                     'golden_matches': 0,
                     'volume_breakout_matches': 0,
-                    'w_pattern_matches': 0,
-                    'elliott_wave_matches': 0,
                     'errors': [f"Main execution error: {e}"]
                 }
             }

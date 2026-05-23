@@ -170,18 +170,6 @@
                         <span>Volume</span>
                     </div>
                 </button>
-                <button id="wpatTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
-                    <div class="flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
-                        <span>W-Pattern</span>
-                    </div>
-                </button>
-                <button id="elliotTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
-                    <div class="flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span>Elliott</span>
-                    </div>
-                </button>
                 <button id="performanceTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
                     <div class="flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -4558,8 +4546,6 @@
             // Tab buttons
             document.getElementById('goldenTab').addEventListener('click', () => switchTab('golden'));
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
-            document.getElementById('wpatTab').addEventListener('click', () => switchTab('wpattern'));
-            document.getElementById('elliotTab').addEventListener('click', () => switchTab('elliott'));
             document.getElementById('performanceTab').addEventListener('click', () => switchTab('performance'));
         }
         
@@ -4585,7 +4571,7 @@
                 }
             });
             
-            // Check volume breakout stocks
+            # Check volume breakout stocks
             screeningData.volume_breakout_stocks?.forEach(stock => {
                 if (stock.radar_status === 'Active' || stock.near_breakout_low) {
                     priorityStocks.push({
@@ -4595,28 +4581,6 @@
                         currentPrice: stock.current_price
                     });
                 }
-            });
-            
-            // Check W-pattern stocks
-            screeningData.w_pattern_stocks?.forEach(stock => {
-                if (stock.radar_status === 'Active' || stock.near_trough_low) {
-                    priorityStocks.push({
-                        symbol: stock.symbol,
-                        type: 'wpattern',
-                        entryPrice: stock.radar_trigger_price,
-                        currentPrice: stock.current_price
-                    });
-                }
-            });
-            
-            // Check Elliott Wave stocks
-            screeningData.elliott_wave_stocks?.forEach(stock => {
-                priorityStocks.push({
-                    symbol: stock.symbol,
-                    type: 'elliott',
-                    entryPrice: stock.golden_pocket_low,
-                    currentPrice: stock.current_price
-                });
             });
             
             if (priorityStocks.length === 0) {
@@ -4663,9 +4627,7 @@
         function updateStockPrice(symbol, type, newPrice) {
             const stockArrays = {
                 'golden': 'golden_stocks',
-                'volume': 'volume_breakout_stocks',
-                'wpattern': 'w_pattern_stocks',
-                'elliott': 'elliott_wave_stocks'
+                'volume': 'volume_breakout_stocks'
             };
             
             const arrayName = stockArrays[type];
@@ -4681,9 +4643,6 @@
                     stock.distance_to_trendline_percent = ((newPrice - stock.trendline_price) / stock.trendline_price) * 100;
                 }
                 if (type === 'volume' && stock.radar_trigger_price) {
-                    stock.distance_to_trigger_abs_percent = Math.abs(((newPrice - stock.radar_trigger_price) / stock.radar_trigger_price) * 100);
-                }
-                if (type === 'wpattern' && stock.radar_trigger_price) {
                     stock.distance_to_trigger_abs_percent = Math.abs(((newPrice - stock.radar_trigger_price) / stock.radar_trigger_price) * 100);
                 }
                 
@@ -4780,10 +4739,7 @@
                     successful_downloads: 0,
                     failed_downloads: 0,
                     golden_matches: 0,
-                    darvas_box_matches: 0,
                     volume_breakout_matches: 0,
-                    w_pattern_matches: 0,
-                    elliott_wave_matches: 0,
                     errors: ['Live data unavailable - using fallback']
                 }
             };
@@ -4797,9 +4753,7 @@
             // Update stats
             const total = screeningData.diagnostics?.total_stocks_processed || 0;
             const opportunities = (screeningData.golden_stocks?.length || 0) + 
-                               (screeningData.volume_breakout_stocks?.length || 0) + 
-                               (screeningData.w_pattern_stocks?.length || 0) +
-                               (screeningData.elliott_wave_stocks?.length || 0);
+                               (screeningData.volume_breakout_stocks?.length || 0);
             
             document.getElementById('totalStocks').textContent = total.toLocaleString();
             document.getElementById('totalOpportunities').textContent = opportunities.toLocaleString();
@@ -4832,10 +4786,7 @@
             });
             
             const activeBtn = document.getElementById(tab === 'golden' ? 'goldenTab' : 
-                                                   tab === 'darvas' ? 'darvasTab' :
-                                                   tab === 'volume' ? 'volTab' : 
-                                                   tab === 'wpattern' ? 'wpatTab' : 
-                                                   tab === 'elliott' ? 'elliotTab' : 'performanceTab');
+                                                   tab === 'volume' ? 'volTab' : 'performanceTab');
             activeBtn.classList.add('active');
             activeBtn.classList.remove('text-slate-400');
             
@@ -4866,16 +4817,6 @@
                     stocks = screeningData.volume_breakout_stocks || [];
                     title = 'Volume Breakout Opportunities';
                     sortingInfo = 'Sorted: Active radar first, then by proximity to breakout retracement';
-                    break;
-                case 'wpattern':
-                    stocks = screeningData.w_pattern_stocks || [];
-                    title = 'W-Pattern Opportunities';
-                    sortingInfo = 'Sorted: Active radar first, then by proximity to neckline breakout';
-                    break;
-                case 'elliott':
-                    stocks = screeningData.elliott_wave_stocks || [];
-                    title = 'Elliott Wave Long-Term Opportunities';
-                    sortingInfo = 'Sorted: High-conviction setups first, then by RSI oversold levels';
                     break;
                 case 'performance':
                     displayPerformanceTracking();
@@ -4962,64 +4903,6 @@
                         <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
                         <div class="text-xs mono mt-1" style="color: #D97706;">Radar Trigger: ₹${stock.radar_trigger_price.toLocaleString()}</div>
                         <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
-                    `;
-                    break;
-                case 'wpattern':
-                    radarStatus = stock.radar_status === 'Active' ? 
-                        '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">RADAR ACTIVE</span>' :
-                        '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(180, 83, 9, 0.2); color: #D97706;">MONITORING</span>';
-                    
-                    // Add priority for radar active stocks and close to breakout
-                    if (stock.radar_status === 'Active') {
-                        priorityBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">PRIORITY ALERT</span>';
-                    } else if (stock.distance_to_neckline_percent && stock.distance_to_neckline_percent < 10) {
-                        priorityBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(4, 120, 87, 0.2); color: #047857;">PROXIMITY SIGNAL</span>';
-                    }
-                    
-                    // Add vertical line price if available
-                    const wpatVerticalLine = stock.vertical_line_price ? 
-                        `<div class="text-xs mono" style="color: #06B6D4;">Vertical Line: ₹${stock.vertical_line_price.toLocaleString()}</div>` : '';
-                    
-                    details = `
-                        <div class="text-xs text-slate-400 mb-1">${stock.distance_to_neckline_percent}% to breakout</div>
-                        <div class="text-lg font-bold mono flex items-center" style="color: #9333EA;">
-                            ₹${stock.current_price.toLocaleString()}
-                            ${stock.is_live_updated ? '<span class="ml-2 px-2 py-1 text-xs rounded-full" style="background: rgba(34, 197, 94, 0.2); color: #22C55E;">LIVE</span>' : ''}
-                            ${stock.live_change_percent ? `<span class="ml-2 text-xs ${stock.live_change_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}">(${stock.live_change_percent >= 0 ? '+' : ''}${stock.live_change_percent.toFixed(2)}%)</span>` : ''}
-                        </div>
-                        <div class="text-xs text-slate-500 mono">Target: ₹${stock.neckline_peak_price.toLocaleString()}</div>
-                        <div class="text-xs text-slate-500 mono">Lower Trough: ${stock.lower_trough_date} at ₹${stock.lower_trough_price.toLocaleString()}</div>
-                        ${wpatVerticalLine}
-                        <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
-                        <div class="text-xs mono mt-1" style="color: #D97706;">Radar Trigger: ₹${stock.radar_trigger_price.toLocaleString()}</div>
-                        <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
-                    `;
-                    break;
-                case 'elliott':
-                    // Add priority badge for Elliott Wave setups
-                    if (stock.setup_quality === 'Excellent') {
-                        priorityBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(180, 83, 9, 0.2); color: #D97706;">HIGH CONVICTION</span>';
-                    } else if (stock.setup_quality === 'Good') {
-                        priorityBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(4, 120, 87, 0.2); color: #047857;">VALIDATED SETUP</span>';
-                    }
-                    
-                    // Add vertical line price if available
-                    const elliottVerticalLine = stock.vertical_line_price ? 
-                        `<div class="text-xs mono" style="color: #06B6D4;">Vertical Line: ₹${stock.vertical_line_price.toLocaleString()}</div>` : '';
-                    
-                    details = `
-                        <div class="text-xs text-slate-400 mb-1">${stock.retracement_percent}% Wave 2 Retracement</div>
-                        <div class="text-lg font-bold mono flex items-center" style="color: #6366F1;">
-                            ₹${stock.current_price.toLocaleString()}
-                            ${stock.is_live_updated ? '<span class="ml-2 px-2 py-1 text-xs rounded-full" style="background: rgba(34, 197, 94, 0.2); color: #22C55E;">LIVE</span>' : ''}
-                            ${stock.live_change_percent ? `<span class="ml-2 text-xs ${stock.live_change_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}">(${stock.live_change_percent >= 0 ? '+' : ''}${stock.live_change_percent.toFixed(2)}%)</span>` : ''}
-                        </div>
-                        <div class="text-xs text-slate-500 mono">Golden Pocket: ₹${stock.golden_pocket_low.toLocaleString()} - ₹${stock.golden_pocket_high.toLocaleString()}</div>
-                        <div class="text-xs text-slate-500 mono">Wave 1: ${stock.wave1_low_date} to ${stock.wave1_high_date}</div>
-                        ${elliottVerticalLine}
-                        <div class="text-xs text-slate-500 mono">RSI: ${stock.weekly_rsi} | 200W SMA: ₹${stock.sma_200w.toLocaleString()}</div>
-                        <div class="text-xs text-slate-500">${stock.months_since_high} months since high</div>
-                        <div class="mt-2">${priorityBadge}</div>
                     `;
                     break;
                 case 'golden':
@@ -5194,30 +5077,6 @@
                         trigger_price: stock.radar_trigger_price,
                         source: 'Volume',
                         source_color: '#DC2626'
-                    });
-                }
-            });
-            
-            // W-Pattern
-            (screeningData.w_pattern_stocks || []).forEach(stock => {
-                if (stock.radar_trigger_price) {
-                    allStocksWithTriggers.push({
-                        ...stock,
-                        trigger_price: stock.radar_trigger_price,
-                        source: 'W-Pattern',
-                        source_color: '#9333EA'
-                    });
-                }
-            });
-            
-            // Elliott Wave
-            (screeningData.elliott_wave_stocks || []).forEach(stock => {
-                if (stock.golden_pocket_low) {
-                    allStocksWithTriggers.push({
-                        ...stock,
-                        trigger_price: stock.golden_pocket_low,
-                        source: 'Elliott',
-                        source_color: '#6366F1'
                     });
                 }
             });
