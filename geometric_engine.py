@@ -168,20 +168,32 @@ class MacroInstitutionalEngine:
                 confluence_score += 3
                 confluence_notes.append("GOLDEN RATIO BONUS")
             
-            # 16. Generate position sizing and risk management
+            # 16. FUTURE PREDICTION ANALYSIS
+            future_prediction = self.analyze_future_touches(df, touchbacks[0], slope, intercept, 
+                                                          wave_base_origin, wave_peak_ceiling, 
+                                                          total_wave_range, fib_levels)
+            
+            # 17. Generate position sizing and risk management
             calculated_stop_loss = expected_trendline_trigger * self.sl_multiplier
             total_shares_to_buy = int(self.capital_per_trade // expected_trendline_trigger)
             
-            # 17. Alert trigger: within 1% = critical
+            # 18. Alert trigger: within 1% = critical
             is_alert_active = abs(pct_distance_to_line) <= 1.0
             
             return {
                 "ticker": ticker.replace(".NS", ""),
-                "currentPrice": round(current_close, 2),
-                "triggerPrice": round(expected_trendline_trigger, 2),
-                "distanceRemaining": round(abs(pct_distance_to_line), 2),
-                "fibLevelMatch": f"{round(upcoming_line_fib_pct, 2)}%",
-                "patternZone": zone_tag,
+                "currentSignal": {
+                    "isActive": True,
+                    "currentPrice": round(current_close, 2),
+                    "triggerPrice": round(expected_trendline_trigger, 2),
+                    "distanceRemaining": round(abs(pct_distance_to_line), 2),
+                    "fibLevelMatch": f"{round(upcoming_line_fib_pct, 2)}%",
+                    "patternZone": zone_tag,
+                    "confluenceScore": confluence_score,
+                    "confluenceNotes": confluence_notes,
+                    "notificationTrigger": bool(is_alert_active)
+                },
+                "futureSignal": future_prediction,
                 "positionSizing": {
                     "allocatedAmount": float(self.capital_per_trade),
                     "sharesToBuy": int(total_shares_to_buy),
@@ -208,9 +220,111 @@ class MacroInstitutionalEngine:
                     "swingHigh": round(swing_high_after_touch, 2),
                     "slope": round(slope, 4),
                     "numTouches": num_touches
-                },
-                "notificationTrigger": bool(is_alert_active)
+                }
             }
         except Exception as e:
             pass
         return None
+
+    def analyze_future_touches(self, df, touch_indices, slope, intercept, wave_base, wave_peak, wave_range, fib_levels):
+        """
+        Analyze historical touch patterns and predict future trendline touches
+        """
+        try:
+            # 1. Analyze historical touch intervals
+            if len(touch_indices) < 3:
+                return self.create_no_future_prediction("Insufficient historical touches")
+            
+            # Calculate time intervals between touches (in months)
+            touch_intervals = []
+            for i in range(1, len(touch_indices)):
+                interval = touch_indices[i] - touch_indices[i-1]
+                touch_intervals.append(interval)
+            
+            avg_interval = sum(touch_intervals) / len(touch_intervals)
+            
+            # 2. Analyze Fibonacci level preferences at each historical touch
+            fib_preferences = {}
+            historical_accuracy = []
+            
+            for i, touch_idx in enumerate(touch_indices[-3:]):  # Last 3 touches
+                # Calculate what Fib level the trendline was at during this touch
+                trendline_price_at_touch = (slope * touch_idx) + intercept
+                
+                # Find closest Fib level at that time
+                closest_fib = None
+                min_distance = float('inf')
+                
+                for fib_name, fib_price in fib_levels.items():
+                    distance = abs((trendline_price_at_touch - fib_price) / fib_price) * 100
+                    if distance < min_distance:
+                        min_distance = distance
+                        closest_fib = fib_name
+                
+                # Track preferences
+                if closest_fib:
+                    fib_preferences[closest_fib] = fib_preferences.get(closest_fib, 0) + 1
+                    
+                # Calculate accuracy (closer = better)
+                accuracy = max(0, 100 - min_distance * 10)  # Convert distance to accuracy score
+                historical_accuracy.append(accuracy)
+            
+            # 3. Predict next touch
+            last_touch_idx = touch_indices[-1]
+            predicted_next_touch_idx = last_touch_idx + avg_interval
+            
+            # Calculate predicted trendline price
+            predicted_trendline_price = (slope * predicted_next_touch_idx) + intercept
+            
+            # 4. Determine most likely Fibonacci level
+            preferred_fib_level = max(fib_preferences, key=fib_preferences.get) if fib_preferences else "61.8%"
+            preferred_fib_price = fib_levels.get(preferred_fib_level, fib_levels["61.8%"])
+            
+            # 5. Calculate prediction confidence
+            avg_accuracy = sum(historical_accuracy) / len(historical_accuracy) if historical_accuracy else 50
+            interval_consistency = 100 - (max(touch_intervals) - min(touch_intervals)) * 5  # Penalty for inconsistent intervals
+            confidence_score = min(95, max(30, (avg_accuracy + interval_consistency) / 2))
+            
+            # 6. Calculate days to predicted touch (approximate)
+            current_idx = df['Price_Idx'].iloc[-1]
+            months_to_touch = predicted_next_touch_idx - current_idx
+            days_to_touch = int(months_to_touch * 30)  # Rough conversion
+            
+            # 7. Predict target date
+            from datetime import datetime, timedelta
+            predicted_date = datetime.now() + timedelta(days=days_to_touch)
+            
+            return {
+                "isActive": True,
+                "nextTouchDate": predicted_date.strftime('%Y-%m-%d'),
+                "predictedPrice": round(predicted_trendline_price, 2),
+                "predictedFibLevel": preferred_fib_level,
+                "predictedFibPrice": round(preferred_fib_price, 2),
+                "confidenceScore": round(confidence_score, 1),
+                "daysToTouch": max(1, days_to_touch),
+                "monthsToTouch": round(months_to_touch, 1),
+                "historicalPattern": {
+                    "avgTouchInterval": round(avg_interval, 1),
+                    "fibPreferences": fib_preferences,
+                    "historicalAccuracy": round(avg_accuracy, 1),
+                    "touchCount": len(touch_indices)
+                },
+                "predictionNotes": [
+                    f"Based on {len(touch_indices)} historical touches",
+                    f"Prefers {preferred_fib_level} level ({fib_preferences.get(preferred_fib_level, 1)} times)",
+                    f"Average interval: {avg_interval:.1f} months"
+                ]
+            }
+            
+        except Exception as e:
+            return self.create_no_future_prediction(f"Prediction error: {str(e)}")
+    
+    def create_no_future_prediction(self, reason):
+        """Create a no-prediction response"""
+        return {
+            "isActive": False,
+            "reason": reason,
+            "nextTouchDate": None,
+            "predictedPrice": None,
+            "confidenceScore": 0
+        }
