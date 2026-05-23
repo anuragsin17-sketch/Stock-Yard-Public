@@ -32,8 +32,8 @@ def send_telegram_alert(message: str) -> None:
 
 def synchronize_production_database():
     # Load your pattern engine parameters
-    # ₹50,000 capital slots, 8% stop-loss threshold, 10% nearby filter buffer
-    engine = MacroInstitutionalEngine(position_size=50000.0, sl_pct=8.0, watchlist_buffer=10.0)
+    # ₹50,000 capital slots, 8% stop-loss threshold, ±2% touch tolerance
+    engine = MacroInstitutionalEngine(position_size=50000.0, sl_pct=8.0, touch_tolerance=2.0)
     
     print("⏳ Connecting to NSE network to ingest active Nifty 500 components...")
     try:
