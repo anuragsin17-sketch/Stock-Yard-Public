@@ -16,7 +16,7 @@ class TrendlineBacktester:
         self.initial_capital = initial_capital
         self.position_size = position_size
         self.sl_pct = sl_pct
-        self.engine = MacroInstitutionalEngine(position_size=position_size, sl_pct=sl_pct, watchlist_buffer=10.0)
+        self.engine = MacroInstitutionalEngine(position_size=position_size, sl_pct=sl_pct, touch_tolerance=5.0)
         
         self.trades = []
         self.current_capital = initial_capital

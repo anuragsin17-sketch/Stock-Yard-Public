@@ -37,7 +37,7 @@ def quick_backtest():
     print(f"Stop Loss: 8%")
     print(f"{'='*70}\n")
     
-    engine = MacroInstitutionalEngine(position_size=50000, sl_pct=8.0, watchlist_buffer=10.0)
+    engine = MacroInstitutionalEngine(position_size=50000, sl_pct=8.0, touch_tolerance=5.0)
     
     trades = []
     signals_found = 0

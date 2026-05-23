@@ -4,14 +4,14 @@ import numpy as np
 from scipy.signal import argrelextrema
 
 class MacroInstitutionalEngine:
-    def __init__(self, position_size=50000.0, sl_pct=8.0, touch_tolerance=2.0):
+    def __init__(self, position_size=50000.0, sl_pct=8.0, touch_tolerance=5.0):
         """
         Initializes your precise pattern scanning and risk allocation matrices.
         
         Args:
             position_size: Capital allocated per trade (default: ₹50,000)
             sl_pct: Stop loss percentage below trendline (default: 8%)
-            touch_tolerance: Percentage tolerance for trendline touch detection (default: ±2%)
+            touch_tolerance: Percentage tolerance for trendline touch detection (default: ±5%)
         """
         self.capital_per_trade = float(position_size)
         self.sl_multiplier = 1.0 - (float(sl_pct) / 100.0)
@@ -26,7 +26,7 @@ class MacroInstitutionalEngine:
         data_after_touch = df.iloc[last_touch_idx:]
         
         if len(data_after_touch) < 3:
-            return df['High'].max()  # Fallback to max if not enough data
+            return df['High'].max().item()  # Fallback to max if not enough data
         
         # Find local maxima after the touch
         highs = data_after_touch['High'].values
@@ -34,10 +34,10 @@ class MacroInstitutionalEngine:
         
         if len(maxima_indices) > 0:
             # Return the highest peak after touch
-            return data_after_touch['High'].iloc[maxima_indices].max()
+            return data_after_touch['High'].iloc[maxima_indices].max().item()
         else:
             # Return max high after touch
-            return data_after_touch['High'].max()
+            return data_after_touch['High'].max().item()
 
     def process_ticker_geometry(self, ticker: str):
         """
@@ -113,21 +113,66 @@ class MacroInstitutionalEngine:
             # 12. Calculate distance to trendline
             pct_distance_to_line = ((current_close - expected_trendline_trigger) / expected_trendline_trigger) * 100
             
-            # 13. FILTER: Only accept if within ±2% of trendline (touch = entry)
+            # 13. FILTER: Only accept if within ±5% of trendline (touch = entry)
             if not (-self.touch_tolerance <= pct_distance_to_line <= self.touch_tolerance):
                 return None  # Stock not near trendline yet
                 
-            # 14. Calculate Fibonacci grid prices
+            # 14. Calculate ALL Fibonacci grid prices (5 levels)
             fib_236 = wave_peak_ceiling - (total_wave_range * 0.236)
             fib_382 = wave_peak_ceiling - (total_wave_range * 0.382)
             fib_500 = wave_peak_ceiling - (total_wave_range * 0.500)
             fib_618 = wave_peak_ceiling - (total_wave_range * 0.618)
+            fib_786 = wave_peak_ceiling - (total_wave_range * 0.786)
             
-            # 15. Generate position sizing and risk management
+            # 15. Find which Fibonacci level the trendline is closest to
+            fib_levels = {
+                "23.6%": fib_236,
+                "38.2%": fib_382, 
+                "50.0%": fib_500,
+                "61.8%": fib_618,
+                "78.6%": fib_786
+            }
+            
+            # Calculate distance from trendline to each Fib level
+            fib_distances = {}
+            for level_name, fib_price in fib_levels.items():
+                distance_pct = abs((expected_trendline_trigger - fib_price) / fib_price) * 100
+                fib_distances[level_name] = distance_pct
+            
+            # Find closest Fibonacci level to trendline
+            closest_fib_level = min(fib_distances, key=fib_distances.get)
+            closest_fib_distance = fib_distances[closest_fib_level]
+            
+            # Enhanced confluence scoring
+            confluence_score = 0
+            confluence_notes = []
+            
+            # Perfect confluence (within 1% of major Fib level)
+            if closest_fib_distance <= 1.0 and closest_fib_level in ["38.2%", "50.0%", "61.8%"]:
+                confluence_score = 10
+                confluence_notes.append(f"PERFECT confluence with {closest_fib_level}")
+            # Good confluence (within 2% of any Fib level)  
+            elif closest_fib_distance <= 2.0:
+                confluence_score = 7
+                confluence_notes.append(f"GOOD confluence with {closest_fib_level}")
+            # Moderate confluence (within 5% of major Fib level)
+            elif closest_fib_distance <= 5.0 and closest_fib_level in ["38.2%", "50.0%", "61.8%"]:
+                confluence_score = 5
+                confluence_notes.append(f"MODERATE confluence with {closest_fib_level}")
+            else:
+                confluence_score = 2
+                confluence_notes.append(f"Weak confluence")
+            
+            # Bonus for Golden Ratio (61.8%)
+            if closest_fib_level == "61.8%" and closest_fib_distance <= 3.0:
+                confluence_score += 3
+                confluence_notes.append("GOLDEN RATIO BONUS")
+            
+            # 16. Generate position sizing and risk management
             calculated_stop_loss = expected_trendline_trigger * self.sl_multiplier
             total_shares_to_buy = int(self.capital_per_trade // expected_trendline_trigger)
             
-            # 16. Alert trigger: within 1% = critical
+            # 17. Alert trigger: within 1% = critical
             is_alert_active = abs(pct_distance_to_line) <= 1.0
             
             return {
@@ -148,7 +193,15 @@ class MacroInstitutionalEngine:
                     "level_382": round(fib_382, 2),
                     "level_500": round(fib_500, 2),
                     "level_618": round(fib_618, 2),
+                    "level_786": round(fib_786, 2),
                     "level_1000": round(wave_base_origin, 2)
+                },
+                "fibConfluence": {
+                    "closestLevel": closest_fib_level,
+                    "distanceToClosest": round(closest_fib_distance, 2),
+                    "confluenceScore": confluence_score,
+                    "confluenceNotes": confluence_notes,
+                    "allDistances": {level: round(dist, 2) for level, dist in fib_distances.items()}
                 },
                 "trendlineDetails": {
                     "lastTouch": round(last_touch_price, 2),
