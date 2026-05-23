@@ -3619,7 +3619,23 @@
                         <div class="text-xs text-slate-500 mono">Day Low: ₹${stock.breakout_low.toLocaleString()}</div>
                         ${volVerticalLine}
                         <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
-                        <div class="text-xs mono mt-1" style="color: #D97706;">Radar Trigger: ₹${stock.radar_trigger_price.toLocaleString()}</div>
+                        <div class="flex items-center mt-1 space-x-2">
+                            <span class="text-xs mono" style="color: #D97706;">Radar Trigger:</span>
+                            <input 
+                                type="number" 
+                                id="radar-${stock.symbol}" 
+                                value="${stock.radar_trigger_price}" 
+                                class="px-2 py-1 text-xs mono rounded border" 
+                                style="background: rgba(20, 25, 35, 0.8); border-color: rgba(217, 119, 6, 0.3); color: #D97706; width: 100px;"
+                                onchange="updateRadarTrigger('${stock.symbol}', this.value, ${stock.current_price})"
+                            />
+                            <button 
+                                onclick="addToRadar('${stock.symbol}', '${stock.company_name}', document.getElementById('radar-${stock.symbol}').value, ${stock.current_price})"
+                                class="px-3 py-1 text-xs rounded-lg touch-btn" 
+                                style="background: rgba(4, 120, 87, 0.2); color: #047857; border: 1px solid rgba(4, 120, 87, 0.3);">
+                                📍 Track
+                            </button>
+                        </div>
                         <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
                     `;
                     break;
@@ -3804,71 +3820,38 @@
             // Initialize position tracking from localStorage
             let positions = JSON.parse(localStorage.getItem('stockPositions') || '[]');
             
-            // Collect all stocks with trigger prices from all tabs
-            const allStocksWithTriggers = [];
+            // NO AUTOMATIC POSITION TRACKING - Only manually added positions
+            // Removed automatic volume stock tracking
             
-            // Volume Breakout
-            (screeningData.volume_breakout_stocks || []).forEach(stock => {
-                if (stock.radar_trigger_price) {
-                    allStocksWithTriggers.push({
-                        ...stock,
-                        trigger_price: stock.radar_trigger_price,
-                        source: 'Volume',
-                        source_color: '#DC2626'
-                    });
-                }
-            });
-            
-            // Update positions based on current prices
-            allStocksWithTriggers.forEach(stock => {
-                const existingPosition = positions.find(p => p.symbol === stock.symbol && p.status === 'open');
+            // Update positions based on current prices from screening data
+            positions.forEach(position => {
+                if (position.status !== 'open') return;
                 
-                if (existingPosition) {
-                    // Update existing open position
-                    const currentPrice = stock.current_price;
-                    const entryPrice = existingPosition.entry_price;
+                // Try to find current price from volume breakout stocks
+                let currentStock = screeningData.volume_breakout_stocks?.find(s => s.symbol === position.symbol);
+                
+                if (currentStock) {
+                    const currentPrice = currentStock.current_price;
+                    const entryPrice = position.entry_price;
                     const priceChange = ((currentPrice - entryPrice) / entryPrice) * 100;
                     
-                    existingPosition.current_price = currentPrice;
-                    existingPosition.price_change = priceChange;
-                    existingPosition.last_updated = new Date().toISOString();
+                    position.current_price = currentPrice;
+                    position.price_change = priceChange;
+                    position.last_updated = new Date().toISOString();
                     
                     // Check if target hit (+20%)
                     if (priceChange >= 20) {
-                        existingPosition.status = 'closed_target';
-                        existingPosition.exit_price = currentPrice;
-                        existingPosition.exit_date = new Date().toISOString();
-                        existingPosition.final_return = priceChange;
+                        position.status = 'closed_target';
+                        position.exit_price = currentPrice;
+                        position.exit_date = new Date().toISOString();
+                        position.final_return = priceChange;
                     }
                     // Check if stop loss hit (-5%)
                     else if (priceChange <= -5) {
-                        existingPosition.status = 'closed_stoploss';
-                        existingPosition.exit_price = currentPrice;
-                        existingPosition.exit_date = new Date().toISOString();
-                        existingPosition.final_return = priceChange;
-                    }
-                } else {
-                    // Check if trigger price reached for new position
-                    const currentPrice = stock.current_price;
-                    const triggerPrice = stock.trigger_price;
-                    const distanceToTrigger = Math.abs((currentPrice - triggerPrice) / triggerPrice) * 100;
-                    
-                    // Position taken if within 2% of trigger price
-                    if (distanceToTrigger <= 2.0 && !positions.find(p => p.symbol === stock.symbol)) {
-                        positions.push({
-                            symbol: stock.symbol,
-                            company_name: stock.company_name,
-                            source: stock.source,
-                            source_color: stock.source_color,
-                            entry_price: triggerPrice,
-                            current_price: currentPrice,
-                            entry_date: new Date().toISOString(),
-                            status: 'open',
-                            target_price: triggerPrice * 1.20, // +20%
-                            stoploss_price: triggerPrice * 0.95, // -5%
-                            price_change: ((currentPrice - triggerPrice) / triggerPrice) * 100,
-                            last_updated: new Date().toISOString()
-                        });
+                        position.status = 'closed_stoploss';
+                        position.exit_price = currentPrice;
+                        position.exit_date = new Date().toISOString();
+                        position.final_return = priceChange;
                     }
                 }
             });
@@ -4079,6 +4062,71 @@
                 localStorage.removeItem('stockPositions');
                 displayPerformanceTracking();
             }
+        };
+        
+        // Update radar trigger price
+        window.updateRadarTrigger = function(symbol, newTriggerPrice, currentPrice) {
+            const trigger = parseFloat(newTriggerPrice);
+            if (isNaN(trigger) || trigger <= 0) {
+                alert('Please enter a valid price');
+                return;
+            }
+            
+            // Update in screening data if available
+            if (screeningData && screeningData.volume_breakout_stocks) {
+                const stock = screeningData.volume_breakout_stocks.find(s => s.symbol === symbol);
+                if (stock) {
+                    stock.radar_trigger_price = trigger;
+                    
+                    // Check if price reached trigger and send notification
+                    const distance = Math.abs((currentPrice - trigger) / trigger) * 100;
+                    if (distance <= 2.0) {
+                        alert(`🚨 ${symbol} is within 2% of your radar trigger price ₹${trigger.toLocaleString()}!`);
+                    }
+                }
+            }
+            
+            console.log(`Updated radar trigger for ${symbol} to ₹${trigger}`);
+        };
+        
+        // Add stock to radar tracking (manual position)
+        window.addToRadar = function(symbol, companyName, triggerPrice, currentPrice) {
+            const trigger = parseFloat(triggerPrice);
+            if (isNaN(trigger) || trigger <= 0) {
+                alert('Please enter a valid trigger price');
+                return;
+            }
+            
+            // Get existing positions
+            let positions = JSON.parse(localStorage.getItem('stockPositions') || '[]');
+            
+            // Check if already tracking
+            if (positions.find(p => p.symbol === symbol && p.status === 'open')) {
+                alert(`${symbol} is already being tracked in Radar`);
+                return;
+            }
+            
+            // Add new position
+            positions.push({
+                symbol: symbol,
+                company_name: companyName,
+                source: 'Volume (Manual)',
+                source_color: '#D97706',
+                entry_price: trigger,
+                current_price: currentPrice,
+                entry_date: new Date().toISOString(),
+                status: 'open',
+                target_price: trigger * 1.20, // +20%
+                stoploss_price: trigger * 0.95, // -5%
+                price_change: ((currentPrice - trigger) / trigger) * 100,
+                last_updated: new Date().toISOString()
+            });
+            
+            // Save to localStorage
+            localStorage.setItem('stockPositions', JSON.stringify(positions));
+            
+            alert(`✅ ${symbol} added to Radar tracking at ₹${trigger.toLocaleString()}`);
+            console.log(`Added ${symbol} to radar tracking`);
         };
     </script>
     
