@@ -10,8 +10,10 @@ def test_dual_signals():
     
     engine = MacroInstitutionalEngine(position_size=50000, sl_pct=8.0, touch_tolerance=5.0)
     
-    # Test stocks that we know have signals
-    test_stocks = ["ASIANPAINT.NS", "HDFCBANK.NS", "WIPRO.NS", "HINDUNILVR.NS"]
+    # Test more stocks to find new examples
+    test_stocks = ["LT.NS", "AXISBANK.NS", "TITAN.NS", "BAJFINANCE.NS", "ULTRACEMCO.NS", 
+                   "NESTLEIND.NS", "NTPC.NS", "POWERGRID.NS", "TATASTEEL.NS", "ADANIENT.NS",
+                   "MARUTI.NS", "SUNPHARMA.NS", "ONGC.NS", "COALINDIA.NS", "GRASIM.NS"]
     
     print("🎯 DUAL SIGNAL SYSTEM TEST")
     print("="*80)

@@ -1,1 +1,259 @@
-[]
+{
+  "scan_timestamp": "2026-05-24T04:39:34.629860",
+  "methodology": "Imaginary Vertical Line Method",
+  "total_scanned": 20,
+  "critical_signals": 1,
+  "watchlist_signals": 3,
+  "results": [
+    {
+      "ticker": "ASIANPAINT",
+      "sector": "Non-Banking",
+      "current_analysis": {
+        "current_price": 2639.8,
+        "trigger_price": 2614.33,
+        "distance_pct": 0.97,
+        "signal_status": "CRITICAL_TOUCH",
+        "signal_icon": "\ud83c\udfaf",
+        "action": "BUY NOW"
+      },
+      "imaginary_line_data": {
+        "current_month_position": 95,
+        "monthly_slope": 14.62,
+        "equation": "Price = 14.6215 \u00d7 Month + 1225.29",
+        "note": "This trigger price updates monthly as trendline moves up"
+      },
+      "fibonacci_confluence": {
+        "confluence_score": 7,
+        "closest_fib_level": "38.2%",
+        "distance_to_fib": 1.28,
+        "confluence_note": "GOOD confluence with 38.2%",
+        "fib_levels": {
+          "23.6%": 2777.16,
+          "38.2%": 2648.14,
+          "50.0%": 2543.87,
+          "61.8%": 2439.6,
+          "78.6%": 2291.15
+        }
+      },
+      "risk_management": {
+        "entry_zone": "\u20b92594 - \u20b92634",
+        "stop_loss": 2405.19,
+        "target_exit": 3137.2,
+        "risk_reward": "1:2.5"
+      },
+      "trendline_validation": {
+        "touch_points": [
+          {
+            "date": "2018-10-01",
+            "price": 1053.08,
+            "months_ago": 91
+          },
+          {
+            "date": "2022-06-01",
+            "price": 2465.4,
+            "months_ago": 47
+          },
+          {
+            "date": "2025-03-01",
+            "price": 2102.05,
+            "months_ago": 14
+          }
+        ],
+        "num_touches": 3,
+        "trendline_strength": "Good",
+        "slope_direction": "Ascending"
+      },
+      "last_updated": "2026-05-24 04:39:30"
+    },
+    {
+      "ticker": "WIPRO",
+      "sector": "Non-Banking",
+      "current_analysis": {
+        "current_price": 203.11,
+        "trigger_price": 200.99,
+        "distance_pct": 1.06,
+        "signal_status": "WATCHLIST",
+        "signal_icon": "\ud83d\udc40",
+        "action": "MONITOR"
+      },
+      "imaginary_line_data": {
+        "current_month_position": 95,
+        "monthly_slope": 1.58,
+        "equation": "Price = 1.5784 \u00d7 Month + 51.04",
+        "note": "This trigger price updates monthly as trendline moves up"
+      },
+      "fibonacci_confluence": {
+        "confluence_score": 10,
+        "closest_fib_level": "50.0%",
+        "distance_to_fib": 0.62,
+        "confluence_note": "PERFECT confluence with 50.0%",
+        "fib_levels": {
+          "23.6%": 206.73,
+          "38.2%": 202.86,
+          "50.0%": 199.74,
+          "61.8%": 196.62,
+          "78.6%": 192.17
+        }
+      },
+      "risk_management": {
+        "entry_zone": "\u20b9181 - \u20b9221",
+        "stop_loss": 184.91,
+        "target_exit": 241.18,
+        "risk_reward": "1:2.5"
+      },
+      "trendline_validation": {
+        "touch_points": [
+          {
+            "date": "2020-03-01",
+            "price": 73.47,
+            "months_ago": 74
+          },
+          {
+            "date": "2023-04-01",
+            "price": 164.63,
+            "months_ago": 37
+          },
+          {
+            "date": "2026-03-01",
+            "price": 186.5,
+            "months_ago": 2
+          }
+        ],
+        "num_touches": 3,
+        "trendline_strength": "Good",
+        "slope_direction": "Ascending"
+      },
+      "last_updated": "2026-05-24 04:39:33"
+    },
+    {
+      "ticker": "HDFCBANK",
+      "sector": "Banking",
+      "current_analysis": {
+        "current_price": 766.8,
+        "trigger_price": 781.54,
+        "distance_pct": -1.89,
+        "signal_status": "WATCHLIST",
+        "signal_icon": "\ud83d\udc40",
+        "action": "MONITOR"
+      },
+      "imaginary_line_data": {
+        "current_month_position": 95,
+        "monthly_slope": 4.43,
+        "equation": "Price = 4.4253 \u00d7 Month + 361.14",
+        "note": "This trigger price updates monthly as trendline moves up"
+      },
+      "fibonacci_confluence": {
+        "confluence_score": 5,
+        "closest_fib_level": "61.8%",
+        "distance_to_fib": 2.3,
+        "confluence_note": "MODERATE confluence with 61.8%",
+        "fib_levels": {
+          "23.6%": 936.28,
+          "38.2%": 884.17,
+          "50.0%": 842.06,
+          "61.8%": 799.95,
+          "78.6%": 739.99
+        }
+      },
+      "risk_management": {
+        "entry_zone": "\u20b9762 - \u20b9802",
+        "stop_loss": 719.02,
+        "target_exit": 937.85,
+        "risk_reward": "1:2.5"
+      },
+      "trendline_validation": {
+        "touch_points": [
+          {
+            "date": "2018-10-01",
+            "price": 442.61,
+            "months_ago": 91
+          },
+          {
+            "date": "2020-03-01",
+            "price": 349.86,
+            "months_ago": 74
+          },
+          {
+            "date": "2022-05-01",
+            "price": 608.01,
+            "months_ago": 48
+          },
+          {
+            "date": "2024-02-01",
+            "price": 663.62,
+            "months_ago": 27
+          }
+        ],
+        "num_touches": 4,
+        "trendline_strength": "Strong",
+        "slope_direction": "Ascending"
+      },
+      "last_updated": "2026-05-24 04:39:27"
+    },
+    {
+      "ticker": "HINDUNILVR",
+      "sector": "Non-Banking",
+      "current_analysis": {
+        "current_price": 2203.6,
+        "trigger_price": 2158.01,
+        "distance_pct": 2.11,
+        "signal_status": "WATCHLIST",
+        "signal_icon": "\ud83d\udc40",
+        "action": "MONITOR"
+      },
+      "imaginary_line_data": {
+        "current_month_position": 95,
+        "monthly_slope": 8.61,
+        "equation": "Price = 8.6147 \u00d7 Month + 1339.62",
+        "note": "This trigger price updates monthly as trendline moves up"
+      },
+      "fibonacci_confluence": {
+        "confluence_score": 10,
+        "closest_fib_level": "61.8%",
+        "distance_to_fib": 0.54,
+        "confluence_note": "PERFECT confluence with 61.8%",
+        "fib_levels": {
+          "23.6%": 2317.02,
+          "38.2%": 2260.74,
+          "50.0%": 2215.25,
+          "61.8%": 2169.76,
+          "78.6%": 2105.0
+        }
+      },
+      "risk_management": {
+        "entry_zone": "\u20b92138 - \u20b92178",
+        "stop_loss": 1985.37,
+        "target_exit": 2589.61,
+        "risk_reward": "1:2.5"
+      },
+      "trendline_validation": {
+        "touch_points": [
+          {
+            "date": "2018-10-01",
+            "price": 1310.93,
+            "months_ago": 91
+          },
+          {
+            "date": "2022-03-01",
+            "price": 1772.15,
+            "months_ago": 50
+          },
+          {
+            "date": "2024-04-01",
+            "price": 2087.81,
+            "months_ago": 25
+          },
+          {
+            "date": "2026-04-01",
+            "price": 2022.5,
+            "months_ago": 1
+          }
+        ],
+        "num_touches": 4,
+        "trendline_strength": "Strong",
+        "slope_direction": "Ascending"
+      },
+      "last_updated": "2026-05-24 04:39:28"
+    }
+  ]
+}

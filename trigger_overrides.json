@@ -1,0 +1,14 @@
+{
+    "HDFCBANK": {
+        "customTrigger": 790.0,
+        "setDate": "2026-05-24 04:05:35",
+        "notes": "Adjusted for key resistance level",
+        "isActive": true
+    },
+    "ASIANPAINT": {
+        "customTrigger": 2600.0,
+        "setDate": "2026-05-24 04:05:35",
+        "notes": "Better entry point based on support",
+        "isActive": true
+    }
+}
