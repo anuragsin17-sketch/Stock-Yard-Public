@@ -13,93 +13,88 @@ import json
 
 def get_monthly_trendline(ticker):
     """
-    Build trendline from MONTHLY data using WICK-BASED touch detection
-    Wicks (candle shadows) count as trendline touches - as taught!
+    Build trendline with wick-based touch detection.
+    PRIMARY:  Monthly 8 years
+    FALLBACK: Weekly 5 years (if monthly gives < 3 wick touches)
     """
     try:
-        # Get 8 years monthly data
-        df_monthly = yf.download(ticker, period="8y", interval="1mo", 
-                                  auto_adjust=True, progress=False)
-        if df_monthly.empty or len(df_monthly) < 24:
-            return None
-        
-        df_monthly = df_monthly.dropna()
-        df_monthly['Price_Idx'] = np.arange(len(df_monthly))
-        low_prices = df_monthly['Low'].values.flatten()
-        
-        # Sector-specific order
         banking = ['SBIN', 'HDFCBANK', 'ICICIBANK', 'AXISBANK', 'KOTAKBANK']
-        
-        # Try progressively smaller orders until we get enough anchors
-        # This handles stocks with different cycle lengths (Maruti needs order=5-8)
-        order = 6 if any(b in ticker for b in banking) else 10
-        
-        touchbacks = argrelextrema(low_prices, np.less, order=order)
-        
-        # If not enough anchors, reduce order progressively
-        for fallback_order in [8, 6, 5]:
-            if len(touchbacks[0]) >= 2:
-                break
-            touchbacks = argrelextrema(low_prices, np.less, order=fallback_order)
-        
-        if len(touchbacks[0]) < 2:
-            return None
-        
-        # Use last 2-3 major anchors to define trendline slope
-        num_anchors = min(3, len(touchbacks[0]))
-        anchor_indices = touchbacks[0][-num_anchors:]
-        
-        x_coords = [df_monthly['Price_Idx'].iloc[idx] for idx in anchor_indices]
-        y_coords = [low_prices[idx] for idx in anchor_indices]
-        
-        slope, intercept = np.polyfit(x_coords, y_coords, 1)
-        
-        if slope <= 0:
-            return None
-        
-        # STEP 2: COUNT WICK TOUCHES (KEY FIX!)
-        # A touch = any candle whose LOW (wick) comes within ±5% of trendline
-        wick_touches = []
-        for i in range(len(df_monthly)):
-            month_idx = df_monthly['Price_Idx'].iloc[i]
-            trendline_at_month = (slope * month_idx) + intercept
-            candle_low = low_prices[i]  # This IS the wick low
-            
-            # Distance from wick to trendline
-            distance_pct = abs((candle_low - trendline_at_month) / trendline_at_month) * 100
-            
-            # WICK TOUCH: candle low within ±5% of trendline
-            if distance_pct <= 5.0:
-                wick_touches.append({
-                    'date': df_monthly.index[i].strftime('%Y-%m-%d'),
-                    'price': round(candle_low, 2),
-                    'trendline_price': round(trendline_at_month, 2),
-                    'distance_pct': round(distance_pct, 2),
-                    'month_idx': int(month_idx)
-                })
-        
-        # MINIMUM 3 WICK TOUCHES REQUIRED
-        if len(wick_touches) < 3:
-            return None
-        
-        # Get last month index for reference
-        last_month_idx = df_monthly['Price_Idx'].iloc[-1]
-        last_month_date = df_monthly.index[-1]
-        
-        return {
-            'slope': slope,
-            'intercept': intercept,
-            'last_month_idx': int(last_month_idx),
-            'last_month_date': last_month_date,
-            'touch_points': wick_touches,  # ALL wick touches
-            'anchor_points': [{'date': df_monthly.index[idx].strftime('%Y-%m-%d'),
-                               'price': round(low_prices[idx], 2)} 
-                              for idx in anchor_indices],
-            'total_wick_touches': len(wick_touches),
-            'monthly_df': df_monthly
-        }
-        
-    except Exception as e:
+
+        def build_trendline_from_df(df, timeframe):
+            if df.empty or len(df) < 18:
+                return None
+            df = df.dropna()
+            df['Price_Idx'] = np.arange(len(df))
+            low_prices = df['Low'].values.flatten()
+
+            order = 6 if any(b in ticker for b in banking) else 10
+            if timeframe == 'weekly':
+                order = max(3, order // 2)
+
+            touchbacks = argrelextrema(low_prices, np.less, order=order)
+            for fallback in [8, 6, 5, 4, 3]:
+                if len(touchbacks[0]) >= 2:
+                    break
+                touchbacks = argrelextrema(low_prices, np.less, order=fallback)
+
+            if len(touchbacks[0]) < 2:
+                return None
+
+            num_anchors = min(3, len(touchbacks[0]))
+            anchor_indices = touchbacks[0][-num_anchors:]
+            x_coords = [df['Price_Idx'].iloc[idx] for idx in anchor_indices]
+            y_coords = [low_prices[idx] for idx in anchor_indices]
+            slope, intercept = np.polyfit(x_coords, y_coords, 1)
+
+            if slope <= 0:
+                return None
+
+            # Count WICK touches (within 8% of trendline)
+            wick_touches = []
+            for i in range(len(df)):
+                month_idx = df['Price_Idx'].iloc[i]
+                trendline_at_month = (slope * month_idx) + intercept
+                candle_low = low_prices[i]
+                distance_pct = abs((candle_low - trendline_at_month) / trendline_at_month) * 100
+                if distance_pct <= 8.0:
+                    wick_touches.append({
+                        'date': df.index[i].strftime('%Y-%m-%d'),
+                        'price': round(candle_low, 2),
+                        'trendline_price': round(trendline_at_month, 2),
+                        'distance_pct': round(distance_pct, 2),
+                        'month_idx': int(month_idx)
+                    })
+
+            if len(wick_touches) < 3:
+                return None
+
+            return {
+                'slope': slope,
+                'intercept': intercept,
+                'last_month_idx': int(df['Price_Idx'].iloc[-1]),
+                'last_month_date': df.index[-1],
+                'touch_points': wick_touches,
+                'anchor_points': [{'date': df.index[idx].strftime('%Y-%m-%d'),
+                                   'price': round(low_prices[idx], 2)}
+                                  for idx in anchor_indices],
+                'total_wick_touches': len(wick_touches),
+                'timeframe': timeframe,
+                'monthly_df': df
+            }
+
+        # PRIMARY: Monthly 8 years
+        df_monthly = yf.download(ticker, period="8y", interval="1mo",
+                                  auto_adjust=True, progress=False)
+        result = build_trendline_from_df(df_monthly, 'monthly')
+        if result:
+            return result
+
+        # FALLBACK: Weekly 5 years
+        df_weekly = yf.download(ticker, period="5y", interval="1wk",
+                                 auto_adjust=True, progress=False)
+        return build_trendline_from_df(df_weekly, 'weekly')
+
+    except Exception:
         return None
 
 def get_trigger_for_date(trendline_data, target_date):

@@ -41,10 +41,10 @@ class MacroInstitutionalEngine:
 
         return touchbacks
 
-    def count_wick_touches(self, df, low_prices, slope, intercept, tolerance=5.0):
+    def count_wick_touches(self, df, low_prices, slope, intercept, tolerance=8.0):
         """
         Count wick touches - candle LOW (wick) within tolerance% of trendline.
-        This is the KEY FIX: wicks count as trendline touches, not just local minima.
+        Relaxed to 8% to catch more valid touches across different stock volatilities.
         """
         wick_touches = []
         for i in range(len(df)):
