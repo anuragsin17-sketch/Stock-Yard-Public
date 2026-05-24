@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-24T05:49:16.743710",
+  "timestamp": "2026-05-24T06:17:26.973015",
   "golden_stocks": [
     {
       "symbol": "OBEROIRLTY",
@@ -844,7 +844,7 @@
       "fibonacci_low_5y": 381.57,
       "trendline_price": 755.28,
       "distance_to_trendline_percent": 0.25,
-      "trendline_slope_daily": 0.129514,
+      "trendline_slope_daily": 0.129515,
       "trendline_start_price": 718.11,
       "trendline_start_date": "2025-08-08",
       "trendline_end_price": 729.89,
