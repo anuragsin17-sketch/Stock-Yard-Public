@@ -3375,36 +3375,40 @@
         // Fetch real-time NIFTY and SENSEX data
         async function fetchIndexData() {
             try {
-                // Using Yahoo Finance API for real-time index data
-                const niftyResponse = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI');
-                const sensexResponse = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EBSESN');
-                
-                if (niftyResponse.ok) {
-                    const niftyData = await niftyResponse.json();
-                    const niftyPrice = niftyData.chart.result[0].meta.regularMarketPrice;
-                    const niftyChange = niftyData.chart.result[0].meta.regularMarketPrice - niftyData.chart.result[0].meta.previousClose;
-                    const niftyChangePercent = (niftyChange / niftyData.chart.result[0].meta.previousClose) * 100;
-                    
-                    const niftyElement = document.getElementById('nifty50Price');
-                    niftyElement.textContent = `${niftyPrice.toFixed(2)} (${niftyChangePercent >= 0 ? '+' : ''}${niftyChangePercent.toFixed(2)}%)`;
-                    niftyElement.className = `text-xs font-semibold mono ${niftyChangePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+                // Use allorigins proxy to bypass CORS for Yahoo Finance
+                const niftyUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?interval=1d&range=1d';
+                const sensexUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EBSESN?interval=1d&range=1d';
+
+                const [niftyResp, sensexResp] = await Promise.all([
+                    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(niftyUrl)}`),
+                    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(sensexUrl)}`)
+                ]);
+
+                if (niftyResp.ok) {
+                    const raw = await niftyResp.json();
+                    const niftyData = JSON.parse(raw.contents);
+                    const meta = niftyData.chart.result[0].meta;
+                    const price = meta.regularMarketPrice;
+                    const changePct = ((price - meta.previousClose) / meta.previousClose) * 100;
+                    const el = document.getElementById('nifty50Price');
+                    el.textContent = `${price.toFixed(0)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`;
+                    el.className = `text-xs font-semibold mono ${changePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
                 }
-                
-                if (sensexResponse.ok) {
-                    const sensexData = await sensexResponse.json();
-                    const sensexPrice = sensexData.chart.result[0].meta.regularMarketPrice;
-                    const sensexChange = sensexData.chart.result[0].meta.regularMarketPrice - sensexData.chart.result[0].meta.previousClose;
-                    const sensexChangePercent = (sensexChange / sensexData.chart.result[0].meta.previousClose) * 100;
-                    
-                    const sensexElement = document.getElementById('sensexPrice');
-                    sensexElement.textContent = `${sensexPrice.toFixed(2)} (${sensexChangePercent >= 0 ? '+' : ''}${sensexChangePercent.toFixed(2)}%)`;
-                    sensexElement.className = `text-xs font-semibold mono ${sensexChangePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+
+                if (sensexResp.ok) {
+                    const raw = await sensexResp.json();
+                    const sensexData = JSON.parse(raw.contents);
+                    const meta = sensexData.chart.result[0].meta;
+                    const price = meta.regularMarketPrice;
+                    const changePct = ((price - meta.previousClose) / meta.previousClose) * 100;
+                    const el = document.getElementById('sensexPrice');
+                    el.textContent = `${price.toFixed(0)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`;
+                    el.className = `text-xs font-semibold mono ${changePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
                 }
             } catch (error) {
-                console.warn('Failed to fetch index data, using fallback values:', error);
-                // Fallback to static values if API fails
-                document.getElementById('nifty50Price').textContent = '24,500 (--%)';
-                document.getElementById('sensexPrice').textContent = '80,250 (--%)';
+                console.warn('Index data fetch failed:', error);
+                document.getElementById('nifty50Price').textContent = 'N/A';
+                document.getElementById('sensexPrice').textContent = 'N/A';
             }
         }
         

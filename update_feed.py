@@ -66,7 +66,8 @@ def synchronize_production_database():
                     "positionSizing": {
                         "sharesToBuy": data["positionSizing"]["sharesToBuy"],
                         "strictStopLoss": data["positionSizing"]["dynamicStopLoss"],
-                        "pivotTargetExit": data["positionSizing"]["targetExit"]
+                        "pivotTargetExit": data["positionSizing"]["targetExit"],
+                        "allocatedAmount": 50000.0
                     },
                     "wickTouches": data["trendlineDetails"]["wickTouches"],
                     "timeframe": data["trendlineDetails"].get("timeframe", "monthly"),
@@ -76,21 +77,8 @@ def synchronize_production_database():
                 compiled_screen_data.append(record)
                 print(f"   [+] {data['ticker']:12} | Rs{record['currentPrice']:8.2f} | Trigger: Rs{record['triggerPrice']:8.2f} | Dist: {record['distanceRemaining']:.2f}%")
 
-                # Critical alert (+-1%)
+                # Track critical and watchlist (no individual alerts)
                 if data["currentSignal"]["notificationTrigger"]:
-                    alert_msg = (
-                        f"CRITICAL TRENDLINE ENTRY\n\n"
-                        f"Stock: {data['ticker']}\n"
-                        f"Current: Rs{record['currentPrice']:,.2f}\n"
-                        f"Trigger: Rs{record['triggerPrice']:,.2f}\n"
-                        f"Distance: {record['distanceRemaining']:.2f}%\n"
-                        f"Wicks: {record['wickTouches']}\n"
-                        f"Stop Loss: Rs{record['positionSizing']['strictStopLoss']:,.2f}\n"
-                        f"Target: Rs{record['positionSizing']['pivotTargetExit']:,.2f}\n\n"
-                        f"Trendline scanner alert"
-                    )
-                    print(f"   CRITICAL ALERT: {data['ticker']}")
-                    send_telegram_alert(alert_msg)
                     critical_alerts.append(data['ticker'])
                 elif record['distanceRemaining'] <= 2.0:
                     watchlist_alerts.append(data['ticker'])
@@ -115,16 +103,17 @@ def synchronize_production_database():
     # Send summary Telegram
     if compiled_screen_data:
         summary = (
-            f"Trendline Scanner Summary\n\n"
-            f"{datetime.now().strftime('%Y-%m-%d %H:%M IST')}\n"
-            f"Total signals: {len(compiled_screen_data)}\n"
-            f"Critical (+-1%): {len(critical_alerts)}\n"
-            f"Watchlist (+-2%): {len(watchlist_alerts)}\n"
+            f"📊 *Trendline Scanner Summary*\n\n"
+            f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M IST')}\n"
+            f"📈 Total signals: {len(compiled_screen_data)}\n"
+            f"🎯 Critical (+-1%): {len(critical_alerts)}\n"
+            f"👀 Watchlist (+-2%): {len(watchlist_alerts)}\n"
         )
         if critical_alerts:
-            summary += f"\nCritical stocks: {', '.join(critical_alerts)}"
+            summary += f"\n*Critical stocks:* {', '.join(critical_alerts)}"
         if watchlist_alerts:
-            summary += f"\nWatchlist: {', '.join(watchlist_alerts[:5])}"
+            summary += f"\n*Watchlist:* {', '.join(watchlist_alerts[:5])}"
+        summary += f"\n\n📱 *View Full Report:*\nhttps://anuragsin17-sketch.github.io/Stock-Yard-Public/"
         send_telegram_alert(summary)
 
 if __name__ == "__main__":
