@@ -29,7 +29,7 @@ def synchronize_production_database():
     print("Connecting to NSE network...")
 
     try:
-        df = pd.read_csv('ind_nifty500list.csv')
+        df = pd.read_csv('Stock List.csv')
         tickers = [str(t).strip() + ".NS" for t in df['Symbol'].tolist() if str(t).strip()]
         print(f"Loaded {len(tickers)} tickers")
     except Exception as e:

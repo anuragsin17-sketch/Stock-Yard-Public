@@ -4375,14 +4375,20 @@
         const NIFTY500_STOCKS = [];
         (async function loadNifty500() {
             // Try multiple paths — works both locally and on GitHub Pages
-            const paths = ['./ind_nifty500list.csv', 'ind_nifty500list.csv'];
+            const paths = ['./Stock List.csv', 'Stock List.csv', './ind_nifty500list.csv', 'ind_nifty500list.csv'];
             let loaded = false;
             for (const path of paths) {
                 try {
+                    console.log(`Trying to load from: ${path}`);
                     const resp = await fetch(path, { cache: 'no-store' });
-                    if (!resp.ok) continue;
+                    if (!resp.ok) {
+                        console.warn(`Failed to fetch ${path}: ${resp.status}`);
+                        continue;
+                    }
                     const text = await resp.text();
+                    console.log(`Fetched ${text.length} bytes from ${path}`);
                     const lines = text.trim().split('\n').slice(1); // skip header
+                    console.log(`Processing ${lines.length} lines`);
                     lines.forEach(line => {
                         const parts = line.split(',');
                         if (parts.length >= 3) {
@@ -4398,7 +4404,7 @@
                     console.warn(`Could not load from ${path}:`, e);
                 }
             }
-            if (!loaded) console.error('❌ Could not load Nifty 500 list from any path');
+            if (!loaded) console.error('❌ Could not load Stock List from any path');
         })();
 
         // ─── ADD STOCK MODAL ─────────────────────────────────────────────────────

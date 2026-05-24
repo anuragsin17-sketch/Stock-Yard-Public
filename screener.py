@@ -40,8 +40,8 @@ class StockScreener:
     def load_stock_universe(self) -> pd.DataFrame:
         """Load the NIFTY stock list"""
         try:
-            # Try different possible file names - prioritize NIFTY 500 list
-            possible_files = ['ind_nifty500list.csv', 'ind_nifty200list.csv', 'ind_nifty50list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv', 'nifty50.csv']
+            # Try different possible file names - prioritize Stock List
+            possible_files = ['Stock List.csv', 'ind_nifty500list.csv', 'ind_nifty200list.csv', 'ind_nifty50list.csv', 'ind_nifty500list.xlsx', 'nifty500.csv', 'nifty50.csv']
             
             for filename in possible_files:
                 try:
