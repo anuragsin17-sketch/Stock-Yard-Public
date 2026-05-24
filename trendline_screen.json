@@ -10,7 +10,8 @@
         "positionSizing": {
             "sharesToBuy": 11,
             "strictStopLoss": 4015.41,
-            "pivotTargetExit": 5237.49
+            "pivotTargetExit": 5237.49,
+            "allocatedAmount": 50000.0
         },
         "wickTouches": 17,
         "timeframe": "monthly",
@@ -27,7 +28,8 @@
         "positionSizing": {
             "sharesToBuy": 32,
             "strictStopLoss": 1408.37,
-            "pivotTargetExit": 1837.0
+            "pivotTargetExit": 1837.0,
+            "allocatedAmount": 50000.0
         },
         "wickTouches": 6,
         "timeframe": "monthly",
@@ -44,7 +46,8 @@
         "positionSizing": {
             "sharesToBuy": 396,
             "strictStopLoss": 115.93,
-            "pivotTargetExit": 151.22
+            "pivotTargetExit": 151.22,
+            "allocatedAmount": 50000.0
         },
         "wickTouches": 10,
         "timeframe": "monthly",
@@ -61,26 +64,10 @@
         "positionSizing": {
             "sharesToBuy": 14,
             "strictStopLoss": 3242.33,
-            "pivotTargetExit": 4229.13
+            "pivotTargetExit": 4229.13,
+            "allocatedAmount": 50000.0
         },
         "wickTouches": 13,
-        "timeframe": "monthly",
-        "confluenceScore": 6
-    },
-    {
-        "ticker": "CENTRALBK",
-        "currentPrice": 31.27,
-        "triggerPrice": 30.91,
-        "distanceRemaining": 1.17,
-        "fibLevelMatch": "N/A",
-        "patternZone": "No Fib within 2% (closest: 78.6% at 4.8%)",
-        "notificationTrigger": false,
-        "positionSizing": {
-            "sharesToBuy": 1617,
-            "strictStopLoss": 28.43,
-            "pivotTargetExit": 37.09
-        },
-        "wickTouches": 9,
         "timeframe": "monthly",
         "confluenceScore": 6
     },
@@ -95,9 +82,28 @@
         "positionSizing": {
             "sharesToBuy": 64,
             "strictStopLoss": 708.26,
-            "pivotTargetExit": 923.82
+            "pivotTargetExit": 923.82,
+            "allocatedAmount": 50000.0
         },
         "wickTouches": 14,
+        "timeframe": "monthly",
+        "confluenceScore": 6
+    },
+    {
+        "ticker": "CENTRALBK",
+        "currentPrice": 31.27,
+        "triggerPrice": 30.81,
+        "distanceRemaining": 1.48,
+        "fibLevelMatch": "N/A",
+        "patternZone": "No Fib within 2% (closest: 78.6% at 5.1%)",
+        "notificationTrigger": false,
+        "positionSizing": {
+            "sharesToBuy": 1622,
+            "strictStopLoss": 28.35,
+            "pivotTargetExit": 36.98,
+            "allocatedAmount": 50000.0
+        },
+        "wickTouches": 9,
         "timeframe": "monthly",
         "confluenceScore": 6
     },
@@ -112,7 +118,8 @@
         "positionSizing": {
             "sharesToBuy": 112,
             "strictStopLoss": 407.84,
-            "pivotTargetExit": 531.97
+            "pivotTargetExit": 531.97,
+            "allocatedAmount": 50000.0
         },
         "wickTouches": 9,
         "timeframe": "monthly",
@@ -129,7 +136,8 @@
         "positionSizing": {
             "sharesToBuy": 40,
             "strictStopLoss": 1123.92,
-            "pivotTargetExit": 1465.98
+            "pivotTargetExit": 1465.98,
+            "allocatedAmount": 50000.0
         },
         "wickTouches": 6,
         "timeframe": "monthly",
@@ -146,7 +154,8 @@
         "positionSizing": {
             "sharesToBuy": 49,
             "strictStopLoss": 927.33,
-            "pivotTargetExit": 1209.56
+            "pivotTargetExit": 1209.56,
+            "allocatedAmount": 50000.0
         },
         "wickTouches": 7,
         "timeframe": "monthly",
