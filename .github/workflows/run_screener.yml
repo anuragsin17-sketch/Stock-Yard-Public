@@ -131,6 +131,10 @@ jobs:
         # Run our separate Python script cleanly
         python update_html.py || echo "⚠️ update_html.py failed, continuing..."
         
+        # Inject build timestamp into HTML for cache busting
+        BUILD_TIME=$(date -u +%Y%m%d%H%M%S)
+        sed -i "s/<!-- BUILD_TIMESTAMP: will be replaced by workflow -->/<!-- BUILD: ${BUILD_TIME} -->/" index.html || true
+        
         # Commit changes to private repo
         git add data.json index.html trendline_screen.json
         
