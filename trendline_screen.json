@@ -1,5 +1,23 @@
 [
     {
+        "ticker": "CENTRALBK",
+        "currentPrice": 31.27,
+        "triggerPrice": 31.34,
+        "distanceRemaining": 0.22,
+        "fibLevelMatch": "N/A",
+        "patternZone": "No Fib within 2% (closest: 78.6% at 3.4%)",
+        "notificationTrigger": true,
+        "positionSizing": {
+            "sharesToBuy": 1595,
+            "strictStopLoss": 28.83,
+            "pivotTargetExit": 37.61,
+            "allocatedAmount": 50000.0
+        },
+        "wickTouches": 8,
+        "timeframe": "monthly",
+        "confluenceScore": 6
+    },
+    {
         "ticker": "BAYERCROP",
         "currentPrice": 4382.5,
         "triggerPrice": 4364.58,
@@ -86,24 +104,6 @@
             "allocatedAmount": 50000.0
         },
         "wickTouches": 13,
-        "timeframe": "monthly",
-        "confluenceScore": 6
-    },
-    {
-        "ticker": "CENTRALBK",
-        "currentPrice": 31.27,
-        "triggerPrice": 30.91,
-        "distanceRemaining": 1.17,
-        "fibLevelMatch": "N/A",
-        "patternZone": "No Fib within 2% (closest: 78.6% at 4.8%)",
-        "notificationTrigger": false,
-        "positionSizing": {
-            "sharesToBuy": 1617,
-            "strictStopLoss": 28.43,
-            "pivotTargetExit": 37.09,
-            "allocatedAmount": 50000.0
-        },
-        "wickTouches": 9,
         "timeframe": "monthly",
         "confluenceScore": 6
     },
