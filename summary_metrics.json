@@ -1,9 +1,0 @@
-{
-    "compounding_account_state": {
-        "master_equity_pool": 528260.0,
-        "active_slot_allocation_limit": 52826.0,
-        "strict_risk_per_trade": 4226.08,
-        "compounding_mode": "TOTAL_EQUITY_ACTIVE",
-        "available_open_slots": 10
-    }
-}

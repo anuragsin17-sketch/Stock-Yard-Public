@@ -1,3 +1,0 @@
-Trigger GitHub Actions workflow to run with Nifty 200 data
-Timestamp: 2026-05-22 05:10:00
-Status: Ready to process 204 stocks from ind_nifty200list.csv
