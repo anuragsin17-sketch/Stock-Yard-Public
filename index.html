@@ -3504,6 +3504,83 @@
             localStorage.setItem(savedKey, JSON.stringify(saved));
         }
 
+        // Place order via GitHub Actions (credentials stay in GitHub Secrets)
+        async function placeAngelOrder(symbol, action, qty, price, stopLoss, target, source) {
+            // GitHub PAT stored in localStorage (user sets it once)
+            const pat = localStorage.getItem('github_pat');
+            const repo = 'anuragsin17-sketch/Stock-Yard';
+
+            if (!pat) {
+                const userPat = prompt(
+                    '🔑 Enter your GitHub Personal Access Token (PAT)\n\n' +
+                    'This is stored locally in your browser only.\n' +
+                    'Create one at: github.com/settings/tokens\n' +
+                    'Required scope: repo (for workflow dispatch)\n\n' +
+                    'PAT:'
+                );
+                if (!userPat) {
+                    alert('❌ PAT required to place orders. Trade added to Radar only.');
+                    switchTab('performance');
+                    return;
+                }
+                localStorage.setItem('github_pat', userPat.trim());
+            }
+
+            const storedPat = localStorage.getItem('github_pat');
+
+            try {
+                // Show loading
+                const loadingMsg = `⏳ Placing order for ${symbol}...`;
+                console.log(loadingMsg);
+
+                const response = await fetch(
+                    `https://api.github.com/repos/${repo}/dispatches`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `token ${storedPat}`,
+                            'Accept': 'application/vnd.github.v3+json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            event_type: 'place_trade',
+                            client_payload: {
+                                action: action,
+                                symbol: symbol,
+                                token: '',
+                                quantity: qty.toString(),
+                                price: price.toFixed(2),
+                                stop_loss: stopLoss.toFixed(2),
+                                target: target.toFixed(2),
+                                source: source
+                            }
+                        })
+                    }
+                );
+
+                if (response.status === 204) {
+                    alert(
+                        `✅ Order dispatched to Angel One!\n\n` +
+                        `${action} ${qty} shares of ${symbol} @ ₹${price.toFixed(2)}\n\n` +
+                        `GitHub Actions is processing your order.\n` +
+                        `You will receive a Telegram notification when done.\n\n` +
+                        `Check Actions tab for status.`
+                    );
+                    switchTab('performance');
+                } else if (response.status === 401) {
+                    localStorage.removeItem('github_pat');
+                    alert('❌ Invalid PAT token. Please try again.');
+                } else {
+                    const err = await response.text();
+                    alert(`❌ Failed to dispatch order: ${response.status}\n${err}`);
+                }
+
+            } catch (error) {
+                alert(`❌ Network error: ${error.message}\nTrade added to Radar only.`);
+                switchTab('performance');
+            }
+        }
+
         // Take Trade from Volume tab - manual only
         window.takeVolumeTrade = function(symbol, companyName) {
             const entryEl = document.getElementById(`vol_entry_${symbol}`);
@@ -3520,29 +3597,44 @@
             const stopLoss = parseFloat((entry * 0.92).toFixed(2));
             const qty = Math.floor(positionSize / entry);
 
+            // Confirmation dialog
+            const confirmed = confirm(
+                `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
+                `Stock: ${symbol}\n` +
+                `Company: ${companyName}\n` +
+                `Action: BUY (LIMIT)\n` +
+                `Entry Price: ₹${entry.toFixed(2)}\n` +
+                `Quantity: ${qty} shares\n` +
+                `Position Size: ₹${positionSize.toLocaleString()}\n` +
+                `Stop Loss: ₹${stopLoss.toFixed(2)} (Monthly Close)\n` +
+                `Target: ₹${target.toFixed(2)} (+20%)\n\n` +
+                `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
+                `Click OK to confirm.`
+            );
+
+            if (!confirmed) return;
+
+            // Add to Radar
             const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
             const exists = trades.find(t => t.ticker === symbol && t.status === 'Open');
-            if (exists) {
-                alert(`${symbol} is already in your Radar!`);
-                return;
+            if (!exists) {
+                trades.push({
+                    ticker: symbol,
+                    companyName: companyName,
+                    entryTrigger: entry,
+                    targetExit: target,
+                    stopLoss: stopLoss,
+                    positionSize: positionSize,
+                    quantity: qty,
+                    takenAt: new Date().toISOString(),
+                    status: 'Open',
+                    source: 'Volume'
+                });
+                localStorage.setItem('radarTrades', JSON.stringify(trades));
             }
 
-            trades.push({
-                ticker: symbol,
-                companyName: companyName,
-                entryTrigger: entry,
-                targetExit: target,
-                stopLoss: stopLoss,
-                positionSize: positionSize,
-                quantity: qty,
-                takenAt: new Date().toISOString(),
-                status: 'Open',
-                source: 'Volume'
-            });
-
-            localStorage.setItem('radarTrades', JSON.stringify(trades));
-            switchTab('performance');
-            alert(`✅ ${symbol} added to Radar!\nEntry: ₹${entry} | Target: ₹${target} | Stop: ₹${stopLoss}`);
+            // Trigger Angel One order via GitHub Actions
+            placeAngelOrder(symbol, 'BUY', qty, entry, stopLoss, target, 'Volume');
         };
 
         // Take Trade - saves to radar tab (Trendline source)
@@ -3555,33 +3647,42 @@
             const stop = saved.stopLoss || stopLoss;
             const qty = Math.floor(positionSize / entry);
 
-            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+            // Confirmation dialog
+            const confirmed = confirm(
+                `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
+                `Stock: ${ticker}\n` +
+                `Action: BUY (LIMIT)\n` +
+                `Entry Price: ₹${parseFloat(entry).toFixed(2)}\n` +
+                `Quantity: ${qty} shares\n` +
+                `Position Size: ₹${positionSize.toLocaleString()}\n` +
+                `Stop Loss: ₹${parseFloat(stop).toFixed(2)} (Monthly Close)\n` +
+                `Target: ₹${parseFloat(target).toFixed(2)} (+20%)\n\n` +
+                `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
+                `Click OK to confirm.`
+            );
 
-            // Check if already in radar
+            if (!confirmed) return;
+
+            // Add to Radar
+            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
             const exists = trades.find(t => t.ticker === ticker && t.status === 'Open');
-            if (exists) {
-                alert(`${ticker} is already in your Radar!`);
-                return;
+            if (!exists) {
+                trades.push({
+                    ticker,
+                    entryTrigger: parseFloat(entry.toFixed(2)),
+                    targetExit: parseFloat(target.toFixed(2)),
+                    stopLoss: parseFloat(stop.toFixed(2)),
+                    positionSize,
+                    quantity: qty,
+                    takenAt: new Date().toISOString(),
+                    status: 'Open',
+                    source: 'Trendline'
+                });
+                localStorage.setItem('radarTrades', JSON.stringify(trades));
             }
 
-            const trade = {
-                ticker,
-                entryTrigger: parseFloat(entry.toFixed(2)),
-                targetExit: parseFloat(target.toFixed(2)),
-                stopLoss: parseFloat(stop.toFixed(2)),
-                positionSize,
-                quantity: qty,
-                takenAt: new Date().toISOString(),
-                status: 'Open',
-                source: 'Trendline'
-            };
-
-            trades.push(trade);
-            localStorage.setItem('radarTrades', JSON.stringify(trades));
-
-            // Switch to radar tab
-            switchTab('performance');
-            alert(`✅ ${ticker} added to Radar!\nEntry: ₹${entry.toFixed(2)} | Target: ₹${target.toFixed(2)} | Stop: ₹${stop.toFixed(2)}`);
+            // Trigger Angel One order via GitHub Actions
+            placeAngelOrder(ticker, 'BUY', qty, parseFloat(entry), parseFloat(stop), parseFloat(target), 'Trendline');
         }
 
         // Switch between tabs
