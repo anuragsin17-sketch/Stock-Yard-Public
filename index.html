@@ -3243,20 +3243,77 @@
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Stock Yard Mobile App Starting...');
-            
+
             // Check for URL parameters for deep linking
             const urlParams = new URLSearchParams(window.location.search);
             const stockParam = urlParams.get('stock');
-            
+            const confirmParam = urlParams.get('confirm');  // Deep link from Telegram
+
             setupEventListeners();
             loadData();
-            fetchIndexData(); // Load real-time index data on page load
-            
-            // Handle deep linking after data loads
+            fetchIndexData();
+
+            // Handle stock highlight deep link
             if (stockParam) {
                 setTimeout(() => {
                     highlightStock(stockParam);
                 }, 1000);
+            }
+
+            // Handle trade confirmation deep link from Telegram
+            // URL: ?confirm=AXISBANK&price=1031&qty=48&stop=949&target=1237&source=Trendline
+            if (confirmParam) {
+                const price = parseFloat(urlParams.get('price') || '0');
+                const qty = parseInt(urlParams.get('qty') || '0');
+                const stop = parseFloat(urlParams.get('stop') || '0');
+                const target = parseFloat(urlParams.get('target') || '0');
+                const source = urlParams.get('source') || 'Trendline';
+
+                // Switch to trendline tab and show confirmation after data loads
+                setTimeout(() => {
+                    switchTab('trendline');
+
+                    // Show confirmation dialog
+                    const confirmed = confirm(
+                        `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
+                        `Stock: ${confirmParam}\n` +
+                        `Action: BUY (LIMIT)\n` +
+                        `Entry Price: ₹${price.toFixed(2)}\n` +
+                        `Quantity: ${qty} shares\n` +
+                        `Stop Loss: ₹${stop.toFixed(2)} (Monthly Close)\n` +
+                        `Target: ₹${target.toFixed(2)} (+20%)\n\n` +
+                        `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
+                        `Click OK to confirm.`
+                    );
+
+                    if (confirmed) {
+                        // Add to Radar
+                        const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+                        const exists = trades.find(t => t.ticker === confirmParam && t.status === 'Open');
+                        if (!exists) {
+                            trades.push({
+                                ticker: confirmParam,
+                                entryTrigger: price,
+                                targetExit: target,
+                                stopLoss: stop,
+                                positionSize: qty * price,
+                                quantity: qty,
+                                takenAt: new Date().toISOString(),
+                                status: 'Open',
+                                source: source
+                            });
+                            localStorage.setItem('radarTrades', JSON.stringify(trades));
+                        }
+
+                        // Place order via Angel One
+                        placeAngelOrder(confirmParam, 'BUY', qty, price, stop, target, source);
+                    } else {
+                        alert(`❌ Trade cancelled for ${confirmParam}`);
+                    }
+
+                    // Clean URL (remove params after handling)
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }, 1500);
             }
         });
         

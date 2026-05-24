@@ -100,6 +100,42 @@ def synchronize_production_database():
     print(f"Watchlist: {len(watchlist_alerts)} - {', '.join(watchlist_alerts[:10]) if watchlist_alerts else 'None'}")
     print(f"==================================================================")
 
+    # Base URL for deep links
+    base_url = "https://anuragsin17-sketch.github.io/Stock-Yard-Public"
+
+    # Send individual critical alerts with deep link (tap to confirm trade)
+    for record in compiled_screen_data:
+        if record['notificationTrigger']:  # +-1% critical
+            ticker = record['ticker']
+            price = record['triggerPrice']
+            stop = record['positionSizing']['strictStopLoss']
+            target = record['positionSizing']['pivotTargetExit']
+            qty = record['positionSizing']['sharesToBuy']
+            dist = record['distanceRemaining']
+
+            # Deep link - opens dashboard and auto-triggers confirm dialog
+            confirm_url = (
+                f"{base_url}/?confirm={ticker}"
+                f"&price={price}"
+                f"&qty={qty}"
+                f"&stop={stop}"
+                f"&target={target}"
+                f"&source=Trendline"
+            )
+
+            alert = (
+                f"🎯 *CRITICAL TRENDLINE ENTRY*\n\n"
+                f"*Stock:* {ticker}\n"
+                f"*Current:* Rs{record['currentPrice']:,.2f}\n"
+                f"*Trigger:* Rs{price:,.2f} ({dist:.2f}% away)\n"
+                f"*Stop Loss:* Rs{stop:,.2f} (Monthly Close)\n"
+                f"*Target:* Rs{target:,.2f} (+20%)\n"
+                f"*Qty:* {qty} shares\n\n"
+                f"Tap to confirm trade:\n{confirm_url}"
+            )
+            send_telegram_alert(alert)
+            print(f"   Critical alert sent for {ticker} with deep link")
+
     # Send summary Telegram
     if compiled_screen_data:
         summary = (
