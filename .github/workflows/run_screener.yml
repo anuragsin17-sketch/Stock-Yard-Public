@@ -92,10 +92,21 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
         echo "📊 Running trendline scanner..."
-        python update_feed.py || {
-          echo "⚠️ Trendline scanner failed, creating empty data..."
-          echo '[]' > trendline_screen.json
-        }
+        # Check if today is Sunday (day 0) - run full scan
+        DAY_OF_WEEK=$(date +%u)
+        if [ "$DAY_OF_WEEK" -eq "7" ]; then
+          echo "🔄 Sunday - Running FULL trendline scan (recalculates all trendlines)"
+          python update_feed.py || {
+            echo "⚠️ Full trendline scanner failed, creating empty data..."
+            echo '[]' > trendline_screen.json
+          }
+        else
+          echo "⚡ Weekday - Running FAST price-only update (uses cached trendlines)"
+          python update_trendline_prices.py || {
+            echo "⚠️ Price update failed, falling back to full scan..."
+            python update_feed.py || echo '[]' > trendline_screen.json
+          }
+        fi
         echo "✅ Trendline scanner completed"
 
     - name: Monitor open positions (Angel One)
