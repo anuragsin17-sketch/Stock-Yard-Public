@@ -3793,6 +3793,11 @@
                 case 'performance':
                     displayPerformanceTracking();
                     return;
+                default:
+                    // Default to volume tab
+                    stocks = screeningData.volume_breakout_stocks || [];
+                    currentTab = 'volume';
+                    break;
             }
             
             if (stocks.length === 0) {
@@ -4187,8 +4192,92 @@
         }
 
         function renderRadarTab(container, trades) {
+            if (!trades || trades.length === 0) {
+                container.innerHTML = `
+                    <div class="mobile-card rounded-xl p-8 text-center">
+                        <div class="text-4xl mb-4">📡</div>
+                        <div class="text-slate-300 font-semibold mb-2">Radar is Empty</div>
+                        <div class="text-xs text-slate-500 mb-4">Go to Trendline tab and click "📥 Take Trade" on any stock to add it here.</div>
+                        <button onclick="switchTab('trendline')" class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
+                            Go to Trendline →
+                        </button>
+                    </div>
+                `;
+                return;
+            }
 
-        // Update trade status in radar
+            const open = trades.filter(t => t.status === 'Open');
+            const closed = trades.filter(t => t.status !== 'Open');
+
+            let html = `
+                <div class="mobile-card rounded-xl p-4 mb-4">
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                            <div class="text-2xl font-bold mono" style="color: #D97706;">${open.length}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Open</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold mono" style="color: #047857;">${closed.filter(t=>t.status==='Target Hit').length}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Target Hit</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold mono" style="color: #DC2626;">${closed.filter(t=>t.status==='Stop Loss').length}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Stop Loss</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            trades.forEach((trade, idx) => {
+                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${trade.ticker}`;
+                const takenDate = new Date(trade.takenAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+                const borderColor = trade.status === 'Open' ? '#D97706' : trade.status === 'Target Hit' ? '#047857' : '#DC2626';
+                const statusColor = borderColor;
+                let pnlDisplay = '';
+                if (trade.status === 'Open' && trade.currentPnl !== undefined) {
+                    const pnlColor = trade.currentPnl >= 0 ? '#10B981' : '#DC2626';
+                    pnlDisplay = `<div class="text-xs mono mt-1" style="color: ${pnlColor};">Live P&L: ${trade.currentPnl >= 0 ? '+' : ''}${trade.currentPnl?.toFixed(2)}%</div>`;
+                } else if (trade.finalPnl !== undefined) {
+                    const pnlColor = trade.finalPnl >= 0 ? '#10B981' : '#DC2626';
+                    pnlDisplay = `<div class="text-xs mono mt-1" style="color: ${pnlColor};">Final P&L: ${trade.finalPnl >= 0 ? '+' : ''}${trade.finalPnl?.toFixed(2)}%</div>`;
+                }
+                html += `
+                    <div class="stock-card mb-4" style="border-left: 3px solid ${borderColor};">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${trade.ticker}</a>
+                                <div class="text-xs text-slate-500 mt-1">${takenDate} | ${trade.source || 'Manual'}</div>
+                                ${pnlDisplay}
+                            </div>
+                            <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${trade.status}</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 mb-3">
+                            <div>
+                                <div class="text-xs text-slate-500 mb-1">Entry</div>
+                                <div class="text-sm font-bold mono" style="color: #3B82F6;">₹${trade.entryTrigger?.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-500 mb-1">Target</div>
+                                <div class="text-sm font-bold mono" style="color: #10B981;">₹${trade.targetExit?.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-500 mb-1">Stop</div>
+                                <div class="text-sm font-bold mono" style="color: #DC2626;">₹${trade.stopLoss?.toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-500 mono mb-3">${trade.quantity} shares | ₹${trade.positionSize?.toLocaleString()} position</div>
+                        <div class="flex space-x-2">
+                            ${trade.status === 'Open' ? `
+                            <button onclick="updateTradeStatus(${idx}, 'Target Hit')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(4,120,87,0.2); color: #10B981;">✅ Target Hit</button>
+                            <button onclick="updateTradeStatus(${idx}, 'Stop Loss')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(220,38,38,0.2); color: #DC2626;">🛑 Stop Loss</button>
+                            ` : ''}
+                            <button onclick="removeTrade(${idx})" class="py-2 px-3 rounded-lg text-xs touch-btn" style="background: rgba(100,116,139,0.2); color: #94A3B8;">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
         window.updateTradeStatus = function(idx, status) {
             const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
             trades[idx].status = status;
@@ -4206,15 +4295,6 @@
         };
 
 
-                    }
-                    // Check if stop loss hit (-5%)
-                    else if (priceChange <= -5) {
-                        position.status = 'closed_stoploss';
-                        position.exit_price = currentPrice;
-                        position.exit_date = new Date().toISOString();
-                        position.final_return = priceChange;
-                    }
-                }
     </script>
 </body>
 </html>
