@@ -4374,21 +4374,31 @@
         // ─── NIFTY 500 STOCK LIST (symbol + company name) ───────────────────────
         const NIFTY500_STOCKS = [];
         (async function loadNifty500() {
-            try {
-                const resp = await fetch('./ind_nifty500list.csv', { cache: 'no-store' });
-                const text = await resp.text();
-                const lines = text.trim().split('\n').slice(1); // skip header
-                lines.forEach(line => {
-                    const parts = line.split(',');
-                    if (parts.length >= 3) {
-                        const companyName = parts[0].trim().replace(/^"|"$/g, '');
-                        const symbol = parts[2].trim().replace(/^"|"$/g, '');
-                        if (symbol) NIFTY500_STOCKS.push({ symbol, companyName });
-                    }
-                });
-            } catch(e) {
-                console.warn('Could not load Nifty 500 list:', e);
+            // Try multiple paths — works both locally and on GitHub Pages
+            const paths = ['./ind_nifty500list.csv', 'ind_nifty500list.csv'];
+            let loaded = false;
+            for (const path of paths) {
+                try {
+                    const resp = await fetch(path, { cache: 'no-store' });
+                    if (!resp.ok) continue;
+                    const text = await resp.text();
+                    const lines = text.trim().split('\n').slice(1); // skip header
+                    lines.forEach(line => {
+                        const parts = line.split(',');
+                        if (parts.length >= 3) {
+                            const companyName = parts[0].trim().replace(/^"|"$/g, '');
+                            const symbol = parts[2].trim().replace(/^"|"$/g, '');
+                            if (symbol) NIFTY500_STOCKS.push({ symbol, companyName });
+                        }
+                    });
+                    console.log(`✅ Loaded ${NIFTY500_STOCKS.length} stocks from ${path}`);
+                    loaded = true;
+                    break;
+                } catch(e) {
+                    console.warn(`Could not load from ${path}:`, e);
+                }
             }
+            if (!loaded) console.error('❌ Could not load Nifty 500 list from any path');
         })();
 
         // ─── ADD STOCK MODAL ─────────────────────────────────────────────────────

@@ -189,6 +189,7 @@ jobs:
         cp data.json public-repo/
         cp trendline_screen.json public-repo/ || true
         cp radar_trades.json public-repo/ || true
+        cp ind_nifty500list.csv public-repo/ || true
         
         # Navigate to public repo
         cd public-repo
