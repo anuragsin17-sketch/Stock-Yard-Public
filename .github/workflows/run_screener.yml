@@ -179,27 +179,28 @@ jobs:
     - name: Deploy to public repository
       run: |
         echo "🚀 Deploying to public repository..."
+        echo "Testing token access..."
         
-        # Clone the public repository
-        git clone https://x-access-token:${{ secrets.DEPLOY_TOKEN }}@github.com/anuragsin17-sketch/Stock-Yard-Public.git public-repo
+        # Test if token works
+        curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: token ${{ secrets.DEPLOY_TOKEN }}" \
+          https://api.github.com/repos/anuragsin17-sketch/Stock-Yard-Public \
+          | xargs -I{} echo "API response code: {}"
         
-        if [ ! -d "public-repo" ]; then
-          echo "❌ Failed to clone public repo"
+        # Clone the public repository with verbose output
+        git clone --verbose https://x-access-token:${{ secrets.DEPLOY_TOKEN }}@github.com/anuragsin17-sketch/Stock-Yard-Public.git public-repo 2>&1 || {
+          echo "❌ Clone failed - checking token..."
+          echo "Token length: ${#DEPLOY_TOKEN}"
           exit 1
-        fi
+        }
         
-        echo "✅ Cloned public repo"
-        ls -la public-repo/
+        echo "✅ Cloned successfully"
         
         # Copy files to public repo
         cp index.html public-repo/
         cp data.json public-repo/
-        cp trendline_screen.json public-repo/ || echo "⚠️ trendline_screen.json not found"
-        cp radar_trades.json public-repo/ || echo "ℹ️ No radar_trades.json yet"
-        
-        echo "📋 Files copied. Verifying index.html has new UI..."
-        grep -c "Take Trade" public-repo/index.html && echo "✅ Take Trade button found" || echo "❌ Take Trade button MISSING"
-        grep -c "takeTrade" public-repo/index.html && echo "✅ takeTrade function found" || echo "❌ takeTrade MISSING"
+        cp trendline_screen.json public-repo/ || true
+        cp radar_trades.json public-repo/ || true
         
         # Navigate to public repo
         cd public-repo
@@ -210,23 +211,13 @@ jobs:
         
         # Add and commit changes
         git add -A
-        git status
+        git diff --cached --stat
         git commit -m "🔄 Auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC') - Run #${{ github.run_number }}" || echo "ℹ️ No changes to commit"
         
-        # Push to public repo
-        for i in {1..3}; do
-          if git push origin main 2>&1 || git push origin master 2>&1; then
-            echo "✅ Successfully deployed to public repo (attempt $i)"
-            break
-          else
-            echo "⚠️ Deploy failed (attempt $i), retrying in 5 seconds..."
-            sleep 5
-          fi
-        done
+        # Push
+        git push origin HEAD 2>&1 && echo "✅ Deployed successfully" || echo "❌ Push failed"
         
         cd ..
         rm -rf public-repo
-        
-        echo "✅ Deployment complete!"
       env:
         DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
