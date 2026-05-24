@@ -45,28 +45,38 @@ def send_telegram(message):
         print(f"Telegram error: {e}")
 
 def get_symbol_token(smart, symbol):
-    """Get NSE token for symbol - tries multiple variations"""
-    # Common symbol corrections
+    """Get NSE token for symbol - returns (trading_symbol, token)"""
+    # Known symbol corrections
     symbol_map = {
         'CENTRALBNK': 'CENTRALBK',
-        'M&M': 'M&MFIN',
     }
-    symbol = symbol_map.get(symbol, symbol)
+    search_symbol = symbol_map.get(symbol, symbol)
 
     try:
-        data = smart.searchScrip("NSE", symbol)
+        data = smart.searchScrip("NSE", search_symbol)
         if data and data.get('data'):
-            for item in data['data']:
-                if item.get('tradingsymbol') == symbol and item.get('exch_seg') == 'NSE':
-                    return item.get('symboltoken')
-            # If exact match not found, return first NSE result
-            for item in data['data']:
-                if item.get('exch_seg') == 'NSE':
-                    print(f"Using closest match: {item.get('tradingsymbol')}")
-                    return item.get('symboltoken')
+            results = data['data']
+            # Priority: look for -EQ suffix (regular equity for delivery)
+            for item in results:
+                ts = item.get('tradingsymbol', '')
+                if ts == f"{search_symbol}-EQ" or ts == f"{search_symbol}":
+                    print(f"Found EQ token: {ts} = {item.get('symboltoken')}")
+                    return ts, item.get('symboltoken')
+            # Fallback: first result with -EQ
+            for item in results:
+                ts = item.get('tradingsymbol', '')
+                if ts.endswith('-EQ'):
+                    print(f"Using EQ fallback: {ts} = {item.get('symboltoken')}")
+                    return ts, item.get('symboltoken')
+            # Last resort: first result
+            item = results[0]
+            ts = item.get('tradingsymbol', search_symbol)
+            print(f"Using first result: {ts} = {item.get('symboltoken')}")
+            return ts, item.get('symboltoken')
     except Exception as e:
-        print(f"Token lookup error: {e}")
-    return None
+        print(f"Token lookup error for {symbol}: {e}")
+
+    return None, None
 
 def save_trade_to_radar(order_id, symbol_token):
     """Save trade to radar_trades.json for monitoring"""
@@ -132,24 +142,26 @@ def place_order():
 
         print(f"Logged in as {CLIENT_ID}")
 
-        # Get symbol token
-        symbol_token = get_symbol_token(smart, SYMBOL)
+        # Get symbol token - returns (trading_symbol, token)
+        trading_symbol, symbol_token = get_symbol_token(smart, SYMBOL)
         if not symbol_token:
-            msg = f"Could not find token for {SYMBOL}"
+            msg = f"Could not find token for {SYMBOL} in Angel One."
             print(msg)
             send_telegram(f"ERROR: {msg}")
             sys.exit(1)
+
+        print(f"Using symbol: {trading_symbol}, token: {symbol_token}")
 
         # Place NORMAL LIMIT ORDER for delivery (CNC)
         # Bracket orders (ROBO) only work for intraday, not delivery
         order_params = {
             "variety":         "NORMAL",
-            "tradingsymbol":   SYMBOL,
+            "tradingsymbol":   trading_symbol,   # Use full symbol like CENTRALBK-EQ
             "symboltoken":     symbol_token,
             "transactiontype": ACTION,
             "exchange":        "NSE",
             "ordertype":       "LIMIT",
-            "producttype":     "DELIVERY",      # CNC delivery
+            "producttype":     "DELIVERY",
             "duration":        "DAY",
             "price":           str(PRICE),
             "squareoff":       "0",
