@@ -3436,13 +3436,8 @@
         // Fetch real-time NIFTY and SENSEX data
         async function fetchIndexData() {
             try {
-                // Try multiple CORS proxies for Yahoo Finance
-                const niftySymbol = '%5ENSEI';
-                const sensexSymbol = '%5EBSESN';
-
                 async function fetchWithProxy(symbol) {
                     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-                    // Try corsproxy.io
                     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
                     const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
                     if (!resp.ok) throw new Error('proxy failed');
@@ -3450,27 +3445,30 @@
                 }
 
                 const [niftyData, sensexData] = await Promise.all([
-                    fetchWithProxy(niftySymbol),
-                    fetchWithProxy(sensexSymbol)
+                    fetchWithProxy('%5ENSEI'),
+                    fetchWithProxy('%5EBSESN')
                 ]);
 
-                const niftyMeta = niftyData.chart.result[0].meta;
-                const niftyPrice = niftyMeta.regularMarketPrice;
-                const niftyPct = ((niftyPrice - niftyMeta.previousClose) / niftyMeta.previousClose) * 100;
-                const niftyEl = document.getElementById('nifty50Price');
-                niftyEl.textContent = `${niftyPrice.toFixed(0)} (${niftyPct >= 0 ? '+' : ''}${niftyPct.toFixed(2)}%)`;
-                niftyEl.className = `text-xs font-semibold mono ${niftyPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+                function updateIndex(data, elementId) {
+                    const meta = data.chart.result[0].meta;
+                    const price = meta.regularMarketPrice;
+                    const prevClose = meta.previousClose || meta.chartPreviousClose || meta.regularMarketPreviousClose;
+                    const el = document.getElementById(elementId);
+                    if (prevClose && prevClose > 0) {
+                        const pct = ((price - prevClose) / prevClose) * 100;
+                        el.textContent = `${price.toFixed(0)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+                        el.className = `text-xs font-semibold mono ${pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+                    } else {
+                        el.textContent = `${price.toFixed(0)}`;
+                        el.className = 'text-xs font-semibold mono text-emerald-400';
+                    }
+                }
 
-                const sensexMeta = sensexData.chart.result[0].meta;
-                const sensexPrice = sensexMeta.regularMarketPrice;
-                const sensexPct = ((sensexPrice - sensexMeta.previousClose) / sensexMeta.previousClose) * 100;
-                const sensexEl = document.getElementById('sensexPrice');
-                sensexEl.textContent = `${sensexPrice.toFixed(0)} (${sensexPct >= 0 ? '+' : ''}${sensexPct.toFixed(2)}%)`;
-                sensexEl.className = `text-xs font-semibold mono ${sensexPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+                updateIndex(niftyData, 'nifty50Price');
+                updateIndex(sensexData, 'sensexPrice');
 
             } catch (error) {
                 console.warn('Index data fetch failed:', error);
-                // Show N/A - honest, not fake demo values
                 document.getElementById('nifty50Price').textContent = 'N/A';
                 document.getElementById('sensexPrice').textContent = 'N/A';
             }
