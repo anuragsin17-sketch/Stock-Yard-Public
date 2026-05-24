@@ -3324,8 +3324,7 @@
         // Setup event listeners
         function setupEventListeners() {
             // Refresh button
-            document.getElementById('refreshBtn').addEventListener('click', function() {
-                this.disabled = true;
+            document.getElementById('refreshBtn').addEventListener('click', function() {                this.disabled = true;
                 this.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span class="text-xs ml-1">Loading...</span>';
                 
                 loadData().then(() => {
@@ -3344,6 +3343,9 @@
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
             document.getElementById('trendlineTab').addEventListener('click', () => switchTab('trendline'));
             document.getElementById('performanceTab').addEventListener('click', () => switchTab('performance'));
+
+            // Add Stock search
+            setupAddStockSearch();
         }
         
         // Fetch live prices for priority stocks (AT ENTRY or radar status)
@@ -3533,10 +3535,22 @@
             
             // Update stats
             const total = screeningData.diagnostics?.total_stocks_processed || 0;
-            const opportunities = (screeningData.volume_breakout_stocks?.length || 0);
-            
+            const volumeCount = screeningData.volume_breakout_stocks?.length || 0;
+            const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+
+            // Fetch trendline count async, then update Opportunities
             document.getElementById('totalStocks').textContent = total.toLocaleString();
-            document.getElementById('totalOpportunities').textContent = opportunities.toLocaleString();
+            // Show volume + manual immediately, then add trendline count once fetched
+            document.getElementById('totalOpportunities').textContent = (volumeCount + manualStocks.length).toLocaleString();
+            fetch('./trendline_screen.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : [])
+                .catch(() => [])
+                .then(trendlineStocks => {
+                    const trendlineCount = Array.isArray(trendlineStocks) ? trendlineStocks.length : 0;
+                    const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                    document.getElementById('totalOpportunities').textContent =
+                        (volumeCount + trendlineCount + updatedManual.length).toLocaleString();
+                });
             
             // Update NIFTY 50 and SENSEX with real-time data
             fetchIndexData();
@@ -3818,6 +3832,18 @@
                     </div>
                 `;
             }
+
+            // Add Stock button at top of Volume tab
+            if (tab === 'volume') {
+                html += `
+                    <button onclick="openAddStockModal('volume')"
+                        class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-2 flex items-center justify-center space-x-2"
+                        style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>Add Stock</span>
+                    </button>
+                `;
+            }
             
             stocks.forEach(stock => {
                 html += createStockCard(stock, tab);
@@ -4017,8 +4043,61 @@
                     `;
                     return;
                 }
+
+                // Update opportunities count now that we have trendline data
+                const volumeCount = screeningData?.volume_breakout_stocks?.length || 0;
+                const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                const totalOpps = volumeCount + trendlineStocks.length + manualStocks.length;
+                document.getElementById('totalOpportunities').textContent = totalOpps.toLocaleString();
                 
                 let html = '';
+
+                // Add Stock button for Trendline tab
+                html += `
+                    <button onclick="openAddStockModal('trendline')"
+                        class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-2 flex items-center justify-center space-x-2"
+                        style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>Add Stock</span>
+                    </button>
+                `;
+
+                // Show manually added stocks first
+                const manualStocksAll = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                manualStocksAll.forEach((ms, idx) => {
+                    const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ms.symbol}`;
+                    html += `
+                        <div class="stock-card mb-4" style="border-left: 3px solid #6366F1;">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${ms.symbol}</a>
+                                        <span class="px-2 py-0.5 text-xs rounded-full" style="background: rgba(99,102,241,0.2); color: #818CF8;">Manual</span>
+                                    </div>
+                                    <div class="text-xs text-slate-400 mb-3">${ms.companyName || ''}</div>
+                                    <div class="text-lg font-bold mono mb-2" style="color: #047857;">₹${parseFloat(ms.currentPrice).toLocaleString()}</div>
+                                    <div class="grid grid-cols-2 gap-2 mb-2">
+                                        <div><div class="text-xs text-slate-500">Entry Trigger</div><div class="text-sm font-bold mono" style="color: #3B82F6;">₹${parseFloat(ms.entryTrigger).toLocaleString()}</div></div>
+                                        <div><div class="text-xs text-slate-500">Target</div><div class="text-sm font-bold mono" style="color: #10B981;">₹${parseFloat(ms.targetExit).toLocaleString()}</div></div>
+                                        <div><div class="text-xs text-slate-500">Stop Loss</div><div class="text-sm font-bold mono" style="color: #DC2626;">₹${parseFloat(ms.stopLoss).toLocaleString()}</div></div>
+                                        <div><div class="text-xs text-slate-500">Position</div><div class="text-sm font-bold mono" style="color: #A78BFA;">₹${parseFloat(ms.positionSize).toLocaleString()}</div></div>
+                                    </div>
+                                    <div class="text-xs text-slate-500 mono mb-3">Fib: — | Score: —</div>
+                                    <div class="flex items-center space-x-2">
+                                        <button onclick="takeManualTrade(${idx})"
+                                            class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
+                                            style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
+                                            📥 Take Trade
+                                        </button>
+                                        <button onclick="removeManualStock(${idx})"
+                                            class="py-2 px-3 rounded-lg text-xs touch-btn"
+                                            style="background: rgba(100,116,139,0.2); color: #94A3B8;">🗑️</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
                 
                 trendlineStocks.forEach(stock => {
                     // Get saved overrides from localStorage
@@ -4292,7 +4371,215 @@
             displayPerformanceTracking();
         };
 
+        // ─── NIFTY 500 STOCK LIST (symbol + company name) ───────────────────────
+        const NIFTY500_STOCKS = [];
+        (async function loadNifty500() {
+            try {
+                const resp = await fetch('./ind_nifty500list.csv', { cache: 'no-store' });
+                const text = await resp.text();
+                const lines = text.trim().split('\n').slice(1); // skip header
+                lines.forEach(line => {
+                    const parts = line.split(',');
+                    if (parts.length >= 3) {
+                        const companyName = parts[0].trim().replace(/^"|"$/g, '');
+                        const symbol = parts[2].trim().replace(/^"|"$/g, '');
+                        if (symbol) NIFTY500_STOCKS.push({ symbol, companyName });
+                    }
+                });
+            } catch(e) {
+                console.warn('Could not load Nifty 500 list:', e);
+            }
+        })();
+
+        // ─── ADD STOCK MODAL ─────────────────────────────────────────────────────
+        let addStockContext = 'trendline'; // which tab triggered the modal
+
+        window.openAddStockModal = function(context) {
+            addStockContext = context || 'trendline';
+            document.getElementById('addStockModal').classList.remove('hidden');
+            document.getElementById('addStockSearch').value = '';
+            document.getElementById('addStockDropdown').innerHTML = '';
+            document.getElementById('addStockDropdown').classList.add('hidden');
+            document.getElementById('addStockForm').classList.add('hidden');
+            document.getElementById('addStockSearch').focus();
+        };
+
+        window.closeAddStockModal = function() {
+            document.getElementById('addStockModal').classList.add('hidden');
+        };
+
+        // Search input handler — match from 3rd character
+        // (wired up inside the existing DOMContentLoaded below via setupEventListeners)
+        function setupAddStockSearch() {
+            const searchInput = document.getElementById('addStockSearch');
+            if (!searchInput) return;
+            searchInput.addEventListener('input', function() {
+                const q = this.value.trim().toUpperCase();
+                const dropdown = document.getElementById('addStockDropdown');
+                if (q.length < 3) {
+                    dropdown.innerHTML = '';
+                    dropdown.classList.add('hidden');
+                    return;
+                }
+                const matches = NIFTY500_STOCKS.filter(s =>
+                    s.symbol.includes(q) || s.companyName.toUpperCase().includes(q)
+                ).slice(0, 15);
+                if (matches.length === 0) {
+                    dropdown.innerHTML = '<div class="px-4 py-3 text-xs text-slate-400">No matches found</div>';
+                    dropdown.classList.remove('hidden');
+                    return;
+                }
+                dropdown.innerHTML = matches.map(s => `
+                    <div class="px-4 py-3 cursor-pointer hover:bg-slate-700 border-b border-slate-700 last:border-0"
+                         onclick="selectAddStock('${s.symbol}', '${s.companyName.replace(/'/g, "\\'")}')">
+                        <div class="text-sm font-bold text-slate-100">${s.symbol}</div>
+                        <div class="text-xs text-slate-400">${s.companyName}</div>
+                    </div>
+                `).join('');
+                dropdown.classList.remove('hidden');
+            });
+        }
+
+        // Search input handler — match from 3rd character
+        window.selectAddStock = function(symbol, companyName) {
+            document.getElementById('addStockSearch').value = `${symbol} — ${companyName}`;
+            document.getElementById('addStockDropdown').classList.add('hidden');
+            document.getElementById('addStockSelectedSymbol').value = symbol;
+            document.getElementById('addStockSelectedCompany').value = companyName;
+            document.getElementById('addStockForm').classList.remove('hidden');
+        };
+
+        window.saveManualStock = function() {
+            const symbol = document.getElementById('addStockSelectedSymbol').value;
+            const companyName = document.getElementById('addStockSelectedCompany').value;
+            const currentPrice = parseFloat(document.getElementById('addStockCurrentPrice').value);
+            const entryTrigger = parseFloat(document.getElementById('addStockEntryTrigger').value);
+            const targetExit = parseFloat(document.getElementById('addStockTargetExit').value);
+            const stopLoss = parseFloat(document.getElementById('addStockStopLoss').value);
+            const positionSize = parseFloat(document.getElementById('addStockPosition').value);
+
+            if (!symbol || isNaN(currentPrice) || isNaN(entryTrigger) || isNaN(targetExit) || isNaN(stopLoss) || isNaN(positionSize)) {
+                alert('Please fill all fields before saving.');
+                return;
+            }
+
+            const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+            manualStocks.unshift({ symbol, companyName, currentPrice, entryTrigger, targetExit, stopLoss, positionSize, addedAt: new Date().toISOString() });
+            localStorage.setItem('manualStocks', JSON.stringify(manualStocks));
+
+            closeAddStockModal();
+
+            // Refresh opportunities count (volume + trendline + manual)
+            const volumeCount = screeningData?.volume_breakout_stocks?.length || 0;
+            const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+            fetch('./trendline_screen.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : [])
+                .catch(() => [])
+                .then(tl => {
+                    const tlCount = Array.isArray(tl) ? tl.length : 0;
+                    document.getElementById('totalOpportunities').textContent =
+                        (volumeCount + tlCount + updatedManual.length).toLocaleString();
+                });
+
+            // Switch to trendline tab to show the saved stock
+            switchTab('trendline');
+        };
+
+        window.removeManualStock = function(idx) {
+            const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+            manualStocks.splice(idx, 1);
+            localStorage.setItem('manualStocks', JSON.stringify(manualStocks));
+            switchTab('trendline');
+        };
+
+        window.takeManualTrade = function(idx) {
+            const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+            const ms = manualStocks[idx];
+            if (!ms) return;
+            const qty = Math.floor(ms.positionSize / ms.entryTrigger);
+            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+            const exists = trades.find(t => t.ticker === ms.symbol && t.status === 'Open');
+            if (!exists) {
+                trades.push({
+                    ticker: ms.symbol,
+                    entryTrigger: ms.entryTrigger,
+                    targetExit: ms.targetExit,
+                    stopLoss: ms.stopLoss,
+                    positionSize: ms.positionSize,
+                    quantity: qty,
+                    takenAt: new Date().toISOString(),
+                    status: 'Open',
+                    source: 'Manual'
+                });
+                localStorage.setItem('radarTrades', JSON.stringify(trades));
+            }
+            placeAngelOrder(ms.symbol, 'BUY', qty, ms.entryTrigger, ms.stopLoss, ms.targetExit, 'Manual');
+        };
 
     </script>
-</body>
-</html>
+
+    <!-- ─── ADD STOCK MODAL ──────────────────────────────────────────────────── -->
+    <div id="addStockModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.7);">
+        <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background: #141923; border-top: 1px solid rgba(255,255,255,0.08); max-height: 90vh; overflow-y: auto;">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-slate-100">➕ Add Stock</h2>
+                <button onclick="closeAddStockModal()" class="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
+            </div>
+
+            <!-- Search input -->
+            <div class="relative mb-3">
+                <input id="addStockSearch" type="text" placeholder="Search stock (min 3 chars)…"
+                    autocomplete="off"
+                    class="w-full px-4 py-3 rounded-xl text-sm text-slate-100 outline-none"
+                    style="background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.1);" />
+                <!-- Dropdown -->
+                <div id="addStockDropdown" class="hidden absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-10"
+                    style="background: #1e293b; border: 1px solid rgba(255,255,255,0.1); max-height: 220px; overflow-y: auto;">
+                </div>
+            </div>
+
+            <input type="hidden" id="addStockSelectedSymbol" />
+            <input type="hidden" id="addStockSelectedCompany" />
+
+            <!-- Details form (shown after stock selected) -->
+            <div id="addStockForm" class="hidden space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block">Current Price (₹)</label>
+                        <input id="addStockCurrentPrice" type="number" step="0.01" placeholder="e.g. 1250.00"
+                            class="w-full px-3 py-2.5 rounded-lg text-sm mono text-slate-100 outline-none"
+                            style="background: rgba(30,41,59,0.9); border: 1px solid rgba(59,130,246,0.3); color: #38BDF8;" />
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block">Entry Trigger (₹)</label>
+                        <input id="addStockEntryTrigger" type="number" step="0.01" placeholder="e.g. 1200.00"
+                            class="w-full px-3 py-2.5 rounded-lg text-sm mono outline-none"
+                            style="background: rgba(30,41,59,0.9); border: 1px solid rgba(59,130,246,0.3); color: #3B82F6;" />
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block">Target Exit (₹)</label>
+                        <input id="addStockTargetExit" type="number" step="0.01" placeholder="e.g. 1500.00"
+                            class="w-full px-3 py-2.5 rounded-lg text-sm mono outline-none"
+                            style="background: rgba(30,41,59,0.9); border: 1px solid rgba(16,185,129,0.3); color: #10B981;" />
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block">Stop Loss (₹)</label>
+                        <input id="addStockStopLoss" type="number" step="0.01" placeholder="e.g. 1100.00"
+                            class="w-full px-3 py-2.5 rounded-lg text-sm mono outline-none"
+                            style="background: rgba(30,41,59,0.9); border: 1px solid rgba(220,38,38,0.3); color: #DC2626;" />
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 mb-1 block">Position Size (₹)</label>
+                    <input id="addStockPosition" type="number" step="1000" value="50000" placeholder="e.g. 50000"
+                        class="w-full px-3 py-2.5 rounded-lg text-sm mono outline-none"
+                        style="background: rgba(30,41,59,0.9); border: 1px solid rgba(167,139,250,0.3); color: #A78BFA;" />
+                </div>
+                <button onclick="saveManualStock()"
+                    class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mt-2"
+                    style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
+                    💾 Save to Trendline
+                </button>
+            </div>
+        </div>
+    </div>
