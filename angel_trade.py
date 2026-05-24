@@ -45,12 +45,24 @@ def send_telegram(message):
         print(f"Telegram error: {e}")
 
 def get_symbol_token(smart, symbol):
-    """Get NSE token for symbol"""
+    """Get NSE token for symbol - tries multiple variations"""
+    # Common symbol corrections
+    symbol_map = {
+        'CENTRALBNK': 'CENTRALBK',
+        'M&M': 'M&MFIN',
+    }
+    symbol = symbol_map.get(symbol, symbol)
+
     try:
         data = smart.searchScrip("NSE", symbol)
         if data and data.get('data'):
             for item in data['data']:
                 if item.get('tradingsymbol') == symbol and item.get('exch_seg') == 'NSE':
+                    return item.get('symboltoken')
+            # If exact match not found, return first NSE result
+            for item in data['data']:
+                if item.get('exch_seg') == 'NSE':
+                    print(f"Using closest match: {item.get('tradingsymbol')}")
                     return item.get('symboltoken')
     except Exception as e:
         print(f"Token lookup error: {e}")
@@ -128,23 +140,20 @@ def place_order():
             send_telegram(f"ERROR: {msg}")
             sys.exit(1)
 
-        # Calculate stop loss distance for bracket order
-        sl_points = round(PRICE - STOP_LOSS, 2)
-        target_points = round(TARGET - PRICE, 2)
-
-        # Place BRACKET ORDER (entry + target + stop in one order)
+        # Place NORMAL LIMIT ORDER for delivery (CNC)
+        # Bracket orders (ROBO) only work for intraday, not delivery
         order_params = {
-            "variety":         "ROBO",           # Bracket order
+            "variety":         "NORMAL",
             "tradingsymbol":   SYMBOL,
             "symboltoken":     symbol_token,
             "transactiontype": ACTION,
             "exchange":        "NSE",
             "ordertype":       "LIMIT",
-            "producttype":     "DELIVERY",
+            "producttype":     "DELIVERY",      # CNC delivery
             "duration":        "DAY",
             "price":           str(PRICE),
-            "squareoff":       str(target_points),   # Points above entry
-            "stoploss":        str(sl_points),        # Points below entry
+            "squareoff":       "0",
+            "stoploss":        "0",
             "quantity":        str(QUANTITY)
         }
 
@@ -162,15 +171,16 @@ def place_order():
             msg = (
                 f"ORDER PLACED - ANGEL ONE\n\n"
                 f"Stock: {SYMBOL}\n"
-                f"Action: {ACTION} (BRACKET ORDER)\n"
+                f"Action: {ACTION} (LIMIT - DELIVERY)\n"
                 f"Qty: {QUANTITY} shares\n"
-                f"Entry: Rs{PRICE:,.2f} (LIMIT)\n"
-                f"Target: Rs{TARGET:,.2f} (+{((TARGET-PRICE)/PRICE*100):.1f}%) AUTO\n"
-                f"Stop Loss: Rs{STOP_LOSS:,.2f} (-{((PRICE-STOP_LOSS)/PRICE*100):.1f}%) AUTO\n"
+                f"Entry: Rs{PRICE:,.2f}\n"
+                f"Target: Rs{TARGET:,.2f} (+{((TARGET-PRICE)/PRICE*100):.1f}%)\n"
+                f"Stop Loss: Rs{STOP_LOSS:,.2f} (-{((PRICE-STOP_LOSS)/PRICE*100):.1f}%) - Monthly Close\n"
                 f"Order ID: {order_id}\n"
                 f"Source: {SOURCE}\n"
                 f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}\n\n"
-                f"Angel One will auto-exit at target or stop loss."
+                f"Monitor position in Angel One app.\n"
+                f"Stop loss is monthly close based - check manually."
             )
             print(f"Order placed! ID: {order_id}")
             send_telegram(msg)
