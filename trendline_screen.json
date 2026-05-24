@@ -20,7 +20,7 @@
     {
         "ticker": "BAYERCROP",
         "currentPrice": 4382.5,
-        "triggerPrice": 4364.58,
+        "triggerPrice": 4364.57,
         "distanceRemaining": 0.41,
         "fibLevelMatch": "N/A",
         "patternZone": "Fib confluence: 78.6% (1.7% away)",
