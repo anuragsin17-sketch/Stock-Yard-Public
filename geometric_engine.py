@@ -190,6 +190,7 @@ class MacroInstitutionalEngine:
             )
 
             # 11. Dynamic stop loss (8% below CURRENT trendline - moves up monthly)
+            # MONTHLY CLOSE STOP: Only exit if monthly candle closes below this level
             dynamic_stop_loss = trigger_price * self.sl_multiplier
 
             # 12. Target (20% above trendline entry)
@@ -227,7 +228,7 @@ class MacroInstitutionalEngine:
                     "entryPrice": round(trigger_price, 2),       # AT trendline
                     "dynamicStopLoss": round(dynamic_stop_loss, 2),  # 8% below trendline
                     "targetExit": round(target_price, 2),         # 20% above trendline
-                    "stopNote": "Dynamic: updates monthly as trendline rises"
+                    "stopNote": "Monthly close stop: exit only if monthly candle closes below this level"
                 },
                 "trendlineDetails": {
                     "wickTouches": len(wick_touches),

@@ -3375,38 +3375,41 @@
         // Fetch real-time NIFTY and SENSEX data
         async function fetchIndexData() {
             try {
-                // Use allorigins proxy to bypass CORS for Yahoo Finance
-                const niftyUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?interval=1d&range=1d';
-                const sensexUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EBSESN?interval=1d&range=1d';
+                // Try multiple CORS proxies for Yahoo Finance
+                const niftySymbol = '%5ENSEI';
+                const sensexSymbol = '%5EBSESN';
 
-                const [niftyResp, sensexResp] = await Promise.all([
-                    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(niftyUrl)}`),
-                    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(sensexUrl)}`)
+                async function fetchWithProxy(symbol) {
+                    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+                    // Try corsproxy.io
+                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+                    const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+                    if (!resp.ok) throw new Error('proxy failed');
+                    return await resp.json();
+                }
+
+                const [niftyData, sensexData] = await Promise.all([
+                    fetchWithProxy(niftySymbol),
+                    fetchWithProxy(sensexSymbol)
                 ]);
 
-                if (niftyResp.ok) {
-                    const raw = await niftyResp.json();
-                    const niftyData = JSON.parse(raw.contents);
-                    const meta = niftyData.chart.result[0].meta;
-                    const price = meta.regularMarketPrice;
-                    const changePct = ((price - meta.previousClose) / meta.previousClose) * 100;
-                    const el = document.getElementById('nifty50Price');
-                    el.textContent = `${price.toFixed(0)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`;
-                    el.className = `text-xs font-semibold mono ${changePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
-                }
+                const niftyMeta = niftyData.chart.result[0].meta;
+                const niftyPrice = niftyMeta.regularMarketPrice;
+                const niftyPct = ((niftyPrice - niftyMeta.previousClose) / niftyMeta.previousClose) * 100;
+                const niftyEl = document.getElementById('nifty50Price');
+                niftyEl.textContent = `${niftyPrice.toFixed(0)} (${niftyPct >= 0 ? '+' : ''}${niftyPct.toFixed(2)}%)`;
+                niftyEl.className = `text-xs font-semibold mono ${niftyPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
 
-                if (sensexResp.ok) {
-                    const raw = await sensexResp.json();
-                    const sensexData = JSON.parse(raw.contents);
-                    const meta = sensexData.chart.result[0].meta;
-                    const price = meta.regularMarketPrice;
-                    const changePct = ((price - meta.previousClose) / meta.previousClose) * 100;
-                    const el = document.getElementById('sensexPrice');
-                    el.textContent = `${price.toFixed(0)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`;
-                    el.className = `text-xs font-semibold mono ${changePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
-                }
+                const sensexMeta = sensexData.chart.result[0].meta;
+                const sensexPrice = sensexMeta.regularMarketPrice;
+                const sensexPct = ((sensexPrice - sensexMeta.previousClose) / sensexMeta.previousClose) * 100;
+                const sensexEl = document.getElementById('sensexPrice');
+                sensexEl.textContent = `${sensexPrice.toFixed(0)} (${sensexPct >= 0 ? '+' : ''}${sensexPct.toFixed(2)}%)`;
+                sensexEl.className = `text-xs font-semibold mono ${sensexPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+
             } catch (error) {
                 console.warn('Index data fetch failed:', error);
+                // Show N/A - honest, not fake demo values
                 document.getElementById('nifty50Price').textContent = 'N/A';
                 document.getElementById('sensexPrice').textContent = 'N/A';
             }
@@ -3493,6 +3496,94 @@
             switchTab(currentTab);
         }
         
+        // Save trendline field overrides to localStorage
+        function saveTrendlineOverride(ticker, field, value) {
+            const savedKey = `trendline_${ticker}`;
+            const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
+            saved[field] = parseFloat(value);
+            localStorage.setItem(savedKey, JSON.stringify(saved));
+        }
+
+        // Take Trade from Volume tab - manual only
+        window.takeVolumeTrade = function(symbol, companyName) {
+            const entryEl = document.getElementById(`vol_entry_${symbol}`);
+            const posEl = document.getElementById(`vol_pos_${symbol}`);
+            const entry = parseFloat(entryEl ? entryEl.value : 0);
+            const positionSize = parseFloat(posEl ? posEl.value : 50000);
+
+            if (!entry || entry <= 0) {
+                alert('Please set a valid Entry Trigger price first');
+                return;
+            }
+
+            const target = parseFloat((entry * 1.20).toFixed(2));
+            const stopLoss = parseFloat((entry * 0.92).toFixed(2));
+            const qty = Math.floor(positionSize / entry);
+
+            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+            const exists = trades.find(t => t.ticker === symbol && t.status === 'Open');
+            if (exists) {
+                alert(`${symbol} is already in your Radar!`);
+                return;
+            }
+
+            trades.push({
+                ticker: symbol,
+                companyName: companyName,
+                entryTrigger: entry,
+                targetExit: target,
+                stopLoss: stopLoss,
+                positionSize: positionSize,
+                quantity: qty,
+                takenAt: new Date().toISOString(),
+                status: 'Open',
+                source: 'Volume'
+            });
+
+            localStorage.setItem('radarTrades', JSON.stringify(trades));
+            switchTab('performance');
+            alert(`✅ ${symbol} added to Radar!\nEntry: ₹${entry} | Target: ₹${target} | Stop: ₹${stopLoss}`);
+        };
+
+        // Take Trade - saves to radar tab (Trendline source)
+        function takeTrade(ticker, entryTrigger, targetExit, stopLoss) {
+            const savedKey = `trendline_${ticker}`;
+            const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
+            const positionSize = saved.positionSize || 50000;
+            const entry = saved.entryTrigger || entryTrigger;
+            const target = saved.targetExit || targetExit;
+            const stop = saved.stopLoss || stopLoss;
+            const qty = Math.floor(positionSize / entry);
+
+            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+
+            // Check if already in radar
+            const exists = trades.find(t => t.ticker === ticker && t.status === 'Open');
+            if (exists) {
+                alert(`${ticker} is already in your Radar!`);
+                return;
+            }
+
+            const trade = {
+                ticker,
+                entryTrigger: parseFloat(entry.toFixed(2)),
+                targetExit: parseFloat(target.toFixed(2)),
+                stopLoss: parseFloat(stop.toFixed(2)),
+                positionSize,
+                quantity: qty,
+                takenAt: new Date().toISOString(),
+                status: 'Open',
+                source: 'Trendline'
+            };
+
+            trades.push(trade);
+            localStorage.setItem('radarTrades', JSON.stringify(trades));
+
+            // Switch to radar tab
+            switchTab('performance');
+            alert(`✅ ${ticker} added to Radar!\nEntry: ₹${entry.toFixed(2)} | Target: ₹${target.toFixed(2)} | Stop: ₹${stop.toFixed(2)}`);
+        }
+
         // Switch between tabs
         function switchTab(tab) {
             currentTab = tab;
@@ -3623,24 +3714,41 @@
                         <div class="text-xs text-slate-500 mono">Day Low: ₹${stock.breakout_low.toLocaleString()}</div>
                         ${volVerticalLine}
                         <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
-                        <div class="flex items-center mt-1 space-x-2">
-                            <span class="text-xs mono" style="color: #D97706;">Radar Trigger:</span>
-                            <input 
-                                type="number" 
-                                id="radar-${stock.symbol}" 
-                                value="${stock.radar_trigger_price}" 
-                                class="px-2 py-1 text-xs mono rounded border" 
-                                style="background: rgba(20, 25, 35, 0.8); border-color: rgba(217, 119, 6, 0.3); color: #D97706; width: 100px;"
-                                onchange="updateRadarTrigger('${stock.symbol}', this.value, ${stock.current_price})"
-                            />
-                            <button 
-                                onclick="addToRadar('${stock.symbol}', '${stock.company_name}', document.getElementById('radar-${stock.symbol}').value, ${stock.current_price})"
-                                class="px-3 py-1 text-xs rounded-lg touch-btn" 
-                                style="background: rgba(4, 120, 87, 0.2); color: #047857; border: 1px solid rgba(4, 120, 87, 0.3);">
-                                📍 Track
+
+                        <!-- Editable Entry Trigger -->
+                        <div class="mt-2 mb-1">
+                            <span class="text-xs text-slate-500">Entry Trigger</span>
+                            <div class="flex items-center space-x-1 mt-1">
+                                <span class="text-xs mono" style="color: #D97706;">₹</span>
+                                <input type="number" id="vol_entry_${stock.symbol}"
+                                    value="${stock.radar_trigger_price}"
+                                    step="0.5"
+                                    class="mono text-sm font-semibold bg-transparent border-b outline-none w-24"
+                                    style="color: #D97706; border-color: rgba(217,119,6,0.3);"/>
+                            </div>
+                        </div>
+
+                        <!-- Editable Position Size -->
+                        <div class="mb-2">
+                            <span class="text-xs text-slate-500">Position Size (₹)</span>
+                            <div class="flex items-center space-x-1 mt-1">
+                                <span class="text-xs mono text-slate-400">₹</span>
+                                <input type="number" id="vol_pos_${stock.symbol}"
+                                    value="50000"
+                                    step="1000"
+                                    class="mono text-sm font-semibold bg-transparent border-b outline-none w-24"
+                                    style="color: #A78BFA; border-color: rgba(167,139,250,0.3);"/>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-2 mt-2">
+                            <div class="flex-1">${radarStatus}</div>
+                            <button onclick="takeVolumeTrade('${stock.symbol}', '${stock.company_name}')"
+                                class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
+                                style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
+                                📥 Take Trade
                             </button>
                         </div>
-                        <div class="mt-2 flex space-x-2">${radarStatus}${priorityBadge ? ' ' + priorityBadge : ''}</div>
                     `;
                     break;
                 case 'darvas':
@@ -3748,6 +3856,13 @@
                 let html = '';
                 
                 trendlineStocks.forEach(stock => {
+                    // Get saved overrides from localStorage
+                    const savedKey = `trendline_${stock.ticker}`;
+                    const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
+                    const entryTrigger = saved.entryTrigger || stock.triggerPrice;
+                    const targetExit = saved.targetExit || stock.positionSizing.pivotTargetExit;
+                    const stopLoss = saved.stopLoss || stock.positionSizing.strictStopLoss;
+
                     // Determine status badge
                     let statusBadge = '';
                     if (stock.notificationTrigger || stock.distanceRemaining <= 1.0) {
@@ -3757,42 +3872,97 @@
                     } else {
                         statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(59, 130, 246, 0.2); color: #3B82F6;">📊 MONITORING</span>';
                     }
-                    
-                    // Create clickable stock name with chart link
+
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.ticker}`;
                     const stockNameHtml = `<a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.ticker}</a>`;
-                    
+
                     html += `
                         <div class="stock-card mb-4">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
                                     <div class="text-lg font-bold mb-1">${stockNameHtml}</div>
-                                    <div class="text-xs text-slate-400 mb-3">${stock.patternZone}</div>
-                                    
-                                    <div class="text-lg font-bold mono flex items-center mb-2" style="color: #047857;">
+                                    <div class="text-xs text-slate-400 mb-3">${stock.patternZone} | Wicks: ${stock.wickTouches || '-'} | ${stock.timeframe || 'monthly'}</div>
+
+                                    <div class="text-lg font-bold mono flex items-center mb-3" style="color: #047857;">
                                         ₹${stock.currentPrice.toLocaleString()}
+                                        <span class="text-xs ml-2 text-slate-400">Distance: ${stock.distanceRemaining.toFixed(2)}%</span>
                                     </div>
-                                    
-                                    <div class="text-xs mono mb-1" style="color: #3B82F6;">
-                                        Entry Trigger: ₹${stock.triggerPrice.toLocaleString()}
+
+                                    <!-- Editable Entry Trigger -->
+                                    <div class="mb-2">
+                                        <div class="text-xs text-slate-500 mb-1">Entry Trigger</div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xs mono" style="color: #3B82F6;">₹</span>
+                                            <input type="number"
+                                                id="entry_${stock.ticker}"
+                                                value="${parseFloat(entryTrigger).toFixed(2)}"
+                                                step="0.01"
+                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
+                                                style="color: #3B82F6; border-color: rgba(59,130,246,0.3);"
+                                                onchange="saveTrendlineOverride('${stock.ticker}', 'entryTrigger', this.value)"/>
+                                            ${saved.entryTrigger ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
+                                        </div>
                                     </div>
-                                    <div class="text-xs mono mb-1" style="color: #D97706;">
-                                        Distance: ${stock.distanceRemaining.toFixed(2)}%
+
+                                    <!-- Editable Target Exit -->
+                                    <div class="mb-2">
+                                        <div class="text-xs text-slate-500 mb-1">Target Exit</div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xs mono" style="color: #10B981;">₹</span>
+                                            <input type="number"
+                                                id="target_${stock.ticker}"
+                                                value="${parseFloat(targetExit).toFixed(2)}"
+                                                step="0.01"
+                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
+                                                style="color: #10B981; border-color: rgba(16,185,129,0.3);"
+                                                onchange="saveTrendlineOverride('${stock.ticker}', 'targetExit', this.value)"/>
+                                            ${saved.targetExit ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
+                                        </div>
                                     </div>
-                                    <div class="text-xs mono mb-1" style="color: #10B981;">
-                                        Target Exit: ₹${stock.positionSizing.pivotTargetExit.toLocaleString()}
+
+                                    <!-- Editable Stop Loss -->
+                                    <div class="mb-3">
+                                        <div class="text-xs text-slate-500 mb-1">Stop Loss <span class="text-slate-600">(Monthly Close)</span></div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xs mono" style="color: #DC2626;">₹</span>
+                                            <input type="number"
+                                                id="stop_${stock.ticker}"
+                                                value="${parseFloat(stopLoss).toFixed(2)}"
+                                                step="0.01"
+                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
+                                                style="color: #DC2626; border-color: rgba(220,38,38,0.3);"
+                                                onchange="saveTrendlineOverride('${stock.ticker}', 'stopLoss', this.value)"/>
+                                            ${saved.stopLoss ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
+                                        </div>
                                     </div>
-                                    <div class="text-xs mono mb-1" style="color: #DC2626;">
-                                        Stop Loss: ₹${stock.positionSizing.strictStopLoss.toLocaleString()}
-                                    </div>
-                                    <div class="text-xs text-slate-500 mono mb-1">
-                                        Position: ${stock.positionSizing.sharesToBuy} shares @ ₹${stock.positionSizing.allocatedAmount.toLocaleString()}
-                                    </div>
+
                                     <div class="text-xs text-slate-500 mono mb-2">
-                                        Fib Match: ${stock.fibLevelMatch}
+                                        Fib: ${stock.fibLevelMatch} | Score: ${stock.confluenceScore || '-'}/10
                                     </div>
-                                    
-                                    <div class="mt-2">${statusBadge}</div>
+
+                                    <!-- Editable Position Size -->
+                                    <div class="mb-3">
+                                        <div class="text-xs text-slate-500 mb-1">Position Size (₹)</div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xs mono text-slate-400">₹</span>
+                                            <input type="number"
+                                                id="pos_${stock.ticker}"
+                                                value="${saved.positionSize || 50000}"
+                                                step="1000"
+                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
+                                                style="color: #A78BFA; border-color: rgba(167,139,250,0.3);"
+                                                onchange="saveTrendlineOverride('${stock.ticker}', 'positionSize', this.value)"/>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center space-x-2 mt-3">
+                                        <div class="flex-1">${statusBadge}</div>
+                                        <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${targetExit}, ${stopLoss})"
+                                            class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
+                                            style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
+                                            📥 Take Trade
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -3812,27 +3982,128 @@
             }
         }
         
-        // Display performance tracking screen with position management
+        // Display Radar tab - trades taken from trendline
         function displayPerformanceTracking() {
             const container = document.getElementById('resultsContainer');
-            
-            if (!screeningData) {
-                container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Loading...</div>';
+            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+
+            if (trades.length === 0) {
+                container.innerHTML = `
+                    <div class="mobile-card rounded-xl p-8 text-center">
+                        <div class="text-4xl mb-4">📡</div>
+                        <div class="text-slate-300 font-semibold mb-2">Radar is Empty</div>
+                        <div class="text-xs text-slate-500 mb-4">Go to Trendline tab and click "📥 Take Trade" on any stock to add it here.</div>
+                        <button onclick="switchTab('trendline')" class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
+                            Go to Trendline →
+                        </button>
+                    </div>
+                `;
                 return;
             }
-            
-            // Initialize position tracking from localStorage
-            let positions = JSON.parse(localStorage.getItem('stockPositions') || '[]');
-            
-            // NO AUTOMATIC POSITION TRACKING - Only manually added positions
-            // Removed automatic volume stock tracking
-            
-            // Update positions based on current prices from screening data
-            positions.forEach(position => {
-                if (position.status !== 'open') return;
-                
-                // Try to find current price from volume breakout stocks
-                let currentStock = screeningData.volume_breakout_stocks?.find(s => s.symbol === position.symbol);
+
+            const open = trades.filter(t => t.status === 'Open');
+            const closed = trades.filter(t => t.status !== 'Open');
+
+            let html = `
+                <div class="mobile-card rounded-xl p-4 mb-4">
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                            <div class="text-2xl font-bold mono" style="color: #D97706;">${open.length}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Open</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold mono" style="color: #047857;">${closed.filter(t=>t.status==='Target Hit').length}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Target Hit</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold mono" style="color: #DC2626;">${closed.filter(t=>t.status==='Stop Loss').length}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Stop Loss</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            trades.forEach((trade, idx) => {
+                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${trade.ticker}`;
+                const takenDate = new Date(trade.takenAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+                const borderColor = trade.status === 'Open' ? '#D97706' : trade.status === 'Target Hit' ? '#047857' : '#DC2626';
+                const statusColor = trade.status === 'Open' ? '#D97706' : trade.status === 'Target Hit' ? '#047857' : '#DC2626';
+
+                html += `
+                    <div class="stock-card mb-4" style="border-left: 3px solid ${borderColor};">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${trade.ticker}</a>
+                                <div class="text-xs text-slate-500 mt-1">${takenDate} | ${trade.source}</div>
+                            </div>
+                            <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${trade.status}</span>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 mb-3">
+                            <div>
+                                <div class="text-xs text-slate-500 mb-1">Entry</div>
+                                <div class="text-sm font-bold mono" style="color: #3B82F6;">₹${trade.entryTrigger.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-500 mb-1">Target</div>
+                                <div class="text-sm font-bold mono" style="color: #10B981;">₹${trade.targetExit.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-500 mb-1">Stop</div>
+                                <div class="text-sm font-bold mono" style="color: #DC2626;">₹${trade.stopLoss.toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        <div class="text-xs text-slate-500 mono mb-3">
+                            ${trade.quantity} shares | ₹${trade.positionSize.toLocaleString()} position
+                        </div>
+
+                        <div class="flex space-x-2">
+                            ${trade.status === 'Open' ? `
+                            <button onclick="updateTradeStatus(${idx}, 'Target Hit')"
+                                class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn"
+                                style="background: rgba(4,120,87,0.2); color: #10B981;">
+                                ✅ Target Hit
+                            </button>
+                            <button onclick="updateTradeStatus(${idx}, 'Stop Loss')"
+                                class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn"
+                                style="background: rgba(220,38,38,0.2); color: #DC2626;">
+                                🛑 Stop Loss
+                            </button>
+                            ` : ''}
+                            <button onclick="removeTrade(${idx})"
+                                class="py-2 px-3 rounded-lg text-xs touch-btn"
+                                style="background: rgba(100,116,139,0.2); color: #94A3B8;">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Update trade status in radar
+        window.updateTradeStatus = function(idx, status) {
+            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+            trades[idx].status = status;
+            trades[idx].closedAt = new Date().toISOString();
+            localStorage.setItem('radarTrades', JSON.stringify(trades));
+            displayPerformanceTracking();
+        };
+
+        // Remove trade from radar
+        window.removeTrade = function(idx) {
+            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+            trades.splice(idx, 1);
+            localStorage.setItem('radarTrades', JSON.stringify(trades));
+            displayPerformanceTracking();
+        };
+
+        alert(`✅ ${trade.ticker} added to Radar!`);
+            switchTab('performance');
+        };
                 
                 if (currentStock) {
                     const currentPrice = currentStock.current_price;
@@ -3858,283 +4129,6 @@
                         position.final_return = priceChange;
                     }
                 }
-            });
-            
-            // Save updated positions
-            localStorage.setItem('stockPositions', JSON.stringify(positions));
-            
-            // Filter positions
-            const openPositions = positions.filter(p => p.status === 'open');
-            const closedTargetPositions = positions.filter(p => p.status === 'closed_target');
-            const closedStoplossPositions = positions.filter(p => p.status === 'closed_stoploss');
-            
-            // Calculate statistics
-            const totalPositions = positions.length;
-            const totalOpen = openPositions.length;
-            const totalClosed = closedTargetPositions.length + closedStoplossPositions.length;
-            const winRate = totalClosed > 0 ? ((closedTargetPositions.length / totalClosed) * 100).toFixed(1) : 0;
-            
-            let html = `
-                <div class="mobile-card rounded-xl p-5 mb-5">
-                    <h3 class="text-lg font-bold text-slate-100 mb-4 tracking-tight">Position Tracking Dashboard</h3>
-                    <div class="grid grid-cols-3 gap-3 mb-5">
-                        <div class="text-center">
-                            <div class="text-2xl font-bold mono" style="color: #D97706;">${totalOpen}</div>
-                            <div class="text-xs text-slate-400 tracking-wider uppercase mt-1">Open</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold mono" style="color: #047857;">${closedTargetPositions.length}</div>
-                            <div class="text-xs text-slate-400 tracking-wider uppercase mt-1">Target Hit</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold mono" style="color: #DC2626;">${closedStoplossPositions.length}</div>
-                            <div class="text-xs text-slate-400 tracking-wider uppercase mt-1">Stop Loss</div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="text-center p-3 rounded-lg" style="background: rgba(4, 120, 87, 0.1);">
-                            <div class="text-xl font-bold mono" style="color: #047857;">${winRate}%</div>
-                            <div class="text-xs text-slate-400 tracking-wider uppercase">Win Rate</div>
-                        </div>
-                        <div class="text-center p-3 rounded-lg" style="background: rgba(100, 116, 139, 0.1);">
-                            <div class="text-xl font-bold mono text-slate-300">${totalPositions}</div>
-                            <div class="text-xs text-slate-400 tracking-wider uppercase">Total Tracked</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Filter Tabs -->
-                <div class="mobile-card p-3 mb-5">
-                    <div class="flex space-x-2 overflow-x-auto scroll-container">
-                        <button onclick="filterPositions('open')" id="filterOpen" class="position-filter-btn active flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-all">
-                            Open (${totalOpen})
-                        </button>
-                        <button onclick="filterPositions('closed_target')" id="filterTarget" class="position-filter-btn flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-all text-slate-400">
-                            Target Hit (${closedTargetPositions.length})
-                        </button>
-                        <button onclick="filterPositions('closed_stoploss')" id="filterStoploss" class="position-filter-btn flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-all text-slate-400">
-                            Stop Loss (${closedStoplossPositions.length})
-                        </button>
-                        <button onclick="filterPositions('all')" id="filterAll" class="position-filter-btn flex-shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-all text-slate-400">
-                            All (${totalPositions})
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="positionsList"></div>
-            `;
-            
-            container.innerHTML = html;
-            
-            // Show open positions by default
-            window.filterPositions('open');
-        }
-        
-        // Filter positions by status
-        window.filterPositions = function(filter) {
-            const positions = JSON.parse(localStorage.getItem('stockPositions') || '[]');
-            
-            // Update filter buttons
-            document.querySelectorAll('.position-filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-                btn.classList.add('text-slate-400');
-                btn.style.background = 'rgba(20, 25, 35, 0.6)';
-            });
-            
-            const activeBtn = document.getElementById(
-                filter === 'open' ? 'filterOpen' :
-                filter === 'closed_target' ? 'filterTarget' :
-                filter === 'closed_stoploss' ? 'filterStoploss' : 'filterAll'
-            );
-            activeBtn.classList.add('active');
-            activeBtn.classList.remove('text-slate-400');
-            activeBtn.style.background = 'linear-gradient(135deg, #065F46, #047857)';
-            
-            // Filter positions
-            let filteredPositions = positions;
-            if (filter !== 'all') {
-                filteredPositions = positions.filter(p => p.status === filter);
-            }
-            
-            // Sort: open positions by price change (worst first), closed by date (recent first)
-            filteredPositions.sort((a, b) => {
-                if (a.status === 'open' && b.status === 'open') {
-                    return a.price_change - b.price_change; // Worst performing first
-                }
-                return new Date(b.last_updated) - new Date(a.last_updated); // Recent first
-            });
-            
-            const listContainer = document.getElementById('positionsList');
-            
-            if (filteredPositions.length === 0) {
-                listContainer.innerHTML = `
-                    <div class="mobile-card rounded-xl p-6 text-center">
-                        <div class="text-slate-400 mb-2">No ${filter === 'all' ? '' : filter.replace('_', ' ')} positions</div>
-                        <div class="text-xs text-slate-500">Positions will appear when stocks reach trigger prices</div>
-                    </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            filteredPositions.forEach(position => {
-                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${position.symbol}`;
-                const priceChange = position.price_change || 0;
-                const priceChangeColor = priceChange >= 0 ? '#047857' : '#DC2626';
-                const priceChangeIcon = priceChange >= 0 ? '▲' : '▼';
-                
-                let statusBadge = '';
-                let borderColor = '';
-                
-                if (position.status === 'open') {
-                    statusBadge = `<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(217, 119, 6, 0.2); color: #D97706;">OPEN</span>`;
-                    borderColor = '#D97706';
-                } else if (position.status === 'closed_target') {
-                    statusBadge = `<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(4, 120, 87, 0.2); color: #047857;">TARGET HIT ✓</span>`;
-                    borderColor = '#047857';
-                } else if (position.status === 'closed_stoploss') {
-                    statusBadge = `<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">STOP LOSS ✗</span>`;
-                    borderColor = '#DC2626';
-                }
-                
-                const entryDate = new Date(position.entry_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-                const exitDate = position.exit_date ? new Date(position.exit_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : null;
-                
-                html += `
-                    <div class="mobile-card rounded-xl p-5 mb-4" style="border-left: 4px solid ${borderColor};">
-                        <div class="flex justify-between items-start mb-3">
-                            <div class="flex-1">
-                                <div class="flex items-center space-x-2 mb-1">
-                                    <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400 transition-colors">${position.symbol}</a>
-                                    <span class="px-2 py-1 text-xs rounded" style="background: ${position.source_color}20; color: ${position.source_color};">${position.source}</span>
-                                </div>
-                                <div class="text-xs text-slate-400">${position.company_name}</div>
-                            </div>
-                            <div class="text-right">
-                                ${statusBadge}
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-2 gap-3 mb-3">
-                            <div>
-                                <div class="text-xs text-slate-500">Entry Price</div>
-                                <div class="text-sm font-bold mono text-slate-200">₹${position.entry_price.toLocaleString()}</div>
-                                <div class="text-xs text-slate-500 mt-1">${entryDate}</div>
-                            </div>
-                            <div>
-                                <div class="text-xs text-slate-500">${position.status === 'open' ? 'Current Price' : 'Exit Price'}</div>
-                                <div class="text-sm font-bold mono text-slate-200">₹${(position.status === 'open' ? position.current_price : position.exit_price).toLocaleString()}</div>
-                                ${exitDate ? `<div class="text-xs text-slate-500 mt-1">${exitDate}</div>` : ''}
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-3 gap-3 mb-3">
-                            <div>
-                                <div class="text-xs text-slate-500">Target</div>
-                                <div class="text-xs font-bold mono" style="color: #047857;">₹${position.target_price.toLocaleString()}</div>
-                                <div class="text-xs text-slate-500">+20%</div>
-                            </div>
-                            <div>
-                                <div class="text-xs text-slate-500">Stop Loss</div>
-                                <div class="text-xs font-bold mono" style="color: #DC2626;">₹${position.stoploss_price.toLocaleString()}</div>
-                                <div class="text-xs text-slate-500">-5%</div>
-                            </div>
-                            <div>
-                                <div class="text-xs text-slate-500">P&L</div>
-                                <div class="text-sm font-bold mono" style="color: ${priceChangeColor};">${priceChangeIcon} ${Math.abs(priceChange).toFixed(2)}%</div>
-                            </div>
-                        </div>
-                        
-                        ${position.status === 'open' ? `
-                        <div class="mt-3 pt-3 border-t border-slate-700">
-                            <div class="flex justify-between text-xs">
-                                <span class="text-slate-500">To Target: <span class="font-bold mono" style="color: #047857;">${(20 - priceChange).toFixed(1)}%</span></span>
-                                <span class="text-slate-500">To Stop: <span class="font-bold mono" style="color: #DC2626;">${(priceChange + 5).toFixed(1)}%</span></span>
-                            </div>
-                        </div>
-                        ` : ''}
-                    </div>
-                `;
-            });
-            
-            listContainer.innerHTML = html;
-        };
-        
-        // Add clear positions button (for testing/reset)
-        window.clearAllPositions = function() {
-            if (confirm('Are you sure you want to clear all position history?')) {
-                localStorage.removeItem('stockPositions');
-                displayPerformanceTracking();
-            }
-        };
-        
-        // Update radar trigger price
-        window.updateRadarTrigger = function(symbol, newTriggerPrice, currentPrice) {
-            const trigger = parseFloat(newTriggerPrice);
-            if (isNaN(trigger) || trigger <= 0) {
-                alert('Please enter a valid price');
-                return;
-            }
-            
-            // Update in screening data if available
-            if (screeningData && screeningData.volume_breakout_stocks) {
-                const stock = screeningData.volume_breakout_stocks.find(s => s.symbol === symbol);
-                if (stock) {
-                    stock.radar_trigger_price = trigger;
-                    
-                    // Check if price reached trigger and send notification
-                    const distance = Math.abs((currentPrice - trigger) / trigger) * 100;
-                    if (distance <= 2.0) {
-                        alert(`🚨 ${symbol} is within 2% of your radar trigger price ₹${trigger.toLocaleString()}!`);
-                    }
-                }
-            }
-            
-            console.log(`Updated radar trigger for ${symbol} to ₹${trigger}`);
-        };
-        
-        // Add stock to radar tracking (manual position)
-        window.addToRadar = function(symbol, companyName, triggerPrice, currentPrice) {
-            const trigger = parseFloat(triggerPrice);
-            if (isNaN(trigger) || trigger <= 0) {
-                alert('Please enter a valid trigger price');
-                return;
-            }
-            
-            // Get existing positions
-            let positions = JSON.parse(localStorage.getItem('stockPositions') || '[]');
-            
-            // Check if already tracking
-            if (positions.find(p => p.symbol === symbol && p.status === 'open')) {
-                alert(`${symbol} is already being tracked in Radar`);
-                return;
-            }
-            
-            // Add new position
-            positions.push({
-                symbol: symbol,
-                company_name: companyName,
-                source: 'Volume (Manual)',
-                source_color: '#D97706',
-                entry_price: trigger,
-                current_price: currentPrice,
-                entry_date: new Date().toISOString(),
-                status: 'open',
-                target_price: trigger * 1.20, // +20%
-                stoploss_price: trigger * 0.95, // -5%
-                price_change: ((currentPrice - trigger) / trigger) * 100,
-                last_updated: new Date().toISOString()
-            });
-            
-            // Save to localStorage
-            localStorage.setItem('stockPositions', JSON.stringify(positions));
-            
-            alert(`✅ ${symbol} added to Radar tracking at ₹${trigger.toLocaleString()}`);
-            console.log(`Added ${symbol} to radar tracking`);
-        };
     </script>
-    
-    <!-- Position Tracking UI Component -->
-    <script src="positions_ui.js"></script>
 </body>
 </html>
