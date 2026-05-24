@@ -1,9 +1,143 @@
 {
-  "scan_date": "2026-05-24 05:33:54",
-  "cache_built": "2026-05-24 05:33:54",
-  "total_scanned": 0,
-  "critical_count": 0,
-  "watchlist_count": 0,
-  "critical_signals": [],
-  "watchlist_signals": []
+  "scan_date": "2026-05-24 06:12:29",
+  "cache_built": "2026-05-24 06:12:03",
+  "total_scanned": 418,
+  "critical_count": 6,
+  "watchlist_count": 73,
+  "critical_signals": [
+    {
+      "ticker": "CENTRALBK",
+      "current_price": 31.27,
+      "trigger_price": 31.34,
+      "distance_pct": -0.22,
+      "confluence_score": 6,
+      "confluence_note": "No Fib within 2% (closest: 78.6% 3.5%)",
+      "wick_touches": 11,
+      "stop_loss": 28.83,
+      "target": 37.61,
+      "status": "CRITICAL"
+    },
+    {
+      "ticker": "BAYERCROP",
+      "current_price": 4382.5,
+      "trigger_price": 4364.57,
+      "distance_pct": 0.41,
+      "confluence_score": 8,
+      "confluence_note": "Fib 78.6% (1.7%)",
+      "wick_touches": 20,
+      "stop_loss": 4015.4,
+      "target": 5237.48,
+      "status": "CRITICAL"
+    },
+    {
+      "ticker": "BHARTIHEXA",
+      "current_price": 1542.2,
+      "trigger_price": 1551.58,
+      "distance_pct": -0.6,
+      "confluence_score": 10,
+      "confluence_note": "Fib 38.2% (0.1%)",
+      "wick_touches": 13,
+      "stop_loss": 1427.45,
+      "target": 1861.9,
+      "status": "CRITICAL"
+    },
+    {
+      "ticker": "ASTRAL",
+      "current_price": 1541.7,
+      "trigger_price": 1530.84,
+      "distance_pct": 0.71,
+      "confluence_score": 6,
+      "confluence_note": "No Fib within 2% (closest: 38.2% 2.0%)",
+      "wick_touches": 15,
+      "stop_loss": 1408.37,
+      "target": 1837.01,
+      "status": "CRITICAL"
+    },
+    {
+      "ticker": "IEX",
+      "current_price": 127.07,
+      "trigger_price": 126.02,
+      "distance_pct": 0.83,
+      "confluence_score": 9,
+      "confluence_note": "Fib 50.0% (0.8%)",
+      "wick_touches": 17,
+      "stop_loss": 115.94,
+      "target": 151.22,
+      "status": "CRITICAL"
+    },
+    {
+      "ticker": "SUPREMEIND",
+      "current_price": 3556.0,
+      "trigger_price": 3524.27,
+      "distance_pct": 0.9,
+      "confluence_score": 6,
+      "confluence_note": "No Fib within 2% (closest: 78.6% 3.1%)",
+      "wick_touches": 16,
+      "stop_loss": 3242.33,
+      "target": 4229.12,
+      "status": "CRITICAL"
+    }
+  ],
+  "watchlist_signals": [
+    {
+      "ticker": "WIPRO",
+      "current_price": 203.11,
+      "trigger_price": 200.99,
+      "distance_pct": 1.05,
+      "confluence_score": 9,
+      "confluence_note": "Fib 50.0% (0.6%)",
+      "wick_touches": 7,
+      "stop_loss": 184.91,
+      "target": 241.19,
+      "status": "WATCHLIST"
+    },
+    {
+      "ticker": "EIDPARRY",
+      "current_price": 778.95,
+      "trigger_price": 769.85,
+      "distance_pct": 1.18,
+      "confluence_score": 6,
+      "confluence_note": "No Fib within 2% (closest: 78.6% 2.0%)",
+      "wick_touches": 18,
+      "stop_loss": 708.26,
+      "target": 923.82,
+      "status": "WATCHLIST"
+    },
+    {
+      "ticker": "AMBUJACEM",
+      "current_price": 436.35,
+      "trigger_price": 443.31,
+      "distance_pct": -1.57,
+      "confluence_score": 10,
+      "confluence_note": "Fib 50.0% (0.1%)",
+      "wick_touches": 18,
+      "stop_loss": 407.85,
+      "target": 531.97,
+      "status": "WATCHLIST"
+    },
+    {
+      "ticker": "HAVELLS",
+      "current_price": 1200.9,
+      "trigger_price": 1221.65,
+      "distance_pct": -1.7,
+      "confluence_score": 9,
+      "confluence_note": "Fib 61.8% (1.4%)",
+      "wick_touches": 8,
+      "stop_loss": 1123.92,
+      "target": 1465.98,
+      "status": "WATCHLIST"
+    },
+    {
+      "ticker": "GODREJCP",
+      "current_price": 1027.5,
+      "trigger_price": 1007.96,
+      "distance_pct": 1.94,
+      "confluence_score": 9,
+      "confluence_note": "Fib 78.6% (0.7%)",
+      "wick_touches": 10,
+      "stop_loss": 927.32,
+      "target": 1209.55,
+      "status": "WATCHLIST"
+    }
+  ]
 }

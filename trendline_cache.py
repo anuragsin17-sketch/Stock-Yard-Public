@@ -25,21 +25,24 @@ def get_sector_order(ticker):
     return 6 if any(b in ticker.upper() for b in banking) else 10
 
 def build_trendline(ticker):
-    """Build trendline from 8-year monthly data with wick detection"""
-    try:
-        df = yf.download(ticker, period="8y", interval="1mo",
-                         auto_adjust=True, progress=False)
-        if df.empty or len(df) < 24:
+    """
+    Build trendline with wick-based touch detection.
+    PRIMARY:  Monthly 8 years
+    FALLBACK: Weekly 5 years (if monthly gives < 3 wick touches)
+    """
+    def from_df(df, timeframe):
+        if df.empty or len(df) < 18:
             return None
-
         df = df.dropna()
         df['Price_Idx'] = np.arange(len(df))
         low_prices = df['Low'].values.flatten()
 
-        # Adaptive order
         order = get_sector_order(ticker)
+        if timeframe == 'weekly':
+            order = max(3, order // 2)
+
         touchbacks = argrelextrema(low_prices, np.less, order=order)
-        for fallback in [8, 6, 5]:
+        for fallback in [8, 6, 5, 4, 3]:
             if len(touchbacks[0]) >= 2:
                 break
             touchbacks = argrelextrema(low_prices, np.less, order=fallback)
@@ -47,7 +50,6 @@ def build_trendline(ticker):
         if len(touchbacks[0]) < 2:
             return None
 
-        # Fit trendline using last 3 anchors
         num = min(3, len(touchbacks[0]))
         anchor_indices = touchbacks[0][-num:]
         x = [int(df['Price_Idx'].iloc[i]) for i in anchor_indices]
@@ -73,7 +75,6 @@ def build_trendline(ticker):
         if len(wick_touches) < 3:
             return None
 
-        # Fibonacci data
         last_touch_idx = int(anchor_indices[-1])
         last_touch_price = float(low_prices[last_touch_idx])
         swing_high = float(df.iloc[last_touch_idx:]['High'].max())
@@ -100,8 +101,27 @@ def build_trendline(ticker):
             'fib_levels': fib_levels,
             'last_touch_price': round(last_touch_price, 2),
             'swing_high': round(swing_high, 2),
+            'timeframe': timeframe,
             'built_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
+
+    try:
+        # PRIMARY: Monthly 8 years
+        df_monthly = yf.download(ticker, period="8y", interval="1mo",
+                                  auto_adjust=True, progress=False)
+        # Fix multi-level columns from yfinance
+        if isinstance(df_monthly.columns, pd.MultiIndex):
+            df_monthly.columns = df_monthly.columns.get_level_values(0)
+        result = from_df(df_monthly, 'monthly')
+        if result:
+            return result
+
+        # FALLBACK: Weekly 5 years
+        df_weekly = yf.download(ticker, period="5y", interval="1wk",
+                                 auto_adjust=True, progress=False)
+        if isinstance(df_weekly.columns, pd.MultiIndex):
+            df_weekly.columns = df_weekly.columns.get_level_values(0)
+        return from_df(df_weekly, 'weekly')
 
     except Exception:
         return None
@@ -152,11 +172,16 @@ def build_full_cache(tickers, force=False):
     failed = 0
 
     for i, ticker in enumerate(tickers, 1):
-        tl = build_trendline(ticker)
-        if tl:
-            trendlines[ticker] = tl
-        else:
+        try:
+            tl = build_trendline(ticker)
+            if tl:
+                trendlines[ticker] = tl
+            else:
+                failed += 1
+        except Exception as e:
             failed += 1
+            if i <= 5:  # Print first 5 errors for debugging
+                print(f"   ERROR {ticker}: {e}")
 
         if i % 50 == 0:
             print(f"   Progress: {i}/{len(tickers)} | Valid: {len(trendlines)} | Failed: {failed}")
