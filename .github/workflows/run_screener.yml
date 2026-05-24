@@ -110,6 +110,19 @@ jobs:
           echo '[]' > trendline_screen.json
         }
         echo "✅ Trendline scanner completed"
+
+    - name: Monitor open positions (Angel One)
+      env:
+        ANGEL_API_KEY:      ${{ secrets.ANGEL_API_KEY }}
+        ANGEL_CLIENT_ID:    ${{ secrets.ANGEL_CLIENT_ID }}
+        ANGEL_PASSWORD:     ${{ secrets.ANGEL_PASSWORD }}
+        ANGEL_TOTP_SECRET:  ${{ secrets.ANGEL_TOTP_SECRET }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        echo "📡 Monitoring open positions..."
+        python angel_monitor.py || echo "⚠️ Monitor failed, continuing..."
+        echo "✅ Position monitoring completed"
     
     - name: Verify results
       run: |
@@ -136,7 +149,7 @@ jobs:
         sed -i "s/<!-- BUILD_TIMESTAMP: will be replaced by workflow -->/<!-- BUILD: ${BUILD_TIME} -->/" index.html || true
         
         # Commit changes to private repo
-        git add data.json index.html trendline_screen.json
+        git add data.json index.html trendline_screen.json radar_trades.json alerted_today.json
         
         # Create commit message with run context and better formatting
         RUN_CONTEXT="${{ github.event.schedule }}"
@@ -174,6 +187,7 @@ jobs:
         cp index.html public-repo/
         cp data.json public-repo/
         cp trendline_screen.json public-repo/ || echo "⚠️ trendline_screen.json not found"
+        cp radar_trades.json public-repo/ || echo "ℹ️ No radar_trades.json yet"
         
         # Navigate to public repo
         cd public-repo
@@ -183,7 +197,7 @@ jobs:
         git config user.email "action@github.com"
         
         # Add and commit changes
-        git add index.html data.json trendline_screen.json
+        git add index.html data.json trendline_screen.json radar_trades.json
         git commit -m "🔄 Auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC') - Run #${{ github.run_number }}" || echo "ℹ️ No changes to commit"
         
         # Push to public repo
