@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 Angel One SmartAPI Trade Executor
-Simple MARKET ORDER — just stock, action, quantity.
-Credentials stored ONLY in GitHub Secrets.
+ONLY 4 PARAMETERS: Stock, Action, Entry Price, Quantity
 """
 
 import os
@@ -21,10 +20,15 @@ TOTP_SECRET    = os.environ.get('ANGEL_TOTP_SECRET', '').strip()
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
 TELEGRAM_CHAT  = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
 
-# ── Order params (only 3 required) ───────────────────────────────────────────
+# ── ONLY 4 ORDER PARAMETERS ──────────────────────────────────────────────────
 SYMBOL   = os.environ.get('TRADE_SYMBOL', '').strip().upper()
 ACTION   = os.environ.get('TRADE_ACTION', 'BUY').strip().upper()
-SOURCE   = os.environ.get('TRADE_SOURCE', 'Manual').strip()
+
+def _safe_float(val, default=0.0):
+    try:
+        return max(0.0, float(str(val).strip()))
+    except Exception:
+        return default
 
 def _safe_int(val, default=0):
     try:
@@ -32,18 +36,16 @@ def _safe_int(val, default=0):
     except Exception:
         return default
 
-QUANTITY = _safe_int(os.environ.get('TRADE_QUANTITY', '0'))
+ENTRY_PRICE = _safe_float(os.environ.get('TRADE_PRICE', '0'))
+QUANTITY    = _safe_int(os.environ.get('TRADE_QUANTITY', '0'))
 
-print("=== TRADE REQUEST ===")
-print(f"SYMBOL   : {SYMBOL}")
-print(f"ACTION   : {ACTION}")
-print(f"QUANTITY : {QUANTITY}")
-print(f"SOURCE   : {SOURCE}")
-print(f"API_KEY  : {'SET' if API_KEY else 'MISSING'}")
-print(f"CLIENT_ID: {'SET' if CLIENT_ID else 'MISSING'}")
-print(f"PASSWORD : {'SET' if PASSWORD else 'MISSING'}")
-print(f"TOTP     : {'SET' if TOTP_SECRET else 'MISSING'}")
-print("=====================")
+print("=== ANGEL ONE ORDER ===")
+print(f"Stock       : {SYMBOL}")
+print(f"Action      : {ACTION}")
+print(f"Entry Price : ₹{ENTRY_PRICE:.2f}")
+print(f"Quantity    : {QUANTITY}")
+print("=======================")
+
 
 
 def send_telegram(message: str):
@@ -120,9 +122,9 @@ def save_to_radar(order_id, symbol_token):
         'ticker': SYMBOL,
         'symbol_token': symbol_token,
         'action': ACTION,
+        'entry_price': ENTRY_PRICE,
         'quantity': QUANTITY,
-        'order_type': 'MARKET',
-        'source': SOURCE,
+        'order_type': 'LIMIT',
         'status': 'Open',
         'placed_at': datetime.now().isoformat()
     })
@@ -146,6 +148,10 @@ def place_order():
         print("❌ TRADE_SYMBOL is empty")
         send_telegram("❌ Order failed — TRADE_SYMBOL is empty")
         sys.exit(1)
+    if ENTRY_PRICE <= 0:
+        print(f"❌ TRADE_PRICE is {ENTRY_PRICE} — must be > 0")
+        send_telegram(f"❌ Order failed — invalid price: {ENTRY_PRICE}")
+        sys.exit(1)
     if QUANTITY <= 0:
         print(f"❌ TRADE_QUANTITY is {QUANTITY} — must be > 0")
         send_telegram(f"❌ Order failed — invalid quantity: {QUANTITY}")
@@ -155,7 +161,7 @@ def place_order():
         send_telegram(f"❌ Order failed — invalid action: {ACTION}")
         sys.exit(1)
 
-    print(f"\n🚀 Placing {ACTION} MARKET ORDER: {SYMBOL} x{QUANTITY}")
+    print(f"\n🚀 Placing {ACTION} LIMIT ORDER: {SYMBOL} x{QUANTITY} @ ₹{ENTRY_PRICE:.2f}")
 
     try:
         # Login
@@ -183,7 +189,7 @@ def place_order():
 
         print(f"Symbol: {trading_symbol} | Token: {symbol_token}")
 
-        # Place LIMIT ORDER — only Stock, Action, Entry Price, Quantity
+        # Place LIMIT ORDER with ONLY 4 parameters: Stock, Action, Entry Price, Quantity
         order_params = {
             "variety":         "NORMAL",
             "tradingsymbol":   trading_symbol,
@@ -193,7 +199,7 @@ def place_order():
             "ordertype":       "LIMIT",
             "producttype":     "DELIVERY",
             "duration":        "DAY",
-            "price":           str(round(PRICE, 2)),
+            "price":           str(ENTRY_PRICE),
             "quantity":        str(QUANTITY)
         }
 
@@ -219,13 +225,12 @@ def place_order():
         if success or order_id:
             save_to_radar(order_id or 'N/A', symbol_token)
             msg = (
-                f"✅ *ORDER PLACED — ANGEL ONE*\n\n"
+                f"✅ *ORDER PLACED*\n\n"
                 f"Stock: `{SYMBOL}`\n"
-                f"Action: *{ACTION}* (MARKET)\n"
-                f"Qty: *{QUANTITY}* shares\n"
-                f"Order ID: `{order_id or 'N/A'}`\n"
-                f"Source: {SOURCE}\n"
-                f"Time: {datetime.now().strftime('%d %b %Y, %H:%M IST')}"
+                f"Action: *{ACTION}*\n"
+                f"Entry Price: ₹{ENTRY_PRICE:,.2f}\n"
+                f"Quantity: *{QUANTITY}*\n"
+                f"Order ID: `{order_id or 'N/A'}`"
             )
             print(f"✅ Order placed! ID: {order_id}")
             send_telegram(msg)

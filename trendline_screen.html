@@ -28,6 +28,15 @@
             50% { opacity: 0.6; }
             100% { opacity: 1; }
         }
+        
+        /* Pagination Controls */
+        .pagination-container { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 15px; background-color: #1e293b; border-radius: 8px; }
+        .pagination-info { color: #94a3b8; font-size: 14px; }
+        .pagination-controls { display: flex; gap: 10px; align-items: center; }
+        .pagination-btn { background-color: #0369a1; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 0.2s ease; }
+        .pagination-btn:hover:not(:disabled) { background-color: #0284c7; }
+        .pagination-btn:disabled { background-color: #334155; color: #64748b; cursor: not-allowed; }
+        .page-number { color: #38bdf8; font-weight: 600; font-size: 14px; min-width: 80px; text-align: center; }
     </style>
 </head>
 <body>
@@ -60,9 +69,26 @@
             </tr>
         </tbody>
     </table>
+    
+    <!-- Pagination Controls -->
+    <div class="pagination-container">
+        <div class="pagination-info" id="pagination-info">Showing 0-0 of 0 stocks</div>
+        <div class="pagination-controls">
+            <button class="pagination-btn" id="first-page-btn" onclick="goToFirstPage()">⏮ First</button>
+            <button class="pagination-btn" id="prev-page-btn" onclick="previousPage()">← Previous</button>
+            <span class="page-number" id="page-indicator">Page 1</span>
+            <button class="pagination-btn" id="next-page-btn" onclick="nextPage()">Next →</button>
+            <button class="pagination-btn" id="last-page-btn" onclick="goToLastPage()">Last ⏭</button>
+        </div>
+    </div>
 </div>
 
 <script>
+    // Pagination state
+    let allStocks = [];
+    let currentPage = 1;
+    const stocksPerPage = 10;
+    
     // Fetch the JSON payload and build out your data dashboard screen columns
     async function loadTrendlineScreenData() {
         try {
@@ -70,13 +96,44 @@
             const response = await fetch('trendline_screen.json');
             const data = await response.json();
             
-            const tableBody = document.getElementById('table-body');
-            tableBody.innerHTML = ''; // Wipe loading state placeholder row
-            
             // Sort data so the stocks closest to a trendline touch sit at the top of your UI
-            data.sort((a, b) => a.distanceRemaining - b.distanceRemaining);
+            allStocks = data.sort((a, b) => a.distanceRemaining - b.distanceRemaining);
             
-            data.forEach(stock => {
+            // Reset to first page when data is reloaded
+            currentPage = 1;
+            renderPage();
+            
+            document.getElementById('last-updated').innerText = `Last Refreshed: ${new Date().toLocaleTimeString()}`;
+            
+        } catch (error) {
+            console.error('Error loading JSON data source:', error);
+            document.getElementById('table-body').innerHTML = `
+                <tr><td colspan="10" style="text-align: center; color: #ef4444;">❌ Error fetching data source. Check backend JSON compiler pipeline.</td></tr>
+            `;
+            updatePaginationInfo(0, 0, 0);
+        }
+    }
+    
+    function renderPage() {
+        const tableBody = document.getElementById('table-body');
+        tableBody.innerHTML = ''; // Clear existing rows
+        
+        const totalStocks = allStocks.length;
+        const totalPages = Math.ceil(totalStocks / stocksPerPage);
+        
+        // Calculate start and end indices for current page
+        const startIndex = (currentPage - 1) * stocksPerPage;
+        const endIndex = Math.min(startIndex + stocksPerPage, totalStocks);
+        
+        // Get stocks for current page
+        const pageStocks = allStocks.slice(startIndex, endIndex);
+        
+        if (pageStocks.length === 0) {
+            tableBody.innerHTML = `
+                <tr><td colspan="10" style="text-align: center; color: #94a3b8;">No stocks found matching criteria</td></tr>
+            `;
+        } else {
+            pageStocks.forEach(stock => {
                 const row = document.createElement('tr');
                 
                 // Assign correct color badge configurations depending on proximity
@@ -98,15 +155,58 @@
                 
                 tableBody.appendChild(row);
             });
-            
-            document.getElementById('last-updated').innerText = `Last Refreshed: ${new Date().toLocaleTimeString()}`;
-            
-        } catch (error) {
-            console.error('Error loading JSON data source:', error);
-            document.getElementById('table-body').innerHTML = `
-                <tr><td colspan="10" style="text-align: center; color: #ef4444;">❌ Error fetching data source. Check backend JSON compiler pipeline.</td></tr>
-            `;
         }
+        
+        // Update pagination controls
+        updatePaginationInfo(startIndex + 1, endIndex, totalStocks);
+        updatePaginationButtons(totalPages);
+    }
+    
+    function updatePaginationInfo(start, end, total) {
+        const info = document.getElementById('pagination-info');
+        info.innerText = `Showing ${start}-${end} of ${total} stocks`;
+    }
+    
+    function updatePaginationButtons(totalPages) {
+        const pageIndicator = document.getElementById('page-indicator');
+        const firstBtn = document.getElementById('first-page-btn');
+        const prevBtn = document.getElementById('prev-page-btn');
+        const nextBtn = document.getElementById('next-page-btn');
+        const lastBtn = document.getElementById('last-page-btn');
+        
+        pageIndicator.innerText = `Page ${currentPage} of ${totalPages || 1}`;
+        
+        // Disable buttons based on current page
+        firstBtn.disabled = currentPage === 1;
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage >= totalPages;
+        lastBtn.disabled = currentPage >= totalPages;
+    }
+    
+    function nextPage() {
+        const totalPages = Math.ceil(allStocks.length / stocksPerPage);
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderPage();
+        }
+    }
+    
+    function previousPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            renderPage();
+        }
+    }
+    
+    function goToFirstPage() {
+        currentPage = 1;
+        renderPage();
+    }
+    
+    function goToLastPage() {
+        const totalPages = Math.ceil(allStocks.length / stocksPerPage);
+        currentPage = totalPages;
+        renderPage();
     }
 
     // Initial Screen Load

@@ -26,13 +26,12 @@ jobs:
 
     - name: Log trade request
       run: |
-        echo "📊 Trade Request Received"
-        echo "Action: ${{ github.event.client_payload.action }}"
-        echo "Symbol: ${{ github.event.client_payload.symbol }}"
-        echo "Quantity: ${{ github.event.client_payload.quantity }}"
-        echo "Price: ${{ github.event.client_payload.price }}"
-        echo "Source: ${{ github.event.client_payload.source }}"
-        echo "Time: $(TZ='Asia/Kolkata' date)"
+        echo "📊 Angel One Order Request"
+        echo "Stock       : ${{ github.event.client_payload.symbol }}"
+        echo "Action      : ${{ github.event.client_payload.action }}"
+        echo "Entry Price : ₹${{ github.event.client_payload.price }}"
+        echo "Quantity    : ${{ github.event.client_payload.quantity }}"
+        echo "Time        : $(TZ='Asia/Kolkata' date)"
 
     - name: Execute trade on Angel One
       env:
@@ -42,14 +41,10 @@ jobs:
         ANGEL_TOTP_SECRET:  ${{ secrets.ANGEL_TOTP_SECRET }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
-        TRADE_ACTION:       ${{ github.event.client_payload.action }}
         TRADE_SYMBOL:       ${{ github.event.client_payload.symbol }}
-        TRADE_TOKEN:        ${{ github.event.client_payload.token }}
-        TRADE_QUANTITY:     ${{ github.event.client_payload.quantity }}
+        TRADE_ACTION:       ${{ github.event.client_payload.action }}
         TRADE_PRICE:        ${{ github.event.client_payload.price }}
-        TRADE_STOPLOSS:     ${{ github.event.client_payload.stop_loss }}
-        TRADE_TARGET:       ${{ github.event.client_payload.target }}
-        TRADE_SOURCE:       ${{ github.event.client_payload.source }}
+        TRADE_QUANTITY:     ${{ github.event.client_payload.quantity }}
       run: |
         echo "🚀 Executing trade..."
         python angel_trade.py
