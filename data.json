@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-25T12:44:44.230385",
+  "timestamp": "2026-05-25T13:01:59.466292",
   "golden_stocks": [
     {
       "symbol": "PFOCUS",
@@ -1015,7 +1015,7 @@
       "fibonacci_low_5y": 381.57,
       "trendline_price": 756.19,
       "distance_to_trendline_percent": 1.78,
-      "trendline_slope_daily": 0.129515,
+      "trendline_slope_daily": 0.129514,
       "trendline_start_price": 718.11,
       "trendline_start_date": "2025-08-08",
       "trendline_end_price": 729.89,
