@@ -32,9 +32,12 @@ def _safe_float(val, default=0.0):
 
 def _safe_int(val, default=0):
     try:
-        return max(0, int(str(val).strip()))
-    except Exception:
+        # Convert to string -> float -> int to safely clear strings like "10.0"
+        return max(0, int(float(str(val).strip())))
+    except Exception as e:
+        print(f"⚠️ Error parsing quantity '{val}': {e}") # Print the error so you can see it!
         return default
+
 
 ENTRY_PRICE = _safe_float(os.environ.get('TRADE_PRICE', '0'))
 QUANTITY    = _safe_int(os.environ.get('TRADE_QUANTITY', '0'))

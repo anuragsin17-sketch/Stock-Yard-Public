@@ -4457,15 +4457,13 @@
                 setTimeout(() => {
                     switchTab('trendline');
 
-                    // Show confirmation dialog
+                    // Show confirmation dialog - ONLY 4 PARAMETERS
                     const confirmed = confirm(
                         `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
                         `Stock: ${confirmParam}\n` +
-                        `Action: BUY (LIMIT)\n` +
+                        `Action: BUY\n` +
                         `Entry Price: ₹${price.toFixed(2)}\n` +
-                        `Quantity: ${qty} shares\n` +
-                        `Stop Loss: ₹${stop.toFixed(2)} (Monthly Close)\n` +
-                        `Target: ₹${target.toFixed(2)} (+20%)\n\n` +
+                        `Quantity: ${qty}\n\n` +
                         `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
                         `Click OK to confirm.`
                     );
@@ -4851,17 +4849,13 @@
             const stopLoss = parseFloat((entry * 0.92).toFixed(2));
             const qty = Math.floor(positionSize / entry);
 
-            // Confirmation dialog
+            // Confirmation dialog - ONLY 4 PARAMETERS
             const confirmed = confirm(
                 `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
                 `Stock: ${symbol}\n` +
-                `Company: ${companyName}\n` +
-                `Action: BUY (LIMIT)\n` +
+                `Action: BUY\n` +
                 `Entry Price: ₹${entry.toFixed(2)}\n` +
-                `Quantity: ${qty} shares\n` +
-                `Position Size: ₹${positionSize.toLocaleString()}\n` +
-                `Stop Loss: ₹${stopLoss.toFixed(2)} (Monthly Close)\n` +
-                `Target: ₹${target.toFixed(2)} (+20%)\n\n` +
+                `Quantity: ${qty}\n\n` +
                 `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
                 `Click OK to confirm.`
             );
@@ -4905,12 +4899,9 @@
             const confirmed = confirm(
                 `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
                 `Stock: ${ticker}\n` +
-                `Action: BUY (LIMIT)\n` +
+                `Action: BUY\n` +
                 `Entry Price: ₹${parseFloat(entry).toFixed(2)}\n` +
-                `Quantity: ${qty} shares\n` +
-                `Position Size: ₹${positionSize.toLocaleString()}\n` +
-                `Stop Loss: ₹${parseFloat(stop).toFixed(2)} (Monthly Close)\n` +
-                `Target: ₹${parseFloat(target).toFixed(2)} (+20%)\n\n` +
+                `Quantity: ${qty}\n\n` +
                 `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
                 `Click OK to confirm.`
             );
@@ -5029,11 +5020,28 @@
                     </button>
                 `;
             }
-            
-            stocks.forEach(stock => {
+
+            // Pagination for Volume/Darvas tabs
+            const tabTotalPages = Math.ceil(stocks.length / TAB_PAGE_SIZE);
+            if (tab === 'volume') {
+                if (volPage > tabTotalPages) volPage = 1;
+            }
+            const tabCurrentPage = tab === 'volume' ? volPage : 1;
+            const pagedStocks = stocks.slice((tabCurrentPage-1)*TAB_PAGE_SIZE, tabCurrentPage*TAB_PAGE_SIZE);
+
+            pagedStocks.forEach(stock => {
                 html += createStockCard(stock, tab);
             });
-            
+
+            // Pagination controls for volume tab
+            if (tab === 'volume' && tabTotalPages > 1) {
+                html += paginationControls(
+                    volPage, tabTotalPages,
+                    'volPage=Math.max(1,volPage-1); displayResults("volume")',
+                    `volPage=Math.min(${tabTotalPages},volPage+1); displayResults("volume")`
+                );
+            }
+
             container.innerHTML = html;
         }
         
@@ -5284,7 +5292,12 @@
                     `;
                 });
                 
-                trendlineStocks.forEach(stock => {
+                // Trendline pagination
+                const trendTotalPages = Math.ceil(trendlineStocks.length / TAB_PAGE_SIZE);
+                if (trendPage > trendTotalPages) trendPage = 1;
+                const pagedTrendStocks = trendlineStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
+
+                pagedTrendStocks.forEach(stock => {
                     // Get saved overrides from localStorage
                     const savedKey = `trendline_${stock.ticker}`;
                     const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
@@ -5398,10 +5411,17 @@
                     `;
                 });
                 
+                // Trendline pagination controls
+                if (trendTotalPages > 1) {
+                    html += paginationControls(
+                        trendPage, trendTotalPages,
+                        'trendPage=Math.max(1,trendPage-1); displayTrendlineScreen()',
+                        `trendPage=Math.min(${trendTotalPages},trendPage+1); displayTrendlineScreen()`
+                    );
+                }
+
                 container.innerHTML = html;
-                
             } catch (error) {
-                console.error('Error loading trendline data:', error);
                 container.innerHTML = `
                     <div class="mobile-card rounded-xl p-6 text-center">
                         <div class="text-red-400 mb-2">⚠️ Error Loading Trendline Data</div>
@@ -5417,7 +5437,32 @@
         let perfDateTo   = '';
         let perfStockFilter = '';
         let perfSortBy = 'total_pnl';
-        let perfYears = 0; // 0=All, 1=1Y, 3=3Y, 5=5Y, 10=10Y
+        let perfYears = 0;
+        let perfPage = 1;
+        const PERF_PAGE_SIZE = 10;
+
+        // Pagination state for Volume and Trendline tabs
+        let volPage = 1;
+        let trendPage = 1;
+        const TAB_PAGE_SIZE = 10;
+
+        function paginationControls(currentPage, totalPages, onPrev, onNext) {
+            if (totalPages <= 1) return '';
+            return `
+                <div class="mobile-card rounded-xl p-4 mt-2 mb-2">
+                    <div class="flex items-center justify-between">
+                        <button onclick="${onPrev}"
+                            class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
+                            style="${currentPage<=1 ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">← Prev</button>
+                        <div class="text-xs text-center">
+                            <div class="font-semibold text-slate-200">Page ${currentPage} of ${totalPages}</div>
+                        </div>
+                        <button onclick="${onNext}"
+                            class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
+                            style="${currentPage>=totalPages ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">Next →</button>
+                    </div>
+                </div>`;
+        }
 
         async function displayPastPerformance() {
             const container = document.getElementById('resultsContainer');
@@ -5687,12 +5732,12 @@
                 <div class="mobile-card rounded-xl p-4 mb-4">
                     <input id="perfSearchInput" type="text" placeholder="Search stock…"
                         value="${perfStockFilter}"
-                        oninput="perfStockFilter=this.value; renderPastPerformance(document.getElementById('resultsContainer'))"
+                        oninput="perfStockFilter=this.value; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
                         class="w-full px-3 py-2 rounded-lg text-sm text-slate-100 outline-none mb-3"
                         style="background:rgba(30,41,59,0.9);border:1px solid rgba(255,255,255,0.1);" />
                     <div class="flex space-x-2 overflow-x-auto scroll-container">
                         ${[['total_pnl','P&L'],['win_rate','Win %'],['avg_return','Avg Ret'],['total_trades','Trades']].map(([val,label]) =>
-                            `<button onclick="perfSortBy='${val}'; renderPastPerformance(document.getElementById('resultsContainer'))"
+                            `<button onclick="perfSortBy='${val}'; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
                                 class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium touch-btn"
                                 style="${perfSortBy===val ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(30,41,59,0.8);color:#94A3B8;'}">${label}</button>`
                         ).join('')}
@@ -5701,7 +5746,12 @@
                 <div class="text-xs text-slate-500 mb-3 px-1">${stocks.length} stock${stocks.length!==1?'s':''} with signals</div>
             `;
 
-            stocks.forEach(st => {
+            // Pagination
+            const totalPages = Math.ceil(stocks.length / PERF_PAGE_SIZE);
+            if (perfPage > totalPages) perfPage = 1;
+            const pageStocks = stocks.slice((perfPage-1)*PERF_PAGE_SIZE, perfPage*PERF_PAGE_SIZE);
+
+            pageStocks.forEach(st => {
                 const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${st.symbol}`;
                 const wrColor = st.win_rate>=60?'#10B981':st.win_rate>=45?'#D97706':'#DC2626';
                 const pnlC = st.total_pnl>=0?'#10B981':'#DC2626';
@@ -5750,6 +5800,26 @@
             if (stocks.length === 0) {
                 html += `<div class="mobile-card rounded-xl p-6 text-center text-slate-400 text-sm">No stocks match your search.</div>`;
             }
+
+            // Pagination controls
+            if (totalPages > 1) {
+                html += `
+                <div class="mobile-card rounded-xl p-4 mt-2">
+                    <div class="flex items-center justify-between">
+                        <button onclick="perfPage=Math.max(1,perfPage-1); renderPastPerformance(document.getElementById('resultsContainer'))"
+                            class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
+                            style="${perfPage<=1 ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">← Prev</button>
+                        <div class="text-xs text-slate-400 text-center">
+                            <div class="font-semibold text-slate-200">Page ${perfPage} of ${totalPages}</div>
+                            <div class="text-slate-500">${(perfPage-1)*PERF_PAGE_SIZE+1}–${Math.min(perfPage*PERF_PAGE_SIZE,stocks.length)} of ${stocks.length} stocks</div>
+                        </div>
+                        <button onclick="perfPage=Math.min(${totalPages},perfPage+1); renderPastPerformance(document.getElementById('resultsContainer'))"
+                            class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
+                            style="${perfPage>=totalPages ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">Next →</button>
+                    </div>
+                </div>`;
+            }
+
             container.innerHTML = html;
         }
 

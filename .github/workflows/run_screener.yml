@@ -197,6 +197,7 @@ jobs:
         cp trendline_screen.json public-repo/ || true
         cp radar_trades.json public-repo/ || true
         cp "Stock List.csv" public-repo/ || true
+        cp backtest_performance.json public-repo/ || true
         
         # Navigate to public repo
         cd public-repo
