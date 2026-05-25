@@ -144,7 +144,7 @@ jobs:
         
         # Commit changes to private repo
         git add data.json index.html trendline_screen.json
-        git add radar_trades.json alerted_today.json notify_new_stocks.py 2>/dev/null || true
+        git add radar_trades.json alerted_today.json notify_new_stocks.py previous_stocks.json 2>/dev/null || true
         
         # Create commit message with run context and better formatting
         RUN_CONTEXT="${{ github.event.schedule }}"
