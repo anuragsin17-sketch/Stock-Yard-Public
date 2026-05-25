@@ -203,7 +203,7 @@ def place_order():
             "producttype":     "DELIVERY",
             "duration":        "DAY",
             "price":           str(ENTRY_PRICE),
-            "quantity":        str(QUANTITY)
+            "quantity":        str(QUANTITY),
                "squareoff":       "0",            # <-- MANDATORY FOR API
             "stoploss":        "0",            # <-- MANDATORY FOR API
             "trailingstoploss": "0"            # <-- MANDATORY FOR API
