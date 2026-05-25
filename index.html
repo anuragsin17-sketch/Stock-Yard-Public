@@ -5939,7 +5939,7 @@
                                 <div class="text-sm font-bold mono" style="color: #DC2626;">₹${trade.stopLoss?.toLocaleString()}</div>
                             </div>
                         </div>
-                        <div class="text-xs text-slate-500 mono mb-3">${trade.quantity} shares | ₹${trade.positionSize?.toLocaleString()} position</div>
+                        <div class="text-xs text-slate-500 mono mb-3">${trade.quantity || trade.qty || (trade.positionSize && trade.entryTrigger ? Math.floor(trade.positionSize / trade.entryTrigger) : 0)} shares | ₹${trade.positionSize?.toLocaleString() || 0} position</div>
                         <div class="flex space-x-2">
                             ${trade.status === 'Open' ? `
                             <button onclick="updateTradeStatus(${idx}, 'Target Hit')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(4,120,87,0.2); color: #10B981;">✅ Target Hit</button>
