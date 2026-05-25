@@ -42,3 +42,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Backtest cache (local only — do not commit raw OHLC pickle files)
+.cache/
+backtest_performance_partial.json

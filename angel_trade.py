@@ -46,36 +46,76 @@ def send_telegram(message):
 
 def get_symbol_token(smart, symbol):
     """Get NSE token for symbol - returns (trading_symbol, token)"""
-    # Known symbol corrections
+    # Known symbol corrections for Angel One naming
     symbol_map = {
         'CENTRALBNK': 'CENTRALBK',
+        'M&M': 'M%26M',
     }
     search_symbol = symbol_map.get(symbol, symbol)
 
+    # Try direct search first
     try:
         data = smart.searchScrip("NSE", search_symbol)
+        print(f"searchScrip response for {search_symbol}: {data}")
         if data and data.get('data'):
             results = data['data']
-            # Priority: look for -EQ suffix (regular equity for delivery)
+            # Priority 1: exact match with -EQ suffix
             for item in results:
                 ts = item.get('tradingsymbol', '')
-                if ts == f"{search_symbol}-EQ" or ts == f"{search_symbol}":
-                    print(f"Found EQ token: {ts} = {item.get('symboltoken')}")
+                if ts == f"{search_symbol}-EQ":
+                    print(f"Found exact EQ match: {ts} = {item.get('symboltoken')}")
                     return ts, item.get('symboltoken')
-            # Fallback: first result with -EQ
+            # Priority 2: exact symbol match
             for item in results:
                 ts = item.get('tradingsymbol', '')
-                if ts.endswith('-EQ'):
-                    print(f"Using EQ fallback: {ts} = {item.get('symboltoken')}")
+                if ts == search_symbol:
+                    print(f"Found exact match: {ts} = {item.get('symboltoken')}")
+                    return ts, item.get('symboltoken')
+            # Priority 3: any -EQ result
+            for item in results:
+                ts = item.get('tradingsymbol', '')
+                if ts.endswith('-EQ') and search_symbol in ts:
+                    print(f"Found EQ fallback: {ts} = {item.get('symboltoken')}")
                     return ts, item.get('symboltoken')
             # Last resort: first result
             item = results[0]
             ts = item.get('tradingsymbol', search_symbol)
             print(f"Using first result: {ts} = {item.get('symboltoken')}")
             return ts, item.get('symboltoken')
+        else:
+            print(f"No results from searchScrip for {search_symbol}")
     except Exception as e:
-        print(f"Token lookup error for {symbol}: {e}")
+        print(f"searchScrip error for {symbol}: {e}")
 
+    # Fallback: try downloading Angel One instrument list
+    try:
+        print(f"Trying instrument list fallback for {symbol}...")
+        resp = requests.get(
+            "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json",
+            timeout=15
+        )
+        if resp.status_code == 200:
+            instruments = resp.json()
+            # Search for NSE EQ instrument
+            for inst in instruments:
+                if (inst.get('exch_seg') == 'NSE' and
+                    inst.get('symbol', '').upper() == f"{symbol}-EQ"):
+                    token = inst.get('token')
+                    ts = inst.get('symbol')
+                    print(f"Found via instrument list: {ts} = {token}")
+                    return ts, token
+            # Try without -EQ
+            for inst in instruments:
+                if (inst.get('exch_seg') == 'NSE' and
+                    inst.get('name', '').upper() == symbol.upper()):
+                    token = inst.get('token')
+                    ts = inst.get('symbol')
+                    print(f"Found via name match: {ts} = {token}")
+                    return ts, token
+    except Exception as e:
+        print(f"Instrument list fallback error: {e}")
+
+    print(f"ERROR: Could not find token for {symbol} by any method")
     return None, None
 
 def save_trade_to_radar(order_id, symbol_token):
@@ -131,11 +171,17 @@ def place_order():
     try:
         # Login
         smart = SmartConnect(api_key=API_KEY)
-        totp = pyotp.TOTP(TOTP_SECRET).now()
-        session = smart.generateSession(CLIENT_ID, PASSWORD, totp)
+        totp_code = pyotp.TOTP(TOTP_SECRET).now()
+        print(f"TOTP generated: {totp_code}")
+        print(f"Logging in as CLIENT_ID: {CLIENT_ID}")
+        print(f"API_KEY set: {'YES' if API_KEY else 'NO'}")
+        print(f"PASSWORD set: {'YES' if PASSWORD else 'NO'}")
+        print(f"TOTP_SECRET set: {'YES' if TOTP_SECRET else 'NO'}")
+        session = smart.generateSession(CLIENT_ID, PASSWORD, totp_code)
+        print(f"Session response: {session}")
 
         if not session or session.get('status') == False:
-            msg = f"Angel One login failed: {session.get('message', 'Unknown')}"
+            msg = f"Angel One login failed: {session.get('message', 'Unknown') if session else 'No session returned'}"
             print(msg)
             send_telegram(f"ERROR: {msg}")
             sys.exit(1)

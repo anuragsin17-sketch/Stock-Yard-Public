@@ -3,22 +3,9 @@ name: Stock Yard Screener
 on:
   workflow_dispatch:
   schedule:
-    # Every 30 min during market hours Mon-Fri 9:15AM-3:30PM IST (3:45-10:00 UTC)
-    - cron: '45 3 * * 1-5'   # 9:15 AM IST
-    - cron: '15 4 * * 1-5'   # 9:45 AM IST
-    - cron: '45 4 * * 1-5'   # 10:15 AM IST
-    - cron: '15 5 * * 1-5'   # 10:45 AM IST
-    - cron: '45 5 * * 1-5'   # 11:15 AM IST
-    - cron: '15 6 * * 1-5'   # 11:45 AM IST
-    - cron: '45 6 * * 1-5'   # 12:15 PM IST
-    - cron: '15 7 * * 1-5'   # 12:45 PM IST
-    - cron: '45 7 * * 1-5'   # 1:15 PM IST
-    - cron: '15 8 * * 1-5'   # 1:45 PM IST
-    - cron: '45 8 * * 1-5'   # 2:15 PM IST
-    - cron: '15 9 * * 1-5'   # 2:45 PM IST
-    - cron: '0 10 * * 1-5'   # 3:30 PM IST (market close)
-    # Evening summary
-    - cron: '30 14 * * *'    # 8:00 PM IST (daily summary)
+    - cron: '30 4 * * *'    # 10:00 AM IST (4:30 UTC)
+    - cron: '30 8 * * *'    # 2:00 PM IST  (8:30 UTC)
+    - cron: '30 14 * * *'   # 8:00 PM IST  (14:30 UTC)
 
 permissions:
   contents: write
@@ -109,6 +96,15 @@ jobs:
         fi
         echo "✅ Trendline scanner completed"
 
+    - name: Send Telegram alerts (Volume + Trendline)
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        echo "📣 Sending Telegram alerts for new stocks..."
+        python notify_new_stocks.py || echo "⚠️ Notifier failed, continuing..."
+        echo "✅ Notifications completed"
+
     - name: Monitor open positions (Angel One)
       env:
         ANGEL_API_KEY:      ${{ secrets.ANGEL_API_KEY }}
@@ -148,7 +144,7 @@ jobs:
         
         # Commit changes to private repo
         git add data.json index.html trendline_screen.json
-        git add radar_trades.json alerted_today.json 2>/dev/null || true
+        git add radar_trades.json alerted_today.json notify_new_stocks.py 2>/dev/null || true
         
         # Create commit message with run context and better formatting
         RUN_CONTEXT="${{ github.event.schedule }}"
