@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-05-24T18:58:10.160316",
+  "generated_at": "2026-05-25T14:56:53.471954",
   "backtest_years": 10,
   "period": {
-    "start": "2016-03-27",
-    "end": "2026-05-24"
+    "start": "2016-03-28",
+    "end": "2026-05-25"
   },
   "parameters": {
     "position_size": 50000,
@@ -13,20 +13,20 @@
     "timeout_days": 180
   },
   "summary": {
-    "total_trades": 266,
-    "winning_trades": 174,
-    "losing_trades": 92,
-    "win_rate": 65.41,
-    "avg_win_pct": 16.73,
-    "avg_loss_pct": -6.49,
-    "avg_return_pct": 8.7,
-    "total_pnl": 1146926.18,
-    "avg_pnl_per_trade": 4311.75,
-    "avg_holding_days": 88.0,
-    "profit_factor": 4.9,
+    "total_trades": 271,
+    "winning_trades": 176,
+    "losing_trades": 95,
+    "win_rate": 64.94,
+    "avg_win_pct": 16.98,
+    "avg_loss_pct": -6.54,
+    "avg_return_pct": 8.73,
+    "total_pnl": 1173013.23,
+    "avg_pnl_per_trade": 4328.46,
+    "avg_holding_days": 87.3,
+    "profit_factor": 4.83,
     "outcome_breakdown": {
-      "STOP_LOSS": 60,
-      "TARGET_HIT": 137,
+      "STOP_LOSS": 61,
+      "TARGET_HIT": 141,
       "OPEN": 39,
       "TIMEOUT": 30
     }
@@ -165,7 +165,7 @@
       "losses": 0,
       "win_rate": 100.0,
       "avg_return_pct": 20.0,
-      "total_pnl": 19948.12,
+      "total_pnl": 19946.94,
       "best_trade_pct": 20.0,
       "worst_trade_pct": 20.0,
       "avg_holding_days": 20.0,
@@ -174,13 +174,13 @@
           "entry_date": "2021-01-01",
           "exit_date": "2021-02-08",
           "entry_price": 422.06,
-          "exit_price": 506.48,
+          "exit_price": 506.47,
           "stop_loss": 388.3,
-          "target": 506.48,
+          "target": 506.47,
           "shares": 118,
           "outcome": "TARGET_HIT",
           "pnl_pct": 20.0,
-          "pnl_amount": 9961.56,
+          "pnl_amount": 9960.38,
           "holding_days": 38,
           "symbol": "DBL"
         },
@@ -207,7 +207,7 @@
       "losses": 0,
       "win_rate": 100.0,
       "avg_return_pct": 20.0,
-      "total_pnl": 19943.4,
+      "total_pnl": 19942.95,
       "best_trade_pct": 20.0,
       "worst_trade_pct": 20.0,
       "avg_holding_days": 130.0,
@@ -215,14 +215,14 @@
         {
           "entry_date": "2023-01-01",
           "exit_date": "2023-06-30",
-          "entry_price": 1105.75,
+          "entry_price": 1105.76,
           "exit_price": 1326.91,
           "stop_loss": 1017.29,
           "target": 1326.91,
           "shares": 45,
           "outcome": "TARGET_HIT",
           "pnl_pct": 20.0,
-          "pnl_amount": 9952.2,
+          "pnl_amount": 9951.75,
           "holding_days": 180,
           "symbol": "ICICIGI"
         },
@@ -239,6 +239,48 @@
           "pnl_amount": 9991.2,
           "holding_days": 80,
           "symbol": "ICICIGI"
+        }
+      ]
+    },
+    {
+      "symbol": "SUNTV",
+      "total_trades": 2,
+      "wins": 2,
+      "losses": 0,
+      "win_rate": 100.0,
+      "avg_return_pct": 20.0,
+      "total_pnl": 19873.45,
+      "best_trade_pct": 20.0,
+      "worst_trade_pct": 20.0,
+      "avg_holding_days": 42.0,
+      "trades": [
+        {
+          "entry_date": "2023-05-01",
+          "exit_date": "2023-07-21",
+          "entry_price": 420.79,
+          "exit_price": 504.95,
+          "stop_loss": 387.13,
+          "target": 504.95,
+          "shares": 118,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9930.88,
+          "holding_days": 81,
+          "symbol": "SUNTV"
+        },
+        {
+          "entry_date": "2026-05-01",
+          "exit_date": "2026-05-04",
+          "entry_price": 502.17,
+          "exit_price": 602.6,
+          "stop_loss": 461.99,
+          "target": 602.6,
+          "shares": 99,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9942.57,
+          "holding_days": 3,
+          "symbol": "SUNTV"
         }
       ]
     },
@@ -767,7 +809,7 @@
       "losses": 0,
       "win_rate": 100.0,
       "avg_return_pct": 14.9,
-      "total_pnl": 11823.38,
+      "total_pnl": 11823.36,
       "best_trade_pct": 20.0,
       "worst_trade_pct": 9.79,
       "avg_holding_days": 86.0,
@@ -777,7 +819,7 @@
           "exit_date": "2022-08-30",
           "entry_price": 18511.79,
           "exit_price": 22214.15,
-          "stop_loss": 17030.84,
+          "stop_loss": 17030.85,
           "target": 22214.15,
           "shares": 2,
           "outcome": "TARGET_HIT",
@@ -789,14 +831,14 @@
         {
           "entry_date": "2026-03-01",
           "exit_date": "2026-05-22",
-          "entry_price": 22575.67,
+          "entry_price": 22575.68,
           "exit_price": 24785.0,
           "stop_loss": 20769.62,
-          "target": 27090.8,
+          "target": 27090.81,
           "shares": 2,
           "outcome": "OPEN",
           "pnl_pct": 9.79,
-          "pnl_amount": 4418.66,
+          "pnl_amount": 4418.64,
           "holding_days": 82,
           "symbol": "SHREECEM"
         }
@@ -841,48 +883,6 @@
           "pnl_amount": 844.0,
           "holding_days": 51,
           "symbol": "IEX"
-        }
-      ]
-    },
-    {
-      "symbol": "EIDPARRY",
-      "total_trades": 2,
-      "wins": 2,
-      "losses": 0,
-      "win_rate": 100.0,
-      "avg_return_pct": 10.59,
-      "total_pnl": 10563.8,
-      "best_trade_pct": 20.0,
-      "worst_trade_pct": 1.18,
-      "avg_holding_days": 63.0,
-      "trades": [
-        {
-          "entry_date": "2023-06-01",
-          "exit_date": "2023-09-14",
-          "entry_price": 453.73,
-          "exit_price": 544.47,
-          "stop_loss": 417.43,
-          "target": 544.47,
-          "shares": 110,
-          "outcome": "TARGET_HIT",
-          "pnl_pct": 20.0,
-          "pnl_amount": 9981.4,
-          "holding_days": 105,
-          "symbol": "EIDPARRY"
-        },
-        {
-          "entry_date": "2026-05-01",
-          "exit_date": "2026-05-22",
-          "entry_price": 769.85,
-          "exit_price": 778.95,
-          "stop_loss": 708.26,
-          "target": 923.82,
-          "shares": 64,
-          "outcome": "OPEN",
-          "pnl_pct": 1.18,
-          "pnl_amount": 582.4,
-          "holding_days": 21,
-          "symbol": "EIDPARRY"
         }
       ]
     },
@@ -1237,6 +1237,34 @@
       ]
     },
     {
+      "symbol": "BSOFT",
+      "total_trades": 1,
+      "wins": 1,
+      "losses": 0,
+      "win_rate": 100.0,
+      "avg_return_pct": 20.0,
+      "total_pnl": 9996.0,
+      "best_trade_pct": 20.0,
+      "worst_trade_pct": 20.0,
+      "avg_holding_days": 65.0,
+      "trades": [
+        {
+          "entry_date": "2025-10-01",
+          "exit_date": "2025-12-05",
+          "entry_price": 367.45,
+          "exit_price": 440.95,
+          "stop_loss": 338.06,
+          "target": 440.95,
+          "shares": 136,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9996.0,
+          "holding_days": 65,
+          "symbol": "BSOFT"
+        }
+      ]
+    },
+    {
       "symbol": "INDHOTEL",
       "total_trades": 1,
       "wins": 1,
@@ -1489,6 +1517,34 @@
       ]
     },
     {
+      "symbol": "SURYAROSNI",
+      "total_trades": 1,
+      "wins": 1,
+      "losses": 0,
+      "win_rate": 100.0,
+      "avg_return_pct": 20.0,
+      "total_pnl": 9993.5,
+      "best_trade_pct": 20.0,
+      "worst_trade_pct": 20.0,
+      "avg_holding_days": 3.0,
+      "trades": [
+        {
+          "entry_date": "2026-05-01",
+          "exit_date": "2026-05-04",
+          "entry_price": 217.25,
+          "exit_price": 260.7,
+          "stop_loss": 199.87,
+          "target": 260.7,
+          "shares": 230,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9993.5,
+          "holding_days": 3,
+          "symbol": "SURYAROSNI"
+        }
+      ]
+    },
+    {
       "symbol": "RALLIS",
       "total_trades": 1,
       "wins": 1,
@@ -1653,6 +1709,34 @@
           "pnl_amount": 9990.45,
           "holding_days": 39,
           "symbol": "HFCL"
+        }
+      ]
+    },
+    {
+      "symbol": "NATIONALUM",
+      "total_trades": 1,
+      "wins": 1,
+      "losses": 0,
+      "win_rate": 100.0,
+      "avg_return_pct": 20.0,
+      "total_pnl": 9990.17,
+      "best_trade_pct": 20.0,
+      "worst_trade_pct": 20.0,
+      "avg_holding_days": 123.0,
+      "trades": [
+        {
+          "entry_date": "2022-09-01",
+          "exit_date": "2023-01-02",
+          "entry_price": 58.14,
+          "exit_price": 69.77,
+          "stop_loss": 53.49,
+          "target": 69.77,
+          "shares": 859,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9990.17,
+          "holding_days": 123,
+          "symbol": "NATIONALUM"
         }
       ]
     },
@@ -2073,6 +2157,34 @@
           "pnl_amount": 9981.72,
           "holding_days": 9,
           "symbol": "RCF"
+        }
+      ]
+    },
+    {
+      "symbol": "EIDPARRY",
+      "total_trades": 1,
+      "wins": 1,
+      "losses": 0,
+      "win_rate": 100.0,
+      "avg_return_pct": 20.0,
+      "total_pnl": 9981.4,
+      "best_trade_pct": 20.0,
+      "worst_trade_pct": 20.0,
+      "avg_holding_days": 105.0,
+      "trades": [
+        {
+          "entry_date": "2023-06-01",
+          "exit_date": "2023-09-14",
+          "entry_price": 453.73,
+          "exit_price": 544.47,
+          "stop_loss": 417.43,
+          "target": 544.47,
+          "shares": 110,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9981.4,
+          "holding_days": 105,
+          "symbol": "EIDPARRY"
         }
       ]
     },
@@ -2805,34 +2917,6 @@
       ]
     },
     {
-      "symbol": "PRAJIND",
-      "total_trades": 1,
-      "wins": 1,
-      "losses": 0,
-      "win_rate": 100.0,
-      "avg_return_pct": 20.0,
-      "total_pnl": 9937.5,
-      "best_trade_pct": 20.0,
-      "worst_trade_pct": 20.0,
-      "avg_holding_days": 80.0,
-      "trades": [
-        {
-          "entry_date": "2026-02-01",
-          "exit_date": "2026-04-22",
-          "entry_price": 312.51,
-          "exit_price": 375.01,
-          "stop_loss": 287.51,
-          "target": 375.01,
-          "shares": 159,
-          "outcome": "TARGET_HIT",
-          "pnl_pct": 20.0,
-          "pnl_amount": 9937.5,
-          "holding_days": 80,
-          "symbol": "PRAJIND"
-        }
-      ]
-    },
-    {
       "symbol": "GODREJAGRO",
       "total_trades": 1,
       "wins": 1,
@@ -2889,34 +2973,6 @@
       ]
     },
     {
-      "symbol": "SUNTV",
-      "total_trades": 1,
-      "wins": 1,
-      "losses": 0,
-      "win_rate": 100.0,
-      "avg_return_pct": 20.0,
-      "total_pnl": 9930.88,
-      "best_trade_pct": 20.0,
-      "worst_trade_pct": 20.0,
-      "avg_holding_days": 81.0,
-      "trades": [
-        {
-          "entry_date": "2023-05-01",
-          "exit_date": "2023-07-21",
-          "entry_price": 420.79,
-          "exit_price": 504.95,
-          "stop_loss": 387.13,
-          "target": 504.95,
-          "shares": 118,
-          "outcome": "TARGET_HIT",
-          "pnl_pct": 20.0,
-          "pnl_amount": 9930.88,
-          "holding_days": 81,
-          "symbol": "SUNTV"
-        }
-      ]
-    },
-    {
       "symbol": "AUROPHARMA",
       "total_trades": 1,
       "wins": 1,
@@ -2969,34 +3025,6 @@
           "pnl_amount": 9911.72,
           "holding_days": 80,
           "symbol": "GHCL"
-        }
-      ]
-    },
-    {
-      "symbol": "TATACONSUM",
-      "total_trades": 1,
-      "wins": 1,
-      "losses": 0,
-      "win_rate": 100.0,
-      "avg_return_pct": 20.0,
-      "total_pnl": 9900.48,
-      "best_trade_pct": 20.0,
-      "worst_trade_pct": 20.0,
-      "avg_holding_days": 71.0,
-      "trades": [
-        {
-          "entry_date": "2026-03-01",
-          "exit_date": "2026-05-11",
-          "entry_price": 1031.31,
-          "exit_price": 1237.57,
-          "stop_loss": 948.8,
-          "target": 1237.57,
-          "shares": 48,
-          "outcome": "TARGET_HIT",
-          "pnl_pct": 20.0,
-          "pnl_amount": 9900.48,
-          "holding_days": 71,
-          "symbol": "TATACONSUM"
         }
       ]
     },
@@ -3235,6 +3263,34 @@
           "pnl_amount": 9820.98,
           "holding_days": 128,
           "symbol": "ENDURANCE"
+        }
+      ]
+    },
+    {
+      "symbol": "TATACONSUM",
+      "total_trades": 1,
+      "wins": 1,
+      "losses": 0,
+      "win_rate": 100.0,
+      "avg_return_pct": 20.0,
+      "total_pnl": 9817.44,
+      "best_trade_pct": 20.0,
+      "worst_trade_pct": 20.0,
+      "avg_holding_days": 71.0,
+      "trades": [
+        {
+          "entry_date": "2026-03-01",
+          "exit_date": "2026-05-11",
+          "entry_price": 1022.66,
+          "exit_price": 1227.19,
+          "stop_loss": 940.84,
+          "target": 1227.19,
+          "shares": 48,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9817.44,
+          "holding_days": 71,
+          "symbol": "TATACONSUM"
         }
       ]
     },
@@ -3995,6 +4051,48 @@
       ]
     },
     {
+      "symbol": "MSTCLTD",
+      "total_trades": 2,
+      "wins": 1,
+      "losses": 1,
+      "win_rate": 50.0,
+      "avg_return_pct": 6.0,
+      "total_pnl": 5977.6,
+      "best_trade_pct": 20.0,
+      "worst_trade_pct": -8.0,
+      "avg_holding_days": 74.0,
+      "trades": [
+        {
+          "entry_date": "2023-03-01",
+          "exit_date": "2023-04-28",
+          "entry_price": 225.57,
+          "exit_price": 270.69,
+          "stop_loss": 207.53,
+          "target": 270.69,
+          "shares": 221,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9971.52,
+          "holding_days": 58,
+          "symbol": "MSTCLTD"
+        },
+        {
+          "entry_date": "2026-01-01",
+          "exit_date": "2026-04-01",
+          "entry_price": 445.7,
+          "exit_price": 410.04,
+          "stop_loss": 410.04,
+          "target": 534.84,
+          "shares": 112,
+          "outcome": "STOP_LOSS",
+          "pnl_pct": -8.0,
+          "pnl_amount": -3993.92,
+          "holding_days": 90,
+          "symbol": "MSTCLTD"
+        }
+      ]
+    },
+    {
       "symbol": "TANLA",
       "total_trades": 2,
       "wins": 1,
@@ -4169,7 +4267,7 @@
       "losses": 0,
       "win_rate": 100.0,
       "avg_return_pct": 10.46,
-      "total_pnl": 5221.52,
+      "total_pnl": 5221.51,
       "best_trade_pct": 10.46,
       "worst_trade_pct": 10.46,
       "avg_holding_days": 180.0,
@@ -4179,12 +4277,12 @@
           "exit_date": "2021-01-28",
           "entry_price": 346.72,
           "exit_price": 382.98,
-          "stop_loss": 318.99,
+          "stop_loss": 318.98,
           "target": 416.07,
           "shares": 144,
           "outcome": "TIMEOUT",
           "pnl_pct": 10.46,
-          "pnl_amount": 5221.52,
+          "pnl_amount": 5221.51,
           "holding_days": 180,
           "symbol": "MARICO"
         }
@@ -4617,7 +4715,7 @@
       "losses": 2,
       "win_rate": 33.3,
       "avg_return_pct": 1.12,
-      "total_pnl": 1670.01,
+      "total_pnl": 1670.0,
       "best_trade_pct": 10.95,
       "worst_trade_pct": -4.99,
       "avg_holding_days": 138.0,
@@ -4632,7 +4730,7 @@
           "shares": 292,
           "outcome": "TIMEOUT",
           "pnl_pct": 10.95,
-          "pnl_amount": 5464.35,
+          "pnl_amount": 5464.34,
           "holding_days": 181,
           "symbol": "IGL"
         },
@@ -4673,7 +4771,7 @@
       "losses": 0,
       "win_rate": 100.0,
       "avg_return_pct": 2.64,
-      "total_pnl": 1246.74,
+      "total_pnl": 1246.75,
       "best_trade_pct": 2.64,
       "worst_trade_pct": 2.64,
       "avg_holding_days": 180.0,
@@ -4682,13 +4780,13 @@
           "entry_date": "2020-04-01",
           "exit_date": "2020-09-28",
           "entry_price": 4725.92,
-          "exit_price": 4850.59,
+          "exit_price": 4850.6,
           "stop_loss": 4347.85,
           "target": 5671.11,
           "shares": 10,
           "outcome": "TIMEOUT",
           "pnl_pct": 2.64,
-          "pnl_amount": 1246.74,
+          "pnl_amount": 1246.75,
           "holding_days": 180,
           "symbol": "GILLETTE"
         }
@@ -4751,34 +4849,6 @@
       ]
     },
     {
-      "symbol": "BSOFT",
-      "total_trades": 1,
-      "wins": 1,
-      "losses": 0,
-      "win_rate": 100.0,
-      "avg_return_pct": 1.96,
-      "total_pnl": 978.05,
-      "best_trade_pct": 1.96,
-      "worst_trade_pct": 1.96,
-      "avg_holding_days": 21.0,
-      "trades": [
-        {
-          "entry_date": "2026-05-01",
-          "exit_date": "2026-05-22",
-          "entry_price": 321.89,
-          "exit_price": 328.2,
-          "stop_loss": 296.14,
-          "target": 386.27,
-          "shares": 155,
-          "outcome": "OPEN",
-          "pnl_pct": 1.96,
-          "pnl_amount": 978.05,
-          "holding_days": 21,
-          "symbol": "BSOFT"
-        }
-      ]
-    },
-    {
       "symbol": "BAJFINANCE",
       "total_trades": 1,
       "wins": 1,
@@ -4807,30 +4877,30 @@
       ]
     },
     {
-      "symbol": "RELIANCE",
+      "symbol": "CENTRALBK",
       "total_trades": 1,
       "wins": 1,
       "losses": 0,
       "win_rate": 100.0,
-      "avg_return_pct": 1.24,
-      "total_pnl": 613.83,
-      "best_trade_pct": 1.24,
-      "worst_trade_pct": 1.24,
+      "avg_return_pct": 1.16,
+      "total_pnl": 582.12,
+      "best_trade_pct": 1.16,
+      "worst_trade_pct": 1.16,
       "avg_holding_days": 21.0,
       "trades": [
         {
           "entry_date": "2026-05-01",
           "exit_date": "2026-05-22",
-          "entry_price": 1337.91,
-          "exit_price": 1354.5,
-          "stop_loss": 1230.88,
-          "target": 1605.49,
-          "shares": 37,
+          "entry_price": 30.91,
+          "exit_price": 31.27,
+          "stop_loss": 28.43,
+          "target": 37.09,
+          "shares": 1617,
           "outcome": "OPEN",
-          "pnl_pct": 1.24,
-          "pnl_amount": 613.83,
+          "pnl_pct": 1.16,
+          "pnl_amount": 582.12,
           "holding_days": 21,
-          "symbol": "RELIANCE"
+          "symbol": "CENTRALBK"
         }
       ]
     },
@@ -4859,62 +4929,6 @@
           "pnl_amount": 245.83,
           "holding_days": 51,
           "symbol": "LICI"
-        }
-      ]
-    },
-    {
-      "symbol": "CENTRALBK",
-      "total_trades": 1,
-      "wins": 0,
-      "losses": 1,
-      "win_rate": 0.0,
-      "avg_return_pct": 0.0,
-      "total_pnl": 0.0,
-      "best_trade_pct": 0.0,
-      "worst_trade_pct": 0.0,
-      "avg_holding_days": 21.0,
-      "trades": [
-        {
-          "entry_date": "2026-05-01",
-          "exit_date": "2026-05-22",
-          "entry_price": 31.27,
-          "exit_price": 31.27,
-          "stop_loss": 28.77,
-          "target": 37.52,
-          "shares": 1598,
-          "outcome": "OPEN",
-          "pnl_pct": 0.0,
-          "pnl_amount": 0.0,
-          "holding_days": 21,
-          "symbol": "CENTRALBK"
-        }
-      ]
-    },
-    {
-      "symbol": "INTELLECT",
-      "total_trades": 1,
-      "wins": 0,
-      "losses": 1,
-      "win_rate": 0.0,
-      "avg_return_pct": -0.07,
-      "total_pnl": -34.79,
-      "best_trade_pct": -0.07,
-      "worst_trade_pct": -0.07,
-      "avg_holding_days": 21.0,
-      "trades": [
-        {
-          "entry_date": "2026-05-01",
-          "exit_date": "2026-05-22",
-          "entry_price": 698.44,
-          "exit_price": 697.95,
-          "stop_loss": 642.56,
-          "target": 838.13,
-          "shares": 71,
-          "outcome": "OPEN",
-          "pnl_pct": -0.07,
-          "pnl_amount": -34.79,
-          "holding_days": 21,
-          "symbol": "INTELLECT"
         }
       ]
     },
@@ -4971,34 +4985,6 @@
           "pnl_amount": -211.42,
           "holding_days": 180,
           "symbol": "TATACOMM"
-        }
-      ]
-    },
-    {
-      "symbol": "SURYAROSNI",
-      "total_trades": 1,
-      "wins": 0,
-      "losses": 1,
-      "win_rate": 0.0,
-      "avg_return_pct": -0.61,
-      "total_pnl": -303.0,
-      "best_trade_pct": -0.61,
-      "worst_trade_pct": -0.61,
-      "avg_holding_days": 21.0,
-      "trades": [
-        {
-          "entry_date": "2026-05-01",
-          "exit_date": "2026-05-22",
-          "entry_price": 247.25,
-          "exit_price": 245.75,
-          "stop_loss": 227.47,
-          "target": 296.7,
-          "shares": 202,
-          "outcome": "OPEN",
-          "pnl_pct": -0.61,
-          "pnl_amount": -303.0,
-          "holding_days": 21,
-          "symbol": "SURYAROSNI"
         }
       ]
     },
@@ -5157,6 +5143,34 @@
       ]
     },
     {
+      "symbol": "IDBI",
+      "total_trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "win_rate": 0.0,
+      "avg_return_pct": -2.38,
+      "total_pnl": -1187.67,
+      "best_trade_pct": -2.38,
+      "worst_trade_pct": -2.38,
+      "avg_holding_days": 21.0,
+      "trades": [
+        {
+          "entry_date": "2026-05-01",
+          "exit_date": "2026-05-22",
+          "entry_price": 74.42,
+          "exit_price": 72.65,
+          "stop_loss": 68.47,
+          "target": 89.3,
+          "shares": 671,
+          "outcome": "OPEN",
+          "pnl_pct": -2.38,
+          "pnl_amount": -1187.67,
+          "holding_days": 21,
+          "symbol": "IDBI"
+        }
+      ]
+    },
+    {
       "symbol": "BBTC",
       "total_trades": 1,
       "wins": 0,
@@ -5181,6 +5195,34 @@
           "pnl_amount": -1314.55,
           "holding_days": 182,
           "symbol": "BBTC"
+        }
+      ]
+    },
+    {
+      "symbol": "PRAJIND",
+      "total_trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "win_rate": 0.0,
+      "avg_return_pct": -2.68,
+      "total_pnl": -1330.52,
+      "best_trade_pct": -2.68,
+      "worst_trade_pct": -2.68,
+      "avg_holding_days": 21.0,
+      "trades": [
+        {
+          "entry_date": "2026-05-01",
+          "exit_date": "2026-05-22",
+          "entry_price": 400.98,
+          "exit_price": 390.25,
+          "stop_loss": 368.9,
+          "target": 481.18,
+          "shares": 124,
+          "outcome": "OPEN",
+          "pnl_pct": -2.68,
+          "pnl_amount": -1330.52,
+          "holding_days": 21,
+          "symbol": "PRAJIND"
         }
       ]
     },
@@ -5286,7 +5328,7 @@
           "entry_price": 35353.1,
           "exit_price": 32524.85,
           "stop_loss": 32524.85,
-          "target": 42423.72,
+          "target": 42423.71,
           "shares": 1,
           "outcome": "STOP_LOSS",
           "pnl_pct": -8.0,
@@ -5664,7 +5706,7 @@
           "entry_price": 2462.47,
           "exit_price": 2265.47,
           "stop_loss": 2265.47,
-          "target": 2954.96,
+          "target": 2954.97,
           "shares": 20,
           "outcome": "STOP_LOSS",
           "pnl_pct": -8.0,
@@ -5759,34 +5801,6 @@
       ]
     },
     {
-      "symbol": "AARTIIND",
-      "total_trades": 1,
-      "wins": 0,
-      "losses": 1,
-      "win_rate": 0.0,
-      "avg_return_pct": -8.0,
-      "total_pnl": -3967.8,
-      "best_trade_pct": -8.0,
-      "worst_trade_pct": -8.0,
-      "avg_holding_days": 61.0,
-      "trades": [
-        {
-          "entry_date": "2025-06-01",
-          "exit_date": "2025-08-01",
-          "entry_price": 486.34,
-          "exit_price": 447.44,
-          "stop_loss": 447.44,
-          "target": 583.61,
-          "shares": 102,
-          "outcome": "STOP_LOSS",
-          "pnl_pct": -8.0,
-          "pnl_amount": -3967.8,
-          "holding_days": 61,
-          "symbol": "AARTIIND"
-        }
-      ]
-    },
-    {
       "symbol": "MANKIND",
       "total_trades": 1,
       "wins": 0,
@@ -5811,6 +5825,34 @@
           "pnl_amount": -3968.16,
           "holding_days": 92,
           "symbol": "MANKIND"
+        }
+      ]
+    },
+    {
+      "symbol": "AARTIIND",
+      "total_trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "win_rate": 0.0,
+      "avg_return_pct": -8.0,
+      "total_pnl": -3968.82,
+      "best_trade_pct": -8.0,
+      "worst_trade_pct": -8.0,
+      "avg_holding_days": 61.0,
+      "trades": [
+        {
+          "entry_date": "2025-06-01",
+          "exit_date": "2025-08-01",
+          "entry_price": 486.34,
+          "exit_price": 447.43,
+          "stop_loss": 447.43,
+          "target": 583.61,
+          "shares": 102,
+          "outcome": "STOP_LOSS",
+          "pnl_pct": -8.0,
+          "pnl_amount": -3968.82,
+          "holding_days": 61,
+          "symbol": "AARTIIND"
         }
       ]
     },
@@ -6011,34 +6053,6 @@
       ]
     },
     {
-      "symbol": "UCOBANK",
-      "total_trades": 1,
-      "wins": 0,
-      "losses": 1,
-      "win_rate": 0.0,
-      "avg_return_pct": -7.98,
-      "total_pnl": -3988.9,
-      "best_trade_pct": -7.98,
-      "worst_trade_pct": -7.98,
-      "avg_holding_days": 90.0,
-      "trades": [
-        {
-          "entry_date": "2026-01-01",
-          "exit_date": "2026-04-01",
-          "entry_price": 28.32,
-          "exit_price": 26.06,
-          "stop_loss": 26.06,
-          "target": 33.99,
-          "shares": 1765,
-          "outcome": "STOP_LOSS",
-          "pnl_pct": -7.98,
-          "pnl_amount": -3988.9,
-          "holding_days": 90,
-          "symbol": "UCOBANK"
-        }
-      ]
-    },
-    {
       "symbol": "ABB",
       "total_trades": 1,
       "wins": 0,
@@ -6119,34 +6133,6 @@
           "pnl_amount": -3993.75,
           "holding_days": 59,
           "symbol": "IRCON"
-        }
-      ]
-    },
-    {
-      "symbol": "SUNTECK",
-      "total_trades": 1,
-      "wins": 0,
-      "losses": 1,
-      "win_rate": 0.0,
-      "avg_return_pct": -8.0,
-      "total_pnl": -3995.42,
-      "best_trade_pct": -8.0,
-      "worst_trade_pct": -8.0,
-      "avg_holding_days": 64.0,
-      "trades": [
-        {
-          "entry_date": "2019-12-01",
-          "exit_date": "2020-02-03",
-          "entry_price": 412.81,
-          "exit_price": 379.79,
-          "stop_loss": 379.79,
-          "target": 495.37,
-          "shares": 121,
-          "outcome": "STOP_LOSS",
-          "pnl_pct": -8.0,
-          "pnl_amount": -3995.42,
-          "holding_days": 64,
-          "symbol": "SUNTECK"
         }
       ]
     },
@@ -6291,34 +6277,6 @@
       ]
     },
     {
-      "symbol": "ALOKINDS",
-      "total_trades": 1,
-      "wins": 0,
-      "losses": 1,
-      "win_rate": 0.0,
-      "avg_return_pct": -8.04,
-      "total_pnl": -4018.41,
-      "best_trade_pct": -8.04,
-      "worst_trade_pct": -8.04,
-      "avg_holding_days": 60.0,
-      "trades": [
-        {
-          "entry_date": "2026-01-01",
-          "exit_date": "2026-03-02",
-          "entry_price": 15.3,
-          "exit_price": 14.07,
-          "stop_loss": 14.07,
-          "target": 18.35,
-          "shares": 3267,
-          "outcome": "STOP_LOSS",
-          "pnl_pct": -8.04,
-          "pnl_amount": -4018.41,
-          "holding_days": 60,
-          "symbol": "ALOKINDS"
-        }
-      ]
-    },
-    {
       "symbol": "UPL",
       "total_trades": 2,
       "wins": 0,
@@ -6361,6 +6319,48 @@
       ]
     },
     {
+      "symbol": "ALOKINDS",
+      "total_trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "win_rate": 0.0,
+      "avg_return_pct": -5.32,
+      "total_pnl": -5324.55,
+      "best_trade_pct": -2.61,
+      "worst_trade_pct": -8.04,
+      "avg_holding_days": 40.0,
+      "trades": [
+        {
+          "entry_date": "2026-01-01",
+          "exit_date": "2026-03-02",
+          "entry_price": 15.3,
+          "exit_price": 14.07,
+          "stop_loss": 14.07,
+          "target": 18.35,
+          "shares": 3267,
+          "outcome": "STOP_LOSS",
+          "pnl_pct": -8.04,
+          "pnl_amount": -4018.41,
+          "holding_days": 60,
+          "symbol": "ALOKINDS"
+        },
+        {
+          "entry_date": "2026-05-01",
+          "exit_date": "2026-05-22",
+          "entry_price": 12.63,
+          "exit_price": 12.3,
+          "stop_loss": 11.62,
+          "target": 15.16,
+          "shares": 3958,
+          "outcome": "OPEN",
+          "pnl_pct": -2.61,
+          "pnl_amount": -1306.14,
+          "holding_days": 21,
+          "symbol": "ALOKINDS"
+        }
+      ]
+    },
+    {
       "symbol": "APOLLOTYRE",
       "total_trades": 1,
       "wins": 0,
@@ -6385,6 +6385,48 @@
           "pnl_amount": -5364.52,
           "holding_days": 82,
           "symbol": "APOLLOTYRE"
+        }
+      ]
+    },
+    {
+      "symbol": "UCOBANK",
+      "total_trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "win_rate": 0.0,
+      "avg_return_pct": -5.92,
+      "total_pnl": -5912.47,
+      "best_trade_pct": -3.85,
+      "worst_trade_pct": -7.98,
+      "avg_holding_days": 56.0,
+      "trades": [
+        {
+          "entry_date": "2026-01-01",
+          "exit_date": "2026-04-01",
+          "entry_price": 28.32,
+          "exit_price": 26.06,
+          "stop_loss": 26.06,
+          "target": 33.99,
+          "shares": 1765,
+          "outcome": "STOP_LOSS",
+          "pnl_pct": -7.98,
+          "pnl_amount": -3988.9,
+          "holding_days": 90,
+          "symbol": "UCOBANK"
+        },
+        {
+          "entry_date": "2026-05-01",
+          "exit_date": "2026-05-22",
+          "entry_price": 25.73,
+          "exit_price": 24.74,
+          "stop_loss": 23.67,
+          "target": 30.87,
+          "shares": 1943,
+          "outcome": "OPEN",
+          "pnl_pct": -3.85,
+          "pnl_amount": -1923.57,
+          "holding_days": 21,
+          "symbol": "UCOBANK"
         }
       ]
     },
@@ -6427,6 +6469,48 @@
           "pnl_amount": -3991.58,
           "holding_days": 60,
           "symbol": "KANSAINER"
+        }
+      ]
+    },
+    {
+      "symbol": "SUNTECK",
+      "total_trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "win_rate": 0.0,
+      "avg_return_pct": -6.8,
+      "total_pnl": -6782.72,
+      "best_trade_pct": -5.6,
+      "worst_trade_pct": -8.0,
+      "avg_holding_days": 42.0,
+      "trades": [
+        {
+          "entry_date": "2019-12-01",
+          "exit_date": "2020-02-03",
+          "entry_price": 412.81,
+          "exit_price": 379.79,
+          "stop_loss": 379.79,
+          "target": 495.37,
+          "shares": 121,
+          "outcome": "STOP_LOSS",
+          "pnl_pct": -8.0,
+          "pnl_amount": -3995.42,
+          "holding_days": 64,
+          "symbol": "SUNTECK"
+        },
+        {
+          "entry_date": "2026-05-01",
+          "exit_date": "2026-05-22",
+          "entry_price": 305.3,
+          "exit_price": 288.2,
+          "stop_loss": 280.87,
+          "target": 366.36,
+          "shares": 163,
+          "outcome": "OPEN",
+          "pnl_pct": -5.6,
+          "pnl_amount": -2787.3,
+          "holding_days": 21,
+          "symbol": "SUNTECK"
         }
       ]
     },
