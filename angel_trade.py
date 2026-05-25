@@ -194,7 +194,7 @@ def place_order():
 
         # Place LIMIT ORDER with ONLY 4 parameters: Stock, Action, Entry Price, Quantity
         order_params = {
-            "variety":         "NORMAL",
+            "variety":         "AMO",
             "tradingsymbol":   trading_symbol,
             "symboltoken":     symbol_token,
             "transactiontype": ACTION,
