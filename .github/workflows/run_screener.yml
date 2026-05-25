@@ -129,7 +129,21 @@ jobs:
           echo "❌ data.json not found - creating fallback"
           echo '{"timestamp":"2024-12-19T16:30:00.000Z","golden_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"elliott_wave_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"golden_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"elliott_wave_matches":0,"errors":["Screener execution failed"]}}' > data.json
         fi
-    
+        - name: Check Open Positions for Target or SL Hits
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        python check_alerts.py
+
+    - name: Commit and Push structural changes back to UI
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add radar_trades.json || true
+        git commit -m "chore: cloud workflow auto-synced alert logs" || echo "No changes"
+        git push || echo "Push failed"
+
     - name: Commit and push results
       run: |
         git config --global user.name "GitHub Action"
