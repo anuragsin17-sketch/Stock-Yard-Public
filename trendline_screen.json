@@ -1,14 +1,14 @@
 [
     {
         "ticker": "RENUKA",
-        "currentPrice": 23.3700008392334,
+        "currentPrice": 23.290000915527344,
         "triggerPrice": 23.97,
-        "distanceRemaining": -2.5,
+        "distanceRemaining": -2.84,
         "fibLevelMatch": "N/A",
         "patternZone": "Fib confluence: 78.6% (1.9% away)",
         "notificationTrigger": false,
         "positionSizing": {
-            "sharesToBuy": 2139,
+            "sharesToBuy": 2146,
             "strictStopLoss": 22.05,
             "pivotTargetExit": 28.76,
             "allocatedAmount": 50000.0
@@ -19,9 +19,9 @@
     },
     {
         "ticker": "HAVELLS",
-        "currentPrice": 1199.699951171875,
+        "currentPrice": 1201.0,
         "triggerPrice": 1221.65,
-        "distanceRemaining": -1.8,
+        "distanceRemaining": -1.69,
         "fibLevelMatch": "N/A",
         "patternZone": "No Fib within 2% (closest: 78.6% at 8.7%)",
         "notificationTrigger": false,
@@ -37,14 +37,14 @@
     },
     {
         "ticker": "CENTRALBK",
-        "currentPrice": 31.1200008392334,
+        "currentPrice": 31.020000457763672,
         "triggerPrice": 31.34,
-        "distanceRemaining": -0.7,
+        "distanceRemaining": -1.02,
         "fibLevelMatch": "N/A",
         "patternZone": "No Fib within 2% (closest: 78.6% at 3.4%)",
-        "notificationTrigger": true,
+        "notificationTrigger": false,
         "positionSizing": {
-            "sharesToBuy": 1606,
+            "sharesToBuy": 1611,
             "strictStopLoss": 28.83,
             "pivotTargetExit": 37.61,
             "allocatedAmount": 50000.0
@@ -54,33 +54,33 @@
         "confluenceScore": 6
     },
     {
-        "ticker": "AMBUJACEM",
-        "currentPrice": 446.29998779296875,
-        "triggerPrice": 443.31,
-        "distanceRemaining": 0.67,
+        "ticker": "EIDPARRY",
+        "currentPrice": 764.5499877929688,
+        "triggerPrice": 769.85,
+        "distanceRemaining": -0.69,
         "fibLevelMatch": "N/A",
-        "patternZone": "Fib confluence: 50.0% (0.1% away)",
+        "patternZone": "No Fib within 2% (closest: 78.6% at 2.0%)",
         "notificationTrigger": true,
         "positionSizing": {
-            "sharesToBuy": 112,
-            "strictStopLoss": 407.84,
-            "pivotTargetExit": 531.97,
+            "sharesToBuy": 65,
+            "strictStopLoss": 708.26,
+            "pivotTargetExit": 923.82,
             "allocatedAmount": 50000.0
         },
-        "wickTouches": 9,
+        "wickTouches": 14,
         "timeframe": "monthly",
-        "confluenceScore": 10
+        "confluenceScore": 6
     },
     {
         "ticker": "IEX",
-        "currentPrice": 127.05000305175781,
+        "currentPrice": 127.47000122070312,
         "triggerPrice": 126.02,
-        "distanceRemaining": 0.82,
+        "distanceRemaining": 1.15,
         "fibLevelMatch": "N/A",
         "patternZone": "Fib confluence: 50.0% (0.7% away)",
-        "notificationTrigger": true,
+        "notificationTrigger": false,
         "positionSizing": {
-            "sharesToBuy": 393,
+            "sharesToBuy": 392,
             "strictStopLoss": 115.93,
             "pivotTargetExit": 151.22,
             "allocatedAmount": 50000.0
@@ -90,33 +90,15 @@
         "confluenceScore": 9
     },
     {
-        "ticker": "BAYERCROP",
-        "currentPrice": 4422.60009765625,
-        "triggerPrice": 4364.58,
-        "distanceRemaining": 1.33,
-        "fibLevelMatch": "N/A",
-        "patternZone": "Fib confluence: 78.6% (1.7% away)",
-        "notificationTrigger": false,
-        "positionSizing": {
-            "sharesToBuy": 11,
-            "strictStopLoss": 4015.41,
-            "pivotTargetExit": 5237.49,
-            "allocatedAmount": 50000.0
-        },
-        "wickTouches": 17,
-        "timeframe": "monthly",
-        "confluenceScore": 8
-    },
-    {
         "ticker": "SUPREMEIND",
-        "currentPrice": 3576.199951171875,
+        "currentPrice": 3570.89990234375,
         "triggerPrice": 3524.27,
-        "distanceRemaining": 1.47,
+        "distanceRemaining": 1.32,
         "fibLevelMatch": "N/A",
         "patternZone": "No Fib within 2% (closest: 78.6% at 3.1%)",
         "notificationTrigger": false,
         "positionSizing": {
-            "sharesToBuy": 13,
+            "sharesToBuy": 14,
             "strictStopLoss": 3242.33,
             "pivotTargetExit": 4229.13,
             "allocatedAmount": 50000.0
@@ -124,6 +106,24 @@
         "wickTouches": 13,
         "timeframe": "monthly",
         "confluenceScore": 6
+    },
+    {
+        "ticker": "AMBUJACEM",
+        "currentPrice": 449.70001220703125,
+        "triggerPrice": 443.31,
+        "distanceRemaining": 1.44,
+        "fibLevelMatch": "N/A",
+        "patternZone": "Fib confluence: 50.0% (0.1% away)",
+        "notificationTrigger": false,
+        "positionSizing": {
+            "sharesToBuy": 111,
+            "strictStopLoss": 407.84,
+            "pivotTargetExit": 531.97,
+            "allocatedAmount": 50000.0
+        },
+        "wickTouches": 9,
+        "timeframe": "monthly",
+        "confluenceScore": 10
     },
     {
         "ticker": "JYOTHYLAB",
@@ -145,9 +145,9 @@
     },
     {
         "ticker": "GODREJCP",
-        "currentPrice": 1028.199951171875,
+        "currentPrice": 1031.800048828125,
         "triggerPrice": 1007.96,
-        "distanceRemaining": 2.01,
+        "distanceRemaining": 2.37,
         "fibLevelMatch": "N/A",
         "patternZone": "No Fib within 2% (closest: 78.6% at 6.4%)",
         "notificationTrigger": false,
@@ -162,28 +162,28 @@
         "confluenceScore": 6
     },
     {
-        "ticker": "EIDPARRY",
-        "currentPrice": 789.5499877929688,
-        "triggerPrice": 769.85,
-        "distanceRemaining": 2.56,
+        "ticker": "BAYERCROP",
+        "currentPrice": 4500.7998046875,
+        "triggerPrice": 4364.58,
+        "distanceRemaining": 3.12,
         "fibLevelMatch": "N/A",
-        "patternZone": "No Fib within 2% (closest: 78.6% at 2.0%)",
+        "patternZone": "Fib confluence: 78.6% (1.7% away)",
         "notificationTrigger": false,
         "positionSizing": {
-            "sharesToBuy": 63,
-            "strictStopLoss": 708.26,
-            "pivotTargetExit": 923.82,
+            "sharesToBuy": 11,
+            "strictStopLoss": 4015.41,
+            "pivotTargetExit": 5237.49,
             "allocatedAmount": 50000.0
         },
-        "wickTouches": 14,
+        "wickTouches": 17,
         "timeframe": "monthly",
-        "confluenceScore": 6
+        "confluenceScore": 8
     },
     {
         "ticker": "ASTRAL",
-        "currentPrice": 1576.699951171875,
+        "currentPrice": 1578.800048828125,
         "triggerPrice": 1530.84,
-        "distanceRemaining": 3.0,
+        "distanceRemaining": 3.13,
         "fibLevelMatch": "N/A",
         "patternZone": "No Fib within 2% (closest: 38.2% at 2.0%)",
         "notificationTrigger": false,
