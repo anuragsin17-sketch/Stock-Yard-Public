@@ -880,10 +880,14 @@ class StockScreener:
                 if weekly_data is not None and not weekly_data.empty:
                     golden_result = self.detect_golden_stocks_combined(data, weekly_data)
                     if golden_result.get('is_golden_stock', False):
+                        # Calculate EMAs for golden stocks (add ema50 since ema200 is already in golden_result)
+                        emas = self.calculate_emas(data)
+                        
                         stock_info = {
                             'symbol': symbol,
                             'company_name': company_name,
                             'industry': industry,
+                            'ema50': emas.get('ema50'),  # Add ema50
                             **golden_result
                         }
                         

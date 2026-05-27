@@ -53,6 +53,8 @@
             <tr>
                 <th>Ticker</th>
                 <th>Current Price (₹)</th>
+                <th>50 EMA (₹)</th>
+                <th>200 EMA (₹)</th>
                 <th>Entry Trigger (₹)</th>
                 <th>Distance</th>
                 <th>Fib Zone</th>
@@ -65,7 +67,7 @@
         </thead>
         <tbody id="table-body">
             <tr>
-                <td colspan="10" style="text-align: center; color: #94a3b8;">Loading latest geometric dataset...</td>
+                <td colspan="12" style="text-align: center; color: #94a3b8;">Loading latest geometric dataset...</td>
             </tr>
         </tbody>
     </table>
@@ -108,7 +110,7 @@
         } catch (error) {
             console.error('Error loading JSON data source:', error);
             document.getElementById('table-body').innerHTML = `
-                <tr><td colspan="10" style="text-align: center; color: #ef4444;">❌ Error fetching data source. Check backend JSON compiler pipeline.</td></tr>
+                <tr><td colspan="12" style="text-align: center; color: #ef4444;">❌ Error fetching data source. Check backend JSON compiler pipeline.</td></tr>
             `;
             updatePaginationInfo(0, 0, 0);
         }
@@ -130,7 +132,7 @@
         
         if (pageStocks.length === 0) {
             tableBody.innerHTML = `
-                <tr><td colspan="10" style="text-align: center; color: #94a3b8;">No stocks found matching criteria</td></tr>
+                <tr><td colspan="12" style="text-align: center; color: #94a3b8;">No stocks found matching criteria</td></tr>
             `;
         } else {
             pageStocks.forEach(stock => {
@@ -140,9 +142,25 @@
                 const badgeClass = stock.notificationTrigger ? 'status-critical' : 'status-watchlist';
                 const statusLabel = stock.notificationTrigger ? '🎯 CRITICAL' : '👀 WATCH';
                 
+                // Get EMA values (default to N/A if not present)
+                const ema50 = stock.ema50 ? `₹${stock.ema50.toFixed(2)}` : 'N/A';
+                const ema200 = stock.ema200 ? `₹${stock.ema200.toFixed(2)}` : 'N/A';
+                
+                // Color code EMAs based on price position
+                let ema50Color = '#94a3b8';
+                let ema200Color = '#94a3b8';
+                if (stock.ema50) {
+                    ema50Color = stock.currentPrice > stock.ema50 ? '#4ade80' : '#ef4444';
+                }
+                if (stock.ema200) {
+                    ema200Color = stock.currentPrice > stock.ema200 ? '#4ade80' : '#ef4444';
+                }
+                
                 row.innerHTML = `
                     <td style="font-weight: bold; color: #ffffff;">${stock.ticker}</td>
                     <td>₹${stock.currentPrice.toFixed(2)}</td>
+                    <td style="color: ${ema50Color};">${ema50}</td>
+                    <td style="color: ${ema200Color};">${ema200}</td>
                     <td style="color: #38bdf8; font-weight: 600;">₹${stock.triggerPrice.toFixed(2)}</td>
                     <td style="color: ${stock.distanceRemaining <= 2.0 ? '#f43f5e' : '#f8fafc'}">${stock.distanceRemaining.toFixed(2)}%</td>
                     <td><span class="zone-badge">${stock.fibLevelMatch}</span></td>

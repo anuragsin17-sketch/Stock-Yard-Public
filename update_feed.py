@@ -2,6 +2,7 @@ import json
 import pandas as pd
 import os
 import requests
+import yfinance as yf
 from datetime import datetime
 from geometric_engine import MacroInstitutionalEngine
 
@@ -23,6 +24,31 @@ def send_telegram_alert(message: str) -> None:
             print(f"Telegram failed: {response.text}")
     except Exception as e:
         print(f"Telegram error: {e}")
+
+def calculate_emas(ticker: str) -> dict:
+    """Calculate 50 EMA and 200 EMA for a given ticker"""
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="1y")  # Get 1 year of data for EMA calculation
+        
+        if hist.empty or len(hist) < 200:
+            return {"ema50": None, "ema200": None}
+        
+        # Calculate EMAs - get the last value
+        ema50_series = hist['Close'].ewm(span=50, adjust=False).mean()
+        ema200_series = hist['Close'].ewm(span=200, adjust=False).mean()
+        
+        ema50 = ema50_series.iloc[-1]
+        ema200 = ema200_series.iloc[-1]
+        
+        return {
+            "ema50": round(float(ema50), 2) if pd.notna(ema50) else None,
+            "ema200": round(float(ema200), 2) if pd.notna(ema200) else None
+        }
+    except Exception as e:
+        print(f"   EMA calculation error for {ticker}: {e}")
+        return {"ema50": None, "ema200": None}
+
 
 def synchronize_production_database():
     engine = MacroInstitutionalEngine(position_size=50000.0, sl_pct=8.0, touch_tolerance=2.0)
@@ -60,9 +86,14 @@ def synchronize_production_database():
         try:
             data = engine.process_ticker_geometry(stock)
             if data:
+                # Calculate EMAs
+                emas = calculate_emas(stock)
+                
                 record = {
                     "ticker": data["ticker"],
                     "currentPrice": data["currentSignal"]["currentPrice"],
+                    "ema50": emas["ema50"],
+                    "ema200": emas["ema200"],
                     "triggerPrice": data["currentSignal"]["triggerPrice"],
                     "distanceRemaining": data["currentSignal"]["distanceRemaining"],
                     "fibLevelMatch": data["currentSignal"].get("fibLevelMatch", "N/A"),
@@ -80,7 +111,9 @@ def synchronize_production_database():
                 }
 
                 compiled_screen_data.append(record)
-                print(f"   [+] {data['ticker']:12} | Rs{record['currentPrice']:8.2f} | Trigger: Rs{record['triggerPrice']:8.2f} | Dist: {record['distanceRemaining']:.2f}%")
+                ema_info = f"50EMA: ₹{emas['ema50']:.2f}" if emas['ema50'] else "50EMA: N/A"
+                ema_info += f" | 200EMA: ₹{emas['ema200']:.2f}" if emas['ema200'] else " | 200EMA: N/A"
+                print(f"   [+] {data['ticker']:12} | Rs{record['currentPrice']:8.2f} | Trigger: Rs{record['triggerPrice']:8.2f} | Dist: {record['distanceRemaining']:.2f}% | {ema_info}")
 
                 if data["currentSignal"]["notificationTrigger"]:
                     critical_alerts.append(data['ticker'])
