@@ -341,6 +341,27 @@ class StockScreener:
             logger.error(f"Error calculating RSI: {e}")
             return pd.Series()
     
+    def calculate_emas(self, data: pd.DataFrame) -> dict:
+        """Calculate 50 EMA and 200 EMA for a given stock data"""
+        try:
+            if data.empty or len(data) < 200:
+                return {"ema50": None, "ema200": None}
+            
+            # Calculate EMAs - get the last value
+            ema50_series = data['Close'].ewm(span=50, adjust=False).mean()
+            ema200_series = data['Close'].ewm(span=200, adjust=False).mean()
+            
+            ema50 = ema50_series.iloc[-1]
+            ema200 = ema200_series.iloc[-1]
+            
+            return {
+                "ema50": round(float(ema50), 2) if pd.notna(ema50) else None,
+                "ema200": round(float(ema200), 2) if pd.notna(ema200) else None
+            }
+        except Exception as e:
+            logger.error(f"Error calculating EMAs: {e}")
+            return {"ema50": None, "ema200": None}
+    
     def detect_trendline(self, price_data: pd.DataFrame, timeframe: str) -> Optional[Dict]:
         """Detect ascending trendline from price data
         
@@ -835,11 +856,16 @@ class StockScreener:
             try:
                 volume_result = self.check_volume_breakout(data)
                 if volume_result.get('is_volume_breakout', False):
+                    # Calculate EMAs for volume breakout stocks
+                    emas = self.calculate_emas(data)
+                    
                     stock_info = {
                         'symbol': symbol,
                         'company_name': company_name,
                         'industry': industry,
                         'vertical_line_price': vertical_line_price,  # Add vertical line price
+                        'ema50': emas.get('ema50'),
+                        'ema200': emas.get('ema200'),
                         **volume_result
                     }
                     self.results['volume_breakout_stocks'].append(stock_info)
