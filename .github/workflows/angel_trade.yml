@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   execute-trade:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Runs on your PC instead of GitHub servers
 
     steps:
     - name: Checkout
@@ -31,7 +31,7 @@ jobs:
         echo "Action      : ${{ github.event.client_payload.action }}"
         echo "Entry Price : ₹${{ github.event.client_payload.price }}"
         echo "Quantity    : ${{ github.event.client_payload.quantity }}"
-        echo "Time        : $(TZ='Asia/Kolkata' date)"
+        echo "Time        : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 
     - name: Execute trade on Angel One
       env:
@@ -46,7 +46,7 @@ jobs:
         TRADE_PRICE:        ${{ github.event.client_payload.price }}
         TRADE_QUANTITY:     ${{ github.event.client_payload.quantity }}
       run: |
-        echo "🚀 Executing trade..."
+        echo "🚀 Executing trade on self-hosted runner..."
         python angel_trade.py
         echo "✅ Trade execution completed"
 
@@ -54,8 +54,9 @@ jobs:
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add angel_orders.json || true
-        git commit -m "📊 Order log: ${{ github.event.client_payload.action }} ${{ github.event.client_payload.symbol }}" || echo "No changes"
-        git push || echo "Push failed"
+        git add radar_trades.json 2>$null
+        git commit -m "📊 Order log: ${{ github.event.client_payload.action }} ${{ github.event.client_payload.symbol }}" 2>$null
+        if ($LASTEXITCODE -eq 0) { git push }
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: pwsh
