@@ -1,57 +1,65 @@
 #!/usr/bin/env python3
 """
-Angel One Position Monitor
-- Runs every 15 min during market hours
-- Checks open positions in radar_trades.json
-- Sends Telegram ONLY when something new happens
-- Updates radar_trades.json with latest status
+Radar Position Monitor
+- Monitors Radar tab stocks for price triggers
+- Sends Telegram when price reaches entry, target, or stoploss
+- Updates radar_trades.json with current prices and status
 """
 
 import os
 import json
-import pyotp
 import requests
 import yfinance as yf
-from datetime import datetime, date
-from SmartApi import SmartConnect
+from datetime import datetime
 
-API_KEY        = os.environ.get('ANGEL_API_KEY')
-CLIENT_ID      = os.environ.get('ANGEL_CLIENT_ID')
-PASSWORD       = os.environ.get('ANGEL_PASSWORD')
-TOTP_SECRET    = os.environ.get('ANGEL_TOTP_SECRET')
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-TELEGRAM_CHAT  = os.environ.get('TELEGRAM_CHAT_ID')
-
+TELEGRAM_CHAT = os.environ.get('TELEGRAM_CHAT_ID')
 RADAR_FILE = 'radar_trades.json'
-BASE_URL   = "https://anuragsin17-sketch.github.io/Stock-Yard-Public"
 
-def send_telegram(message):
+
+def send_telegram(message: str) -> bool:
+    """Send Telegram notification"""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
-        return
+        print("⚠️ Telegram not configured")
+        return False
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.post(url, json={
+        resp = requests.post(url, json={
             'chat_id': TELEGRAM_CHAT,
             'text': message,
             'parse_mode': 'Markdown'
         }, timeout=10)
+        if resp.status_code == 200:
+            print("✅ Telegram sent")
+            return True
+        print(f"❌ Telegram failed: {resp.text[:200]}")
     except Exception as e:
-        print(f"Telegram error: {e}")
+        print(f"❌ Telegram error: {e}")
+    return False
 
-def load_radar():
+
+def load_radar() -> list:
+    """Load radar trades from file"""
     if not os.path.exists(RADAR_FILE):
         return []
     try:
         with open(RADAR_FILE, 'r') as f:
             return json.load(f)
-    except Exception:
+    except Exception as e:
+        print(f"Error loading radar trades: {e}")
         return []
 
-def save_radar(trades):
-    with open(RADAR_FILE, 'w') as f:
-        json.dump(trades, f, indent=2)
 
-def get_live_price(ticker):
+def save_radar(trades: list):
+    """Save radar trades to file"""
+    try:
+        with open(RADAR_FILE, 'w') as f:
+            json.dump(trades, f, indent=2)
+    except Exception as e:
+        print(f"Error saving radar trades: {e}")
+
+
+def get_live_price(ticker: str) -> float:
     """Get current price via yfinance"""
     try:
         symbol = ticker + '.NS' if not ticker.endswith('.NS') else ticker
@@ -63,66 +71,41 @@ def get_live_price(ticker):
         print(f"Price fetch error for {ticker}: {e}")
     return None
 
-def check_angel_order_status(smart, order_id):
-    """Check if order is still open or executed in Angel One"""
-    try:
-        orders = smart.orderBook()
-        if orders and orders.get('data'):
-            for order in orders['data']:
-                if order.get('orderid') == order_id:
-                    return order.get('status', 'UNKNOWN')
-    except Exception as e:
-        print(f"Order status error: {e}")
-    return None
 
-def monitor_positions():
-    print(f"POSITION MONITOR - {datetime.now().strftime('%Y-%m-%d %H:%M IST')}")
-    print("="*60)
+def monitor_radar_positions():
+    """
+    Monitor Radar tab stocks and send Telegram notifications:
+    - When price reaches entry price → Trade Triggered
+    - When price reaches target or stoploss → Position Closed
+    """
+    print(f"RADAR MONITOR - {datetime.now().strftime('%Y-%m-%d %H:%M IST')}")
+    print("=" * 60)
 
     trades = load_radar()
-    open_trades = [t for t in trades if t.get('status') == 'Open']
-
-    if not open_trades:
-        print("No open positions to monitor")
+    if not trades:
+        print("No trades in radar_trades.json")
         return
 
-    print(f"Monitoring {len(open_trades)} open positions...")
+    triggered_trades = [t for t in trades if t.get('status') in ['Pending', 'Triggered']]
+    if not triggered_trades:
+        print("No pending or triggered trades to monitor")
+        return
 
-    # Login to Angel One
-    smart = None
-    try:
-        if all([API_KEY, CLIENT_ID, PASSWORD, TOTP_SECRET]):
-            smart = SmartConnect(api_key=API_KEY)
-            totp = pyotp.TOTP(TOTP_SECRET).now()
-            session = smart.generateSession(CLIENT_ID, PASSWORD, totp)
-            if session and session.get('status') == True:
-                print(f"Logged in to Angel One")
-            else:
-                smart = None
-                print("Angel One login failed - using yfinance only")
-    except Exception as e:
-        smart = None
-        print(f"Angel One login error: {e}")
-
+    print(f"Monitoring {len(triggered_trades)} trades...")
     changed = False
 
     for trade in trades:
-        if trade.get('status') != 'Open':
+        status = trade.get('status', '')
+        if status not in ['Pending', 'Triggered']:
             continue
 
-        ticker = trade['ticker']
-        entry = trade['entry_price']
-        target = trade['target']
-        stop = trade['stop_loss']
-        order_id = trade.get('order_id', '')
+        ticker = trade.get('ticker', '')
+        entry_price = float(trade.get('entry_price', 0))
+        target_price = float(trade.get('target', entry_price * 1.20))
+        stoploss_price = float(trade.get('stop_loss', entry_price * 0.92))
+        source = trade.get('source', 'Unknown')
 
-        print(f"\n  {ticker}: Entry Rs{entry} | Target Rs{target} | Stop Rs{stop}")
-
-        # Check Angel One order status first
-        angel_status = None
-        if smart and order_id:
-            angel_status = check_angel_order_status(smart, order_id)
-            print(f"  Angel One status: {angel_status}")
+        print(f"\n  {ticker}: Entry ₹{entry_price:.2f} | Target ₹{target_price:.2f} | Stop ₹{stoploss_price:.2f}")
 
         # Get live price
         current_price = get_live_price(ticker)
@@ -130,51 +113,52 @@ def monitor_positions():
             print(f"  Could not get price for {ticker}")
             continue
 
-        print(f"  Current price: Rs{current_price:.2f}")
+        print(f"  Current price: ₹{current_price:.2f}")
 
-        pnl_pct = ((current_price - entry) / entry) * 100
+        pnl_pct = ((current_price - entry_price) / entry_price) * 100
         print(f"  P&L: {pnl_pct:+.2f}%")
 
-        # Determine if position closed
-        new_status = None
-        exit_price = current_price
-
-        # Check Angel One order status
-        if angel_status in ['complete', 'COMPLETE', 'filled', 'FILLED']:
-            if current_price >= target * 0.98:
-                new_status = 'Target Hit'
-            else:
-                new_status = 'Stop Loss'
-
-        # Fallback: check price vs target/stop
-        elif current_price >= target:
-            new_status = 'Target Hit'
-        elif current_price <= stop:
-            new_status = 'Stop Loss'
-
-        if new_status:
-            trade['status'] = new_status
-            trade['exit_price'] = round(exit_price, 2)
-            trade['closed_at'] = datetime.now().isoformat()
-            trade['final_pnl_pct'] = round(pnl_pct, 2)
+        # Check if trade was just triggered (price reached entry)
+        if status == 'Pending' and current_price >= entry_price * 0.99:  # Within 1% of entry
+            trade['status'] = 'Triggered'
+            trade['triggered_at'] = datetime.now().isoformat()
             changed = True
 
-            # Send Telegram notification
-            icon = "TARGET HIT" if new_status == 'Target Hit' else "STOP LOSS HIT"
-            color = "+20%" if new_status == 'Target Hit' else "-8%"
-
             msg = (
-                f"{icon} - ANGEL ONE\n\n"
-                f"Stock: {ticker}\n"
-                f"Entry: Rs{entry:,.2f}\n"
-                f"Exit: Rs{exit_price:,.2f}\n"
-                f"P&L: {pnl_pct:+.2f}%\n"
-                f"Source: {trade.get('source', 'Trendline')}\n"
-                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}\n\n"
-                f"View Radar: {BASE_URL}"
+                f"🎯 *TRADE TRIGGERED*\n\n"
+                f"Stock: *{ticker}*\n"
+                f"Entry Price: ₹{entry_price:,.2f}\n"
+                f"Current Price: ₹{current_price:,.2f}\n"
+                f"Target: ₹{target_price:,.2f} _(+20%)_\n"
+                f"Stop Loss: ₹{stoploss_price:,.2f} _(8% loss)_\n"
+                f"Source: {source}\n"
+                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}"
             )
             send_telegram(msg)
-            print(f"  {new_status} - Telegram sent!")
+            print(f"  ✅ Trade Triggered - Telegram sent!")
+
+        # Check if position should be closed (target or stoploss hit)
+        elif status == 'Triggered' and (current_price >= target_price or current_price <= stoploss_price):
+            exit_reason = "Target Hit" if current_price >= target_price else "Stop Loss Hit"
+            trade['status'] = 'Closed'
+            trade['exit_price'] = round(current_price, 2)
+            trade['closed_at'] = datetime.now().isoformat()
+            trade['pnl_pct'] = round(pnl_pct, 2)
+            trade['exit_reason'] = exit_reason
+            changed = True
+
+            icon = "🎯" if current_price >= target_price else "🛑"
+            msg = (
+                f"{icon} *POSITION CLOSED - {exit_reason}*\n\n"
+                f"Stock: *{ticker}*\n"
+                f"Entry: ₹{entry_price:,.2f}\n"
+                f"Exit: ₹{current_price:,.2f}\n"
+                f"P&L: *{pnl_pct:+.2f}%*\n"
+                f"Source: {source}\n"
+                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}"
+            )
+            send_telegram(msg)
+            print(f"  ✅ {exit_reason} - Telegram sent!")
 
         else:
             # Still open - update current price silently
@@ -189,5 +173,6 @@ def monitor_positions():
 
     print("\nMonitoring complete")
 
+
 if __name__ == "__main__":
-    monitor_positions()
+    monitor_radar_positions()
