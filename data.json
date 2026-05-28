@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-28T08:15:40.184429",
+  "timestamp": "2026-05-28T11:59:43.824136",
   "golden_stocks": [
     {
       "symbol": "TEGA",
@@ -444,8 +444,8 @@
       "fibonacci_high_5y": 1051.2,
       "fibonacci_low_5y": 381.57,
       "trendline_price": 756.19,
-      "distance_to_trendline_percent": 4.07,
-      "trendline_slope_daily": 0.129515,
+      "distance_to_trendline_percent": 4.08,
+      "trendline_slope_daily": 0.129514,
       "trendline_start_price": 718.11,
       "trendline_start_date": "2025-08-08",
       "trendline_end_price": 729.89,
