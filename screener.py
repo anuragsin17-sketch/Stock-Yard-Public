@@ -191,7 +191,7 @@ class StockScreener:
             return {'is_near_fibonacci': False, 'error': str(e)}
     
     def check_volume_breakout(self, data: pd.DataFrame) -> Dict:
-        """Check for enhanced volume breakout with retracement pattern"""
+        """Check for volume breakout with 20x+ volume filter and daily basis"""
         try:
             if len(data) < 90:
                 return {'is_volume_breakout': False, 'error': 'Insufficient data'}
@@ -200,102 +200,58 @@ class StockScreener:
             volume_90d = data['Volume'].tail(90)
             avg_volume_90d = volume_90d.mean()
             
-            # Get recent data for analysis (last 30 days)
-            recent_data = data.tail(30).copy()
-            current_price = data['Close'].iloc[-1]
+            # Get TODAY's data ONLY (daily basis)
+            today_data = data.tail(1)
+            
+            if len(today_data) == 0:
+                return {'is_volume_breakout': False, 'error': 'No data for today'}
+            
+            today = today_data.index[0]
+            today_volume = today_data['Volume'].iloc[0]
+            today_close = today_data['Close'].iloc[0]
+            today_low = today_data['Low'].iloc[0]
+            today_high = today_data['High'].iloc[0]
+            
+            # Calculate volume ratio
+            volume_ratio = today_volume / avg_volume_90d
+            
+            # Get yesterday's close for price change
+            if len(data) < 2:
+                return {'is_volume_breakout': False, 'error': 'Insufficient data for comparison'}
+            
+            yesterday_close = data['Close'].iloc[-2]
+            price_change = ((today_close - yesterday_close) / yesterday_close) * 100
+            
+            # FILTER: Volume ratio must be > 20x AND positive price change
+            if volume_ratio < 20.0 or price_change <= 0:
+                return {'is_volume_breakout': False, 'error': f'Volume ratio {volume_ratio:.2f}x < 20x or price change {price_change:.2f}% <= 0'}
             
             # Calculate 52-week high and low
             week_52_high = data['High'].tail(252).max() if len(data) >= 252 else data['High'].max()
             week_52_low = data['Low'].tail(252).min() if len(data) >= 252 else data['Low'].min()
             
-            # Step 1: Find historical volume breakouts in recent data
-            volume_breakout_days = []
+            # Use TODAY'S LOW as entry point (watchlist entry)
+            entry_point = today_low
             
-            for i in range(len(recent_data)):
-                day_volume = recent_data['Volume'].iloc[i]
-                day_close = recent_data['Close'].iloc[i]
-                day_low = recent_data['Low'].iloc[i]
-                day_high = recent_data['High'].iloc[i]
-                day_date = recent_data.index[i]
-                
-                if i > 0:
-                    prev_close = recent_data['Close'].iloc[i-1]
-                    price_change = ((day_close - prev_close) / prev_close) * 100
-                    volume_ratio = day_volume / avg_volume_90d
-                    
-                    # Identify significant volume breakouts (5x+ volume with positive price)
-                    if volume_ratio >= 5.0 and price_change > 2.0:
-                        volume_breakout_days.append({
-                            'index': i,
-                            'date': day_date,
-                            'breakout_price': day_close,
-                            'breakout_low': day_low,
-                            'breakout_high': day_high,
-                            'volume_ratio': volume_ratio,
-                            'price_change': price_change
-                        })
-            
-            if not volume_breakout_days:
-                return {'is_volume_breakout': False, 'error': 'No significant volume breakouts found'}
-            
-            # Step 2: Check for retracement back to breakout levels
-            for breakout in volume_breakout_days:
-                breakout_price = breakout['breakout_price']
-                breakout_low = breakout['breakout_low']
-                breakout_date = breakout['date']
-                breakout_index = breakout['index']
-                
-                # Look for retracement in days after the breakout
-                post_breakout_data = recent_data.iloc[breakout_index + 1:]
-                
-                if len(post_breakout_data) < 3:  # Need at least 3 days after breakout
-                    continue
-                
-                # Check if price has retraced back to within 3% of breakout price
-                retracement_tolerance = 0.03  # 3%
-                lower_bound = breakout_price * (1 - retracement_tolerance)
-                upper_bound = breakout_price * (1 + retracement_tolerance)
-                
-                # Check recent prices for retracement
-                recent_prices = post_breakout_data['Close'].tail(5)  # Last 5 days
-                
-                # Check if current price is near breakout low (radar condition)
-                near_breakout_low = abs(current_price - breakout_low) / breakout_low <= 0.02  # Within 2%
-                
-                for price in recent_prices:
-                    if lower_bound <= price <= upper_bound:
-                        # Found retracement! Check if it's showing signs of reversal
-                        days_since_breakout = len(post_breakout_data)
-                        retracement_percent = ((breakout_price - current_price) / breakout_price) * 100
-                        
-                        # Additional validation: ensure there was a meaningful pullback
-                        max_price_after_breakout = post_breakout_data['Close'].max()
-                        min_price_after_breakout = post_breakout_data['Close'].min()
-                        pullback_depth = ((max_price_after_breakout - min_price_after_breakout) / max_price_after_breakout) * 100
-                        
-                        if pullback_depth >= 5.0:  # At least 5% pullback after breakout
-                            return {
-                                'is_volume_breakout': True,
-                                'breakout_date': breakout_date.strftime('%Y-%m-%d'),
-                                'breakout_price': round(breakout_price, 2),
-                                'breakout_low': round(breakout_low, 2),
-                                'breakout_high': round(breakout['breakout_high'], 2),
-                                'breakout_volume_ratio': round(breakout['volume_ratio'], 2),
-                                'breakout_price_change': round(breakout['price_change'], 2),
-                                'current_price': round(current_price, 2),
-                                'retracement_percent': round(abs(retracement_percent), 2),
-                                'days_since_breakout': days_since_breakout,
-                                'pullback_depth_percent': round(pullback_depth, 2),
-                                'max_price_after_breakout': round(max_price_after_breakout, 2),
-                                'pattern_type': 'Volume Breakout with Retracement',
-                                'week_52_high': round(week_52_high, 2),
-                                'week_52_low': round(week_52_low, 2),
-                                'near_breakout_low': near_breakout_low,
-                                'radar_trigger_price': round(breakout_low, 2),
-                                'radar_status': 'Active' if near_breakout_low else 'Monitoring'
-                            }
-            
-            return {'is_volume_breakout': False, 'error': 'No valid retracement patterns found'}
+            return {
+                'is_volume_breakout': True,
+                'breakout_date': today.strftime('%Y-%m-%d'),
+                'breakout_price': round(today_close, 2),
+                'breakout_low': round(today_low, 2),  # Today's low
+                'breakout_high': round(today_high, 2),
+                'breakout_volume_ratio': round(volume_ratio, 2),
+                'breakout_price_change': round(price_change, 2),
+                'current_price': round(today_close, 2),
+                'day_low': round(today_low, 2),  # Entry point
+                'day_high': round(today_high, 2),
+                'pattern_type': 'Volume Breakout >20x Daily',
+                'week_52_high': round(week_52_high, 2),
+                'week_52_low': round(week_52_low, 2),
+                'radar_trigger_price': round(entry_point, 2),  # Use day low as trigger
+                'radar_status': 'Active',
+                'watchlist_date': today.strftime('%Y-%m-%d'),
+                'entry_point': round(entry_point, 2)
+            }
             
         except Exception as e:
             logger.error(f"Error checking volume breakout: {e}")
