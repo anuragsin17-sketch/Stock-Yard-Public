@@ -88,65 +88,9 @@ def save_radar(trades: list):
 
 
 def check_volume_stocks_for_entry():
-    """Check Volume breakout stocks for entry price hits"""
-    print("\n📊 Checking Volume Breakout stocks...")
-    data = load_json(DATA_FILE)
-    volume_stocks = data.get('volume_breakout_stocks', [])
-    radar_trades = load_radar()
-    changed = False
-
-    for stock in volume_stocks:
-        ticker = stock.get('symbol', '')
-        entry_price = float(stock.get('radar_trigger_price', 0))
-        target_price = float(stock.get('target', entry_price * 1.20))
-        stoploss_price = float(stock.get('stop_loss', entry_price * 0.92))
-
-        if not ticker or entry_price <= 0:
-            continue
-
-        # Skip if already in radar
-        if any(t.get('ticker') == ticker and t.get('source') == 'Volume' for t in radar_trades):
-            continue
-
-        # Get live price
-        current_price = get_live_price(ticker)
-        if not current_price:
-            continue
-
-        print(f"  {ticker}: Entry ₹{entry_price:.2f} | Current ₹{current_price:.2f}")
-
-        # Check if price hit entry (within 1%)
-        if current_price >= entry_price * 0.99:
-            print(f"  ✅ Entry hit! Moving to Radar...")
-
-            # Add to radar
-            radar_trades.append({
-                'ticker': ticker,
-                'source': 'Volume',
-                'entry_price': round(entry_price, 2),
-                'target': round(target_price, 2),
-                'stop_loss': round(stoploss_price, 2),
-                'current_price': round(current_price, 2),
-                'status': 'Triggered',
-                'triggered_at': datetime.now().isoformat()
-            })
-            changed = True
-
-            # Send Telegram
-            msg = (
-                f"🎯 *TRADE TRIGGERED - VOLUME BREAKOUT*\n\n"
-                f"Stock: *{ticker}*\n"
-                f"Entry Price: ₹{entry_price:,.2f}\n"
-                f"Current Price: ₹{current_price:,.2f}\n"
-                f"Target: ₹{target_price:,.2f} _(+20%)_\n"
-                f"Stop Loss: ₹{stoploss_price:,.2f} _(8% loss)_\n"
-                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}"
-            )
-            send_telegram(msg)
-
-    if changed:
-        save_radar(radar_trades)
-    return changed
+    """Volume stocks are NOT monitored - only for reference"""
+    print("\n📊 Skipping Volume Breakout stocks (monitoring Trendline only)")
+    return False
 
 
 def check_trendline_stocks_for_entry():
@@ -287,16 +231,13 @@ def main():
     print(f"TRADE MONITOR - {datetime.now().strftime('%Y-%m-%d %H:%M IST')}")
     print(f"{'='*60}")
 
-    # Check Volume stocks for entry hits
-    vol_changed = check_volume_stocks_for_entry()
-
-    # Check Trendline stocks for entry hits
+    # Check Trendline stocks for entry hits ONLY
     tl_changed = check_trendline_stocks_for_entry()
 
     # Monitor Radar positions for target/stoploss
     radar_changed = monitor_radar_positions()
 
-    if vol_changed or tl_changed or radar_changed:
+    if tl_changed or radar_changed:
         print(f"\n✅ Updates saved to radar_trades.json")
     else:
         print(f"\n✅ No changes")

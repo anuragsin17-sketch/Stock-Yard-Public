@@ -1,11 +1,10 @@
-name: Trade Monitor - Every 15 Minutes
+name: Trade Monitor - Every Hour (Market Hours)
 
 on:
   schedule:
-    # Run every 15 minutes during market hours (9:15 AM to 3:30 PM IST)
-    # IST is UTC+5:30, so 9:15 AM IST = 3:45 AM UTC
-    # 3:30 PM IST = 10:00 AM UTC
-    - cron: '*/15 3-10 * * 1-5'  # Every 15 min, Mon-Fri, 3:45 AM - 10:00 AM UTC (9:15 AM - 3:30 PM IST)
+    # Run every hour during market hours (9:15 AM to 3:30 PM IST)
+    # IST is UTC+5:30, so 9:15 AM IST = 3:45 AM UTC, 3:30 PM IST = 10:00 AM UTC
+    - cron: '0 3-10 * * 1-5'  # Every hour on the hour, Mon-Fri, 3:45 AM - 10:00 AM UTC (9:15 AM - 3:30 PM IST)
   
   workflow_dispatch:  # Allow manual trigger
 
@@ -34,7 +33,7 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
-        echo "🔍 Running Trade Monitor..."
+        echo "🔍 Running Trade Monitor (Trendline only)..."
         python angel_monitor.py
         echo "✅ Monitor check completed"
 
@@ -43,7 +42,7 @@ jobs:
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add radar_trades.json 2>$null
-        git commit -m "📊 Trade Monitor: Updated radar_trades.json" 2>$null
+        git commit -m "📊 Trade Monitor: Updated radar_trades.json (Trendline → Radar)" 2>$null
         if ($LASTEXITCODE -eq 0) { git push }
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
