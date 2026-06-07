@@ -46,3 +46,20 @@ Thumbs.db
 # Backtest cache (local only — do not commit raw OHLC pickle files)
 .cache/
 backtest_performance_partial.json
+
+# Local documentation and analysis (DO NOT PUSH - proprietary logic)
+*.md
+!README.md
+ORDER_CONFIRMATION_ENHANCEMENT.md
+REAL_TIME_SCENARIO.md
+TRADE_EXECUTION_ANALYSIS.md
+
+# Local test files (DO NOT PUSH)
+order_confirmation.html
+trigger_demo.html
+test_*.py
+validate_trigger_logic.py
+setup_angel_credentials.py
+
+# Angel One credentials (DO NOT PUSH)
+.env
