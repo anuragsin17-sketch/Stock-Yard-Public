@@ -103,19 +103,22 @@ jobs:
         fi
         echo "✅ Trendline scanner completed"
 
-    - name: Send Telegram alerts (Volume + Trendline)
+    - name: Auto-Execute Trades (Trendline Signals)
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        ANGEL_API_KEY: ${{ secrets.ANGEL_API_KEY }}
+        ANGEL_CLIENT_ID: ${{ secrets.ANGEL_CLIENT_ID }}
+        ANGEL_PASSWORD: ${{ secrets.ANGEL_PASSWORD }}
+        ANGEL_TOTP_SECRET: ${{ secrets.ANGEL_TOTP_SECRET }}
       run: |
-        echo "📣 Sending Telegram alerts with buttons..."
+        echo "🚀 Auto-executing trades from trendline signals..."
         
-        # Install requests if needed
-        pip install requests --quiet 2>/dev/null || true
+        pip install requests pyotp smartapi-python --quiet 2>/dev/null || true
         
-        # Send alerts for new stocks
-        python -c "
+        python3 << 'PYEOF'
         import json
+        import subprocess
         import os
         from telegram_trade_bot import TelegramTradeBot
         
@@ -128,21 +131,34 @@ jobs:
         except:
             stocks = []
         
-        # Send alerts for each stock (limit to 5)
+        print(f"📊 Found {len(stocks)} signals")
+        
+        # Auto-execute trades for each signal (limit to 5)
         for stock in stocks[:5]:
             ticker = stock.get('ticker', 'N/A')
             price = stock.get('current_price', 0)
             target = stock.get('target_exit', 0)
             stoploss = stock.get('stop_loss', 0)
             signal_type = stock.get('tab_type', 'unknown')
-            confluence = stock.get('confluence_score', 0)
             
             if price and target and stoploss:
-                print(f'📨 Alert: {ticker}')
-                bot.send_trade_alert_with_buttons(ticker, price, target, stoploss, signal_type, confluence)
-        " || echo "⚠️ Alert sending skipped"
+                print(f"\n📈 Executing: {ticker} @ ₹{price}")
+                
+                # Place trade via angel_trade_full.py
+                result = subprocess.run([
+                    'python3', 'angel_trade_full.py',
+                    ticker, str(price), str(target), str(stoploss), '10', 'GitHub'
+                ], capture_output=True, text=True, timeout=30, env=os.environ.copy())
+                
+                if result.returncode == 0:
+                    print(f"✅ Order executed: {ticker}")
+                else:
+                    print(f"❌ Execution failed: {result.stderr}")
         
-        echo "✅ Telegram alerts sent"
+        print("\n✅ Trade execution round completed")
+        PYEOF
+        
+        echo "✅ Auto-execution completed"
 
     - name: Monitor open positions (Angel One)
       env:
