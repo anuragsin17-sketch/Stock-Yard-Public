@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-06T20:45:45.904378",
+  "generated_at": "2026-06-06T20:45:44.120820",
   "backtest_years": 10,
   "period": {
     "start": "2016-04-09",
@@ -13,20 +13,20 @@
     "timeout_days": 180
   },
   "summary": {
-    "total_trades": 296,
-    "winning_trades": 200,
-    "losing_trades": 96,
-    "win_rate": 67.57,
-    "avg_win_pct": 15.51,
-    "avg_loss_pct": -6.57,
-    "avg_return_pct": 8.35,
-    "total_pnl": 1228109.13,
-    "avg_pnl_per_trade": 4149.02,
-    "avg_holding_days": 82.6,
-    "profit_factor": 4.94,
+    "total_trades": 297,
+    "winning_trades": 199,
+    "losing_trades": 98,
+    "win_rate": 67.0,
+    "avg_win_pct": 15.49,
+    "avg_loss_pct": -6.6,
+    "avg_return_pct": 8.2,
+    "total_pnl": 1210154.9,
+    "avg_pnl_per_trade": 4074.6,
+    "avg_holding_days": 82.7,
+    "profit_factor": 4.79,
     "outcome_breakdown": {
-      "STOP_LOSS": 63,
-      "TARGET_HIT": 142,
+      "STOP_LOSS": 65,
+      "TARGET_HIT": 141,
       "OPEN": 60,
       "TIMEOUT": 31
     }
@@ -473,7 +473,7 @@
       "losses": 1,
       "win_rate": 66.7,
       "avg_return_pct": 13.08,
-      "total_pnl": 18663.27,
+      "total_pnl": 18663.42,
       "best_trade_pct": 20.0,
       "worst_trade_pct": -0.76,
       "avg_holding_days": 85.0,
@@ -481,14 +481,14 @@
         {
           "entry_date": "2019-11-01",
           "exit_date": "2020-02-04",
-          "entry_price": 3204.61,
+          "entry_price": 3204.6,
           "exit_price": 3845.53,
           "stop_loss": 2948.24,
           "target": 3845.53,
           "shares": 15,
           "outcome": "TARGET_HIT",
           "pnl_pct": 20.0,
-          "pnl_amount": 9613.8,
+          "pnl_amount": 9613.95,
           "holding_days": 95,
           "symbol": "BAYERCROP"
         },
@@ -2945,6 +2945,34 @@
       ]
     },
     {
+      "symbol": "RAMCOCEM",
+      "total_trades": 1,
+      "wins": 1,
+      "losses": 0,
+      "win_rate": 100.0,
+      "avg_return_pct": 20.0,
+      "total_pnl": 9932.61,
+      "best_trade_pct": 20.0,
+      "worst_trade_pct": 20.0,
+      "avg_holding_days": 89.0,
+      "trades": [
+        {
+          "entry_date": "2020-05-01",
+          "exit_date": "2020-07-29",
+          "entry_price": 598.35,
+          "exit_price": 718.02,
+          "stop_loss": 550.48,
+          "target": 718.02,
+          "shares": 83,
+          "outcome": "TARGET_HIT",
+          "pnl_pct": 20.0,
+          "pnl_amount": 9932.61,
+          "holding_days": 89,
+          "symbol": "RAMCOCEM"
+        }
+      ]
+    },
+    {
       "symbol": "GODREJAGRO",
       "total_trades": 1,
       "wins": 1,
@@ -2969,34 +2997,6 @@
           "pnl_amount": 9932.4,
           "holding_days": 108,
           "symbol": "GODREJAGRO"
-        }
-      ]
-    },
-    {
-      "symbol": "RAMCOCEM",
-      "total_trades": 1,
-      "wins": 1,
-      "losses": 0,
-      "win_rate": 100.0,
-      "avg_return_pct": 20.0,
-      "total_pnl": 9931.78,
-      "best_trade_pct": 20.0,
-      "worst_trade_pct": 20.0,
-      "avg_holding_days": 89.0,
-      "trades": [
-        {
-          "entry_date": "2020-05-01",
-          "exit_date": "2020-07-29",
-          "entry_price": 598.35,
-          "exit_price": 718.01,
-          "stop_loss": 550.48,
-          "target": 718.01,
-          "shares": 83,
-          "outcome": "TARGET_HIT",
-          "pnl_pct": 20.0,
-          "pnl_amount": 9931.78,
-          "holding_days": 89,
-          "symbol": "RAMCOCEM"
         }
       ]
     },
@@ -3413,7 +3413,7 @@
       "losses": 0,
       "win_rate": 100.0,
       "avg_return_pct": 10.75,
-      "total_pnl": 9566.31,
+      "total_pnl": 9566.34,
       "best_trade_pct": 20.0,
       "worst_trade_pct": 1.5,
       "avg_holding_days": 3.0,
@@ -3422,13 +3422,13 @@
           "entry_date": "2022-01-01",
           "exit_date": "2022-01-03",
           "entry_price": 15303.23,
-          "exit_price": 18363.87,
+          "exit_price": 18363.88,
           "stop_loss": 14078.97,
-          "target": 18363.87,
+          "target": 18363.88,
           "shares": 3,
           "outcome": "TARGET_HIT",
           "pnl_pct": 20.0,
-          "pnl_amount": 9181.92,
+          "pnl_amount": 9181.95,
           "holding_days": 2,
           "symbol": "ABBOTINDIA"
         },
@@ -3833,7 +3833,7 @@
       "losses": 0,
       "win_rate": 100.0,
       "avg_return_pct": 7.0,
-      "total_pnl": 6992.7,
+      "total_pnl": 6992.68,
       "best_trade_pct": 13.71,
       "worst_trade_pct": 0.28,
       "avg_holding_days": 153.0,
@@ -3848,7 +3848,7 @@
           "shares": 3182,
           "outcome": "TIMEOUT",
           "pnl_pct": 13.71,
-          "pnl_amount": 6852.42,
+          "pnl_amount": 6852.4,
           "holding_days": 182,
           "symbol": "NHPC"
         },
@@ -4103,48 +4103,6 @@
           "pnl_amount": -3992.8,
           "holding_days": 153,
           "symbol": "DEVYANI"
-        }
-      ]
-    },
-    {
-      "symbol": "CROMPTON",
-      "total_trades": 2,
-      "wins": 1,
-      "losses": 1,
-      "win_rate": 50.0,
-      "avg_return_pct": 6.0,
-      "total_pnl": 5992.88,
-      "best_trade_pct": 20.0,
-      "worst_trade_pct": -8.0,
-      "avg_holding_days": 84.0,
-      "trades": [
-        {
-          "entry_date": "2020-06-01",
-          "exit_date": "2020-09-18",
-          "entry_price": 225.89,
-          "exit_price": 271.07,
-          "stop_loss": 207.82,
-          "target": 271.07,
-          "shares": 221,
-          "outcome": "TARGET_HIT",
-          "pnl_pct": 20.0,
-          "pnl_amount": 9984.78,
-          "holding_days": 109,
-          "symbol": "CROMPTON"
-        },
-        {
-          "entry_date": "2026-02-01",
-          "exit_date": "2026-04-01",
-          "entry_price": 261.23,
-          "exit_price": 240.33,
-          "stop_loss": 240.33,
-          "target": 313.47,
-          "shares": 191,
-          "outcome": "STOP_LOSS",
-          "pnl_pct": -8.0,
-          "pnl_amount": -3991.9,
-          "holding_days": 59,
-          "symbol": "CROMPTON"
         }
       ]
     },
@@ -4501,7 +4459,7 @@
           "exit_date": "2021-01-28",
           "entry_price": 346.72,
           "exit_price": 382.98,
-          "stop_loss": 318.98,
+          "stop_loss": 318.99,
           "target": 416.07,
           "shares": 144,
           "outcome": "TIMEOUT",
@@ -4575,7 +4533,7 @@
       "losses": 1,
       "win_rate": 66.7,
       "avg_return_pct": 2.56,
-      "total_pnl": 3798.99,
+      "total_pnl": 3798.98,
       "best_trade_pct": 13.25,
       "worst_trade_pct": -5.86,
       "avg_holding_days": 182.0,
@@ -4604,7 +4562,7 @@
           "shares": 94,
           "outcome": "TIMEOUT",
           "pnl_pct": 13.25,
-          "pnl_amount": 6554.47,
+          "pnl_amount": 6554.46,
           "holding_days": 182,
           "symbol": "DABUR"
         },
@@ -4684,7 +4642,7 @@
           "entry_price": 23986.64,
           "exit_price": 24085.0,
           "stop_loss": 22067.71,
-          "target": 28783.96,
+          "target": 28783.97,
           "shares": 2,
           "outcome": "OPEN",
           "pnl_pct": 0.41,
@@ -4795,7 +4753,7 @@
           "exit_date": "2024-04-01",
           "entry_price": 35496.45,
           "exit_price": 38371.76,
-          "stop_loss": 32656.74,
+          "stop_loss": 32656.73,
           "target": 42595.74,
           "shares": 1,
           "outcome": "TIMEOUT",
@@ -4991,7 +4949,7 @@
           "exit_date": "2026-06-05",
           "entry_price": 121457.26,
           "exit_price": 123505.0,
-          "stop_loss": 111740.67,
+          "stop_loss": 111740.68,
           "target": 145748.71,
           "shares": 1,
           "outcome": "OPEN",
@@ -5919,7 +5877,7 @@
       "losses": 1,
       "win_rate": 0.0,
       "avg_return_pct": -8.0,
-      "total_pnl": -2817.17,
+      "total_pnl": -2817.18,
       "best_trade_pct": -8.0,
       "worst_trade_pct": -8.0,
       "avg_holding_days": 91.0,
@@ -5928,13 +5886,13 @@
           "entry_date": "2025-12-01",
           "exit_date": "2026-03-02",
           "entry_price": 35214.65,
-          "exit_price": 32397.48,
-          "stop_loss": 32397.48,
-          "target": 42257.58,
+          "exit_price": 32397.47,
+          "stop_loss": 32397.47,
+          "target": 42257.57,
           "shares": 1,
           "outcome": "STOP_LOSS",
           "pnl_pct": -8.0,
-          "pnl_amount": -2817.17,
+          "pnl_amount": -2817.18,
           "holding_days": 91,
           "symbol": "PAGEIND"
         }
@@ -6252,7 +6210,7 @@
           "entry_price": 2462.47,
           "exit_price": 2265.47,
           "stop_loss": 2265.47,
-          "target": 2954.97,
+          "target": 2954.96,
           "shares": 20,
           "outcome": "STOP_LOSS",
           "pnl_pct": -8.0,
@@ -6651,6 +6609,34 @@
           "pnl_amount": -3986.58,
           "holding_days": 122,
           "symbol": "EXIDEIND"
+        }
+      ]
+    },
+    {
+      "symbol": "AEGISLOG",
+      "total_trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "win_rate": 0.0,
+      "avg_return_pct": -8.0,
+      "total_pnl": -3987.36,
+      "best_trade_pct": -8.0,
+      "worst_trade_pct": -8.0,
+      "avg_holding_days": 123.0,
+      "trades": [
+        {
+          "entry_date": "2019-07-01",
+          "exit_date": "2019-11-01",
+          "entry_price": 175.56,
+          "exit_price": 161.52,
+          "stop_loss": 161.52,
+          "target": 210.67,
+          "shares": 284,
+          "outcome": "STOP_LOSS",
+          "pnl_pct": -8.0,
+          "pnl_amount": -3987.36,
+          "holding_days": 123,
+          "symbol": "AEGISLOG"
         }
       ]
     },
@@ -7113,6 +7099,48 @@
           "pnl_amount": -3964.45,
           "holding_days": 60,
           "symbol": "BIRLACORPN"
+        }
+      ]
+    },
+    {
+      "symbol": "CROMPTON",
+      "total_trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "win_rate": 0.0,
+      "avg_return_pct": -8.0,
+      "total_pnl": -7974.96,
+      "best_trade_pct": -8.0,
+      "worst_trade_pct": -8.0,
+      "avg_holding_days": 76.0,
+      "trades": [
+        {
+          "entry_date": "2023-02-01",
+          "exit_date": "2023-05-02",
+          "entry_price": 290.73,
+          "exit_price": 267.47,
+          "stop_loss": 267.47,
+          "target": 348.87,
+          "shares": 171,
+          "outcome": "STOP_LOSS",
+          "pnl_pct": -8.0,
+          "pnl_amount": -3977.46,
+          "holding_days": 90,
+          "symbol": "CROMPTON"
+        },
+        {
+          "entry_date": "2025-12-01",
+          "exit_date": "2026-02-02",
+          "entry_price": 256.22,
+          "exit_price": 235.72,
+          "stop_loss": 235.72,
+          "target": 307.46,
+          "shares": 195,
+          "outcome": "STOP_LOSS",
+          "pnl_pct": -8.0,
+          "pnl_amount": -3997.5,
+          "holding_days": 63,
+          "symbol": "CROMPTON"
         }
       ]
     },
