@@ -3,9 +3,16 @@ name: Stock Yard Screener
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 4 * * *'    # 10:00 AM IST (4:30 UTC)
-    - cron: '30 8 * * *'    # 2:00 PM IST  (8:30 UTC)
-    - cron: '30 14 * * *'   # 8:00 PM IST  (14:30 UTC)
+    # Market hours: 9:15 AM - 3:30 PM IST = 3:45 UTC - 10:00 UTC
+    # Run every 30 minutes during market hours (Monday-Friday)
+    - cron: '0,30 4-9 * * 1-5'  # 9:15 AM - 2:30 PM IST (every 30 min)
+    - cron: '0 10 * * 1-5'      # 3:30 PM IST exact (catch market close)
+    
+    # Pre-market scan (before 9:15 AM)
+    - cron: '15 4 * * 1-5'      # 9:15 AM IST
+    
+    # Post-market scan (after 3:30 PM)
+    - cron: '30 10 * * 1-5'     # 4:00 PM IST
 
 permissions:
   contents: write
@@ -100,10 +107,36 @@ jobs:
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TRADING_MODE: live
       run: |
-        echo "📣 Sending Telegram alerts for new stocks..."
-        python notify_new_stocks.py || echo "⚠️ Notifier failed, continuing..."
-        echo "✅ Notifications completed"
+        echo "📣 Sending Telegram alerts with trade buttons..."
+        
+        # Send alerts with inline buttons for trade execution
+        python -c "
+        from telegram_trade_bot import send_webhook_update
+        import json
+        
+        # Load scanner results
+        try:
+            with open('trendline_screen.json') as f:
+                data = json.load(f)
+                
+            # Send alerts for each stock
+            for stock in data[:5]:  # Limit to 5 for demo
+                ticker = stock.get('ticker', 'N/A')
+                price = stock.get('current_price', 0)
+                target = stock.get('target_exit', 0)
+                stoploss = stock.get('stop_loss', 0)
+                signal_type = stock.get('tab_type', 'unknown')
+                confluence = stock.get('confluence_score', 0)
+                
+                print(f'📨 Sending alert for {ticker}...')
+                send_webhook_update(ticker, signal_type, price, target, stoploss, confluence)
+        except Exception as e:
+            print(f'⚠️ Alert sending failed: {e}')
+        " || echo "⚠️ Alert script failed"
+        
+        echo "✅ Telegram alerts with buttons sent"
 
     - name: Monitor open positions (Angel One)
       env:
@@ -184,6 +217,35 @@ jobs:
         done
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Deploy dashboard data to EC2
+      run: |
+        echo "🚀 Deploying trendline data to EC2 dashboard..."
+        
+        # Check if trendline_screen.json exists
+        if [ -f "trendline_screen.json" ]; then
+          echo "📊 Found trendline_screen.json, size: $(wc -c < trendline_screen.json) bytes"
+          
+          # Create SSH key from secret
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
+          chmod 600 ~/.ssh/ec2_key.pem
+          
+          # Disable SSH key checking temporarily
+          echo "StrictHostKeyChecking=no" >> ~/.ssh/config
+          echo "UserKnownHostsFile=/dev/null" >> ~/.ssh/config
+          
+          # Copy JSON to EC2
+          scp -i ~/.ssh/ec2_key.pem -o ConnectTimeout=10 \
+              trendline_screen.json ubuntu@32.194.58.75:/var/www/stockyard/trendline_screen.json \
+              && echo "✅ Dashboard data deployed successfully" \
+              || echo "⚠️ SCP failed - dashboard may not update"
+          
+          # Clean up SSH key
+          rm -f ~/.ssh/ec2_key.pem
+        else
+          echo "⚠️ trendline_screen.json not found, skipping dashboard deploy"
+        fi
     
     - name: Deploy to public repository
       run: |

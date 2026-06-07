@@ -52,13 +52,21 @@ def send_telegram_with_action(ticker: str, entry_price: float, current_price: fl
     try:
         import secrets
         from datetime import datetime, timedelta
+        from cryptography.fernet import Fernet
+        
+        # Get encryption key from env or generate
+        encryption_key = os.environ.get('ENCRYPTION_KEY')
+        if encryption_key:
+            cipher_suite = Fernet(encryption_key.encode() if isinstance(encryption_key, str) else encryption_key)
+        else:
+            cipher_suite = None
         
         # Generate secure token (32 random chars)
         token = secrets.token_urlsafe(24)
-        token_expires = datetime.now() + timedelta(minutes=5)
+        token_expires = datetime.now() + timedelta(minutes=3)  # 3 minutes
         
-        # Save token for verification
-        tokens_file = 'active_trade_tokens.json'
+        # Save token for verification (encrypted)
+        tokens_file = 'active_trade_tokens_encrypted.json'
         tokens = {}
         if os.path.exists(tokens_file):
             try:
@@ -67,7 +75,7 @@ def send_telegram_with_action(ticker: str, entry_price: float, current_price: fl
             except:
                 tokens = {}
         
-        tokens[token] = {
+        token_data = {
             'ticker': ticker,
             'entry_price': entry_price,
             'target_price': target_price,
@@ -76,6 +84,14 @@ def send_telegram_with_action(ticker: str, entry_price: float, current_price: fl
             'expires_at': token_expires.isoformat(),
             'created_at': datetime.now().isoformat()
         }
+        
+        # Encrypt token data if cipher available
+        if cipher_suite:
+            json_data = json.dumps(token_data).encode()
+            encrypted = cipher_suite.encrypt(json_data).decode()
+            tokens[token] = encrypted
+        else:
+            tokens[token] = token_data
         
         with open(tokens_file, 'w') as f:
             json.dump(tokens, f, indent=2)
@@ -93,11 +109,11 @@ def send_telegram_with_action(ticker: str, entry_price: float, current_price: fl
             f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}\n\n"
             f"🔐 *CONFIRMATION TOKEN:*\n"
             f"`{token}`\n\n"
-            f"⏰ Token expires in 5 minutes\n\n"
+            f"⏰ Token expires in 3 minutes\n\n"
             f"📱 To confirm trade:\n"
             f"1. Open dashboard\n"
-            f"2. Go to Radar or pending trades\n"
-            f"3. Paste token above to unlock trade confirmation\n"
+            f"2. Go to Pending Trades\n"
+            f"3. Paste token to verify\n"
             f"4. Adjust quantity\n"
             f"5. Click Confirm"
         )

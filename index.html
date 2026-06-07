@@ -27,79 +27,304 @@
             -moz-osx-font-smoothing: grayscale;
             background: #0A0E14;
         }
+
+        /* ========== PREMIUM CARD DESIGN ========== */
         .mobile-card {
             background: rgba(20, 25, 35, 0.85);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
         .status-dot {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ========== PROFESSIONAL STOCK CARD ========== */
+        .stock-card {
+            background: rgba(20, 25, 35, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 16px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stock-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, currentColor, transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stock-card.critical::before {
+            background: linear-gradient(90deg, transparent, #EF4444, transparent);
+            opacity: 1;
+        }
+
+        .stock-card.warning::before {
+            background: linear-gradient(90deg, transparent, #F59E0B, transparent);
+            opacity: 1;
+        }
+
+        .stock-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(16, 185, 129, 0.2);
+            box-shadow: 0 12px 24px rgba(16, 185, 129, 0.1);
+        }
+
+        .stock-card:active {
+            transform: translateY(-2px);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        /* ========== VISUAL HIERARCHY ========== */
+        .stock-symbol {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #FFFFFF;
+            margin-bottom: 4px;
+        }
+
+        .stock-distance {
+            font-size: 32px;
+            font-weight: 800;
+            color: #10B981;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .stock-distance.critical {
+            color: #EF4444;
+            animation: pulse-critical 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-critical {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .stock-distance.warning {
+            color: #F59E0B;
+        }
+
+        /* ========== BADGE SYSTEM ========== */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 20px;
+            padding: 8px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            width: fit-content;
+        }
+
+        .status-badge.critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #FCA5A5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-badge.critical .pulse-dot {
+            width: 6px;
+            height: 6px;
+            background: #EF4444;
+            border-radius: 50%;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+        }
+
+        .status-badge.warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #FCD34D;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .status-badge.warning .pulse-dot {
+            width: 6px;
+            height: 6px;
+            background: #F59E0B;
+            border-radius: 50%;
+            animation: pulse-dot-warning 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot-warning {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+            50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+        }
+
+        .status-badge.hold {
+            background: rgba(16, 185, 129, 0.2);
+            color: #A7F3D0;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        /* ========== RISK/REWARD DISPLAY ========== */
+        .risk-reward-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .rr-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .rr-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #9CA3AF;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .rr-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #FFFFFF;
+            font-family: 'JetBrains Mono';
+        }
+
+        .rr-value.positive {
+            color: #34D399;
+        }
+
+        .rr-value.negative {
+            color: #F87171;
+        }
+
+        /* ========== QUICK STATS ========== */
+        .quick-stat {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #D1D5DB;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 10px;
+            border-radius: 8px;
+        }
+
+        .quick-stat-label {
+            font-weight: 500;
+            color: #9CA3AF;
+        }
+
+        .quick-stat-value {
+            font-weight: 700;
+            color: #FFFFFF;
+            font-family: 'JetBrains Mono';
+        }
+
+        /* ========== TOUCH INTERACTIONS ========== */
         .touch-btn {
             min-height: 48px;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
             transition: all 0.2s ease;
         }
+
         .touch-btn:active {
-            transform: scale(0.98);
-            background: rgba(16, 79, 87, 0.8);
+            transform: scale(0.96);
         }
+
+        /* ========== TABS ========== */
         .scroll-container {
             -webkit-overflow-scrolling: touch;
             overflow-scrolling: touch;
         }
+
         .pill-tab {
             background: rgba(20, 25, 35, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 24px;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             padding: 12px 20px;
+            position: relative;
         }
+
         .pill-tab.active {
-            background: linear-gradient(135deg, #065F46, #047857);
-            border-color: rgba(16, 185, 129, 0.3);
-            box-shadow: 0 0 24px rgba(4, 120, 87, 0.25);
-        }
-        .stock-card {
-            background: rgba(20, 25, 35, 0.85);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 16px;
-            transition: all 0.2s ease;
-            padding: 20px;
-        }
-        .stock-card:active {
+            background: linear-gradient(135deg, #10B981, #059669);
+            border-color: rgba(16, 185, 129, 0.5);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
             transform: translateY(-2px);
-            border-color: rgba(4, 120, 87, 0.3);
         }
-        .price-indicator {
-            background: linear-gradient(135deg, #065F46, #047857);
-            border-radius: 12px;
-            padding: 6px 12px;
-            font-weight: 600;
+
+        /* ========== EXPANDABLE DETAILS ========== */
+        .card-details {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .signal-badge {
-            border-radius: 20px;
-            padding: 6px 16px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
+
+        .stock-card.expanded .card-details {
+            max-height: 600px;
+            opacity: 1;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
+
+        /* ========== UTILITY ========== */
         .position-filter-btn {
             background: rgba(20, 25, 35, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.08);
             transition: all 0.3s ease;
         }
+
         .position-filter-btn.active {
-            background: linear-gradient(135deg, #065F46, #047857);
+            background: linear-gradient(135deg, #10B981, #059669);
             border-color: rgba(16, 185, 129, 0.3);
         }
+
         .position-filter-btn:hover {
-            border-color: rgba(4, 120, 87, 0.3);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        /* ========== TEXT CONTRAST ========== */
+        .text-primary {
+            color: #FFFFFF;
+        }
+
+        .text-secondary {
+            color: #D1D5DB;
+        }
+
+        .text-tertiary {
+            color: #9CA3AF;
+        }
+
+        .text-muted {
+            color: #6B7280;
         }
     </style>
 </head>
@@ -4938,73 +5163,117 @@
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.ticker}`;
                     const stockNameHtml = `<a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.ticker}</a>`;
 
+                    // Determine enhanced status
+                    let statusClass = 'hold';
+                    let statusIcon = '📊';
+                    let statusText = 'MONITORING';
+                    let distanceClass = '';
+                    
+                    if (stock.notificationTrigger || stock.distanceRemaining <= 1.0) {
+                        statusClass = 'critical';
+                        statusIcon = '🔥';
+                        statusText = 'IMMEDIATE ENTRY';
+                        distanceClass = 'critical';
+                    } else if (stock.distanceRemaining <= 5.0) {
+                        statusClass = 'warning';
+                        statusIcon = '⚡';
+                        statusText = 'CLOSE TO ENTRY';
+                        distanceClass = 'warning';
+                    }
+
                     html += `
-                        <div class="stock-card mb-4">
-                            <div class="flex justify-between items-start">
+                        <div class="stock-card ${statusClass} mb-4">
+                            <!-- Header: Symbol + Badge -->
+                            <div class="flex justify-between items-start mb-4">
                                 <div class="flex-1">
-                                    <div class="text-lg font-bold mb-1">${stockNameHtml}</div>
-                                    <div class="text-xs text-slate-400 mb-3">${stock.patternZone} | Wicks: ${stock.wickTouches || '-'} | ${stock.timeframe || 'monthly'}</div>
+                                    <div class="stock-symbol">${stock.ticker}</div>
+                                    <div class="text-secondary text-12px mono">₹${stock.currentPrice.toLocaleString()}</div>
+                                </div>
+                                <span class="status-badge ${statusClass}">
+                                    <span class="pulse-dot"></span>
+                                    <span style="font-size: 11px;">${statusIcon} ${statusText}</span>
+                                </span>
+                            </div>
 
-                                    <div class="text-lg font-bold mono flex items-center mb-3" style="color: #047857;">
-                                        ₹${stock.currentPrice.toLocaleString()}
-                                        <span class="text-xs ml-2 text-slate-400">Distance: ${stock.distanceRemaining.toFixed(2)}%</span>
+                            <!-- PRIMARY: Distance (LARGE) -->
+                            <div style="margin: 16px 0;">
+                                <div class="text-tertiary text-11px font-600 tracking-wider mb-2">DISTANCE TO ENTRY</div>
+                                <div class="stock-distance ${distanceClass}">${stock.distanceRemaining.toFixed(2)}%</div>
+                            </div>
+
+                            <!-- 52-WEEK RANGE (Under Immediate Entry Bar) -->
+                            <div style="margin: 12px 0; padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <div class="text-tertiary text-11px font-600 tracking-wider mb-2">52-WEEK RANGE</div>
+                                <div class="flex justify-between text-12px">
+                                    <div class="flex-1">
+                                        <span class="text-secondary text-11px">High: </span>
+                                        <span class="text-muted mono">₹${stock.week_52_high?.toLocaleString() || 'N/A'}</span>
                                     </div>
+                                    <div class="flex-1 text-right">
+                                        <span class="text-secondary text-11px">Low: </span>
+                                        <span class="text-muted mono">₹${stock.week_52_low?.toLocaleString() || 'N/A'}</span>
+                                    </div>
+                                </div>
+                            </div>
 
-                                    <!-- Editable Entry Trigger -->
-                                    <div class="mb-2">
-                                        <div class="text-xs text-slate-500 mb-1">Entry Trigger</div>
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-xs mono" style="color: #3B82F6;">₹</span>
-                                            <input type="number"
-                                                id="entry_${stock.ticker}"
-                                                value="${parseFloat(entryTrigger).toFixed(2)}"
-                                                step="0.01"
-                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
-                                                style="color: #3B82F6; border-color: rgba(59,130,246,0.3);"
-                                                onchange="saveTrendlineOverride('${stock.ticker}', 'entryTrigger', this.value)"/>
-                                            ${saved.entryTrigger ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
+                            <!-- SECONDARY: Entry + Target -->
+                            <div class="risk-reward-row">
+                                <div class="rr-item">
+                                    <div class="rr-label">Entry Trigger</div>
+                                    <div class="rr-value mono">₹${parseFloat(entryTrigger).toFixed(2)}</div>
+                                </div>
+                                <div class="rr-item">
+                                    <div class="rr-label">Target Exit</div>
+                                    <div class="rr-value positive mono">₹${parseFloat(targetExit).toFixed(2)}</div>
+                                </div>
+                            </div>
+
+                            <!-- EXPANDABLE DETAILS -->
+                            <div class="card-details">
+                                <!-- Pattern Info -->
+                                <div class="mt-4 pt-4 border-t border-white/5">
+                                    <div class="text-11px text-tertiary font-600 tracking-wider mb-3">PATTERN DETAILS</div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between text-12px">
+                                            <span class="text-secondary">Zone:</span>
+                                            <span class="text-muted">${stock.patternZone}</span>
+                                        </div>
+                                        <div class="flex justify-between text-12px">
+                                            <span class="text-secondary">Wicks:</span>
+                                            <span class="text-muted">${stock.wickTouches || '-'}</span>
+                                        </div>
+                                        <div class="flex justify-between text-12px">
+                                            <span class="text-secondary">Fibonacci:</span>
+                                            <span class="text-muted">${stock.fibLevelMatch}</span>
+                                        </div>
+                                        <div class="flex justify-between text-12px">
+                                            <span class="text-secondary">Confidence:</span>
+                                            <span class="text-muted">${stock.confluenceScore || '-'}/10</span>
+                                        </div>
+                                        <div class="flex justify-between text-12px">
+                                            <span class="text-secondary">Timeframe:</span>
+                                            <span class="text-muted">${stock.timeframe || 'Monthly'}</span>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <!-- Editable Target Exit -->
-                                    <div class="mb-2">
-                                        <div class="text-xs text-slate-500 mb-1">Target Exit</div>
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-xs mono" style="color: #10B981;">₹</span>
-                                            <input type="number"
-                                                id="target_${stock.ticker}"
-                                                value="${parseFloat(targetExit).toFixed(2)}"
-                                                step="0.01"
-                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
-                                                style="color: #10B981; border-color: rgba(16,185,129,0.3);"
-                                                onchange="saveTrendlineOverride('${stock.ticker}', 'targetExit', this.value)"/>
-                                            ${saved.targetExit ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
+                                <!-- Risk/Reward -->
+                                <div class="mt-4 pt-4 border-t border-white/5">
+                                    <div class="text-11px text-tertiary font-600 tracking-wider mb-3">RISK MANAGEMENT</div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="rr-item">
+                                            <div class="rr-label">Stop Loss</div>
+                                            <div class="rr-value negative mono">₹${parseFloat(stopLoss).toFixed(2)}</div>
                                         </div>
-                                    </div>
-
-                                    <!-- Editable Stop Loss -->
-                                    <div class="mb-3">
-                                        <div class="text-xs text-slate-500 mb-1">Stop Loss <span class="text-slate-600">(Monthly Close)</span></div>
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-xs mono" style="color: #DC2626;">₹</span>
-                                            <input type="number"
-                                                id="stop_${stock.ticker}"
-                                                value="${parseFloat(stopLoss).toFixed(2)}"
-                                                step="0.01"
-                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
-                                                style="color: #DC2626; border-color: rgba(220,38,38,0.3);"
-                                                onchange="saveTrendlineOverride('${stock.ticker}', 'stopLoss', this.value)"/>
-                                            ${saved.stopLoss ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
+                                        <div class="rr-item">
+                                            <div class="rr-label">Risk:Reward</div>
+                                            <div class="rr-value mono">${((targetExit - entryTrigger) / (entryTrigger - stopLoss)).toFixed(2)}:1</div>
                                         </div>
-                                    </div>
-
-                                    <div class="text-xs text-slate-500 mono mb-2">
-                                        Fib: ${stock.fibLevelMatch} | Score: ${stock.confluenceScore || '-'}/10
                                     </div>
 
                                     <!-- Editable Position Size -->
-                                    <div class="mb-3">
-                                        <div class="text-xs text-slate-500 mb-1">Position Size (₹)</div>
+                                    <div class="mt-4">
+                                        <div class="text-12px text-secondary mb-2">Position Size</div>
                                         <div class="flex items-center space-x-2">
                                             <span class="text-xs mono text-slate-400">₹</span>
                                             <input type="number"
@@ -5016,13 +5285,20 @@
                                                 onchange="saveTrendlineOverride('${stock.ticker}', 'positionSize', this.value)"/>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
 
-                                    <div class="flex items-center space-x-2 mt-3">
-                                        <div class="flex-1">${statusBadge}</div>
-                                        <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${targetExit}, ${stopLoss})"
-                                            class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
-                                            style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
-                                            📥 Take Trade
+                            <!-- Action Buttons -->
+                            <div class="flex items-center space-x-2 mt-4">
+                                <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${targetExit}, ${stopLoss})"
+                                    class="flex-1 px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
+                                    style="background: linear-gradient(135deg, #10B981, #059669); color: #fff;">
+                                    📥 Take Trade
+                                </button>
+                                <button class="expand-btn py-2 px-3 rounded-lg text-xs touch-btn"
+                                    style="background: rgba(255,255,255,0.05); color: #9CA3AF;">
+                                    <span class="expand-text">➜</span>
+                                </button>
                                         </button>
                                     </div>
                                 </div>
@@ -5041,6 +5317,23 @@
                 }
 
                 container.innerHTML = html;
+
+                // Attach expand button event listeners
+                setTimeout(() => {
+                    document.querySelectorAll('.stock-card .expand-btn').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const card = this.closest('.stock-card');
+                            card.classList.toggle('expanded');
+                            const text = this.querySelector('.expand-text');
+                            if (card.classList.contains('expanded')) {
+                                text.textContent = '⬆';
+                            } else {
+                                text.textContent = '➜';
+                            }
+                        });
+                    });
+                }, 0);
             } catch (error) {
                 container.innerHTML = `
                     <div class="mobile-card rounded-xl p-6 text-center">
@@ -5064,7 +5357,7 @@
         // Pagination state for Volume and Trendline tabs
         let volPage = 1;
         let trendPage = 1;
-        const TAB_PAGE_SIZE = 10;
+        const TAB_PAGE_SIZE = 15; // Increased to show 15 stocks per page for better content coverage
 
         function paginationControls(currentPage, totalPages, onPrev, onNext) {
             if (totalPages <= 1) return '';
@@ -5502,8 +5795,108 @@
 
             const open = trades.filter(t => t.status === 'Open');
             const closed = trades.filter(t => t.status !== 'Open');
+            const winners = closed.filter(t => t.finalPnl > 0);
+            const losers = closed.filter(t => t.finalPnl < 0);
+            const totalCapital = trades.reduce((sum, t) => sum + (t.positionSize || 0), 0);
+            const totalPnl = trades.reduce((sum, t) => sum + (t.finalPnl || t.currentPnl || 0), 0);
+            const winRate = trades.length > 0 ? ((winners.length / trades.length) * 100).toFixed(1) : 0;
+            const gainPct = winners.length > 0 ? (winners.reduce((sum, t) => sum + (t.finalPnl || 0), 0) / winners.length).toFixed(2) : 0;
+            const lossPct = losers.length > 0 ? (losers.reduce((sum, t) => sum + (t.finalPnl || 0), 0) / losers.length).toFixed(2) : 0;
 
             let html = `
+                <div class="mobile-card rounded-xl p-4 mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="text-sm text-slate-400 uppercase tracking-widest">📊 Overall Performance</div>
+                        <button onclick="document.getElementById('perfDetails').style.display = document.getElementById('perfDetails').style.display === 'none' ? 'block' : 'none'" class="text-xs text-slate-500 hover:text-slate-300">▼ Details</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div class="rounded-lg p-3" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+                            <div class="text-xs text-slate-400">Capital Utilized</div>
+                            <div class="text-xl font-bold mono" style="color: #3B82F6;">₹${(totalCapital / 100000).toFixed(2)}L</div>
+                        </div>
+                        <div class="rounded-lg p-3" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
+                            <div class="text-xs text-slate-400">Total P&L</div>
+                            <div class="text-xl font-bold mono" style="color: ${totalPnl >= 0 ? '#10B981' : '#DC2626'};">${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}%</div>
+                        </div>
+                        <div class="rounded-lg p-3" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3);">
+                            <div class="text-xs text-slate-400">Win Rate</div>
+                            <div class="text-xl font-bold mono" style="color: #A855F7;">${winRate}%</div>
+                        </div>
+                        <div class="rounded-lg p-3" style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3);">
+                            <div class="text-xs text-slate-400">Trades</div>
+                            <div class="text-xl font-bold mono" style="color: #F97316;">${trades.length}</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-lg p-2 cursor-pointer hover:opacity-80 transition-opacity" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.3);" onclick="document.getElementById('gainTrades').style.display = document.getElementById('gainTrades').style.display === 'none' ? 'block' : 'none'">
+                            <div class="text-xs text-slate-500">✓ Winners</div>
+                            <div class="text-lg font-bold mono" style="color: #10B981;">+${gainPct}% (${winners.length})</div>
+                        </div>
+                        <div class="rounded-lg p-2 cursor-pointer hover:opacity-80 transition-opacity" style="background: rgba(220, 38, 38, 0.2); border: 1px solid rgba(220, 38, 38, 0.3);" onclick="document.getElementById('lossTrades').style.display = document.getElementById('lossTrades').style.display === 'none' ? 'block' : 'none'">
+                            <div class="text-xs text-slate-500">✗ Losers</div>
+                            <div class="text-lg font-bold mono" style="color: #DC2626;">${lossPct}% (${losers.length})</div>
+                        </div>
+                    </div>
+                    
+                    <div id="gainTrades" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div class="text-xs text-slate-400 mb-2 uppercase tracking-widest">✓ Winning Trades</div>
+            `;
+            
+            // Add winning trades
+            winners.forEach(t => {
+                const pnl = t.finalPnl || 0;
+                const takenDate = new Date(t.takenAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+                html += `
+                    <div class="rounded-lg p-2 mb-2" style="background: rgba(16, 185, 129, 0.1); border-left: 2px solid #10B981;">
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm font-semibold text-slate-100">${t.ticker}</div>
+                            <div class="text-right">
+                                <div class="text-xs font-bold mono" style="color: #10B981;">+${pnl.toFixed(2)}%</div>
+                                <div class="text-xs text-slate-500">${takenDate}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    
+                    <div id="lossTrades" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div class="text-xs text-slate-400 mb-2 uppercase tracking-widest">✗ Losing Trades</div>
+            `;
+            
+            // Add losing trades
+            losers.forEach(t => {
+                const pnl = t.finalPnl || 0;
+                const takenDate = new Date(t.takenAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+                html += `
+                    <div class="rounded-lg p-2 mb-2" style="background: rgba(220, 38, 38, 0.1); border-left: 2px solid #DC2626;">
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm font-semibold text-slate-100">${t.ticker}</div>
+                            <div class="text-right">
+                                <div class="text-xs font-bold mono" style="color: #DC2626;">${pnl.toFixed(2)}%</div>
+                                <div class="text-xs text-slate-500">${takenDate}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    
+                    <div id="perfDetails" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div class="text-xs text-slate-500 mt-2">
+                            <div class="mb-2"><strong>Winners:</strong> ${winners.length} trades</div>
+                            <div class="mb-2"><strong>Losers:</strong> ${losers.length} trades</div>
+                            <div><strong>Open:</strong> ${open.length} trades</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            html += `
                 <div class="mobile-card rounded-xl p-4 mb-4">
                     <div class="grid grid-cols-3 gap-3 text-center">
                         <div>
@@ -5560,6 +5953,17 @@
                             </div>
                         </div>
                         <div class="text-xs text-slate-500 mono mb-3">${trade.quantity || trade.qty || (trade.positionSize && trade.entryTrigger ? Math.floor(trade.positionSize / trade.entryTrigger) : 0)} shares | ₹${trade.positionSize?.toLocaleString() || 0} position</div>
+                        
+                        <!-- 52-Week Range -->
+                        <div class="text-xs text-slate-500 mono mb-3 pt-2 border-t border-white/10">
+                            <div class="text-11px text-tertiary font-600 tracking-wider mb-2">52-WEEK RANGE</div>
+                            <div class="flex justify-between mb-1">
+                                <span>High: ₹${trade.week_52_high?.toLocaleString() || 'N/A'}</span>
+                                <span class="text-slate-400">Low: ₹${trade.week_52_low?.toLocaleString() || 'N/A'}</span>
+                            </div>
+                            <div class="text-10px text-slate-600">${trade.currentPrice && trade.week_52_high && trade.week_52_low ? ((trade.currentPrice - trade.week_52_low) / (trade.week_52_high - trade.week_52_low) * 100).toFixed(1) : '-'}% in range</div>
+                        </div>
+                        
                         <div class="flex space-x-2">
                             ${trade.status === 'Open' ? `
                             <button onclick="updateTradeStatus(${idx}, 'Target Hit')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(4,120,87,0.2); color: #10B981;">✅ Target Hit</button>

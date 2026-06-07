@@ -1,0 +1,197 @@
+================================================================================
+PHASE 2 DEPLOYMENT GUIDE - Web Dashboard + Database
+================================================================================
+
+✅ WHAT'S INCLUDED:
+
+1. 📊 dashboard.html
+   - Responsive web interface (works on all browsers)
+   - Three tabs: Volume, Trendline, Radar
+   - Real-time metrics and stock cards
+   - Mobile-optimized design
+   - Share via Telegram button
+
+2. 🚀 deploy_dashboard_to_s3.py
+   - Deploys dashboard to AWS S3
+   - Enables static website hosting
+   - Creates public URL
+   - FREE tier (~$0.50/month after 12 months)
+
+3. 💾 setup_dynamodb.py
+   - Creates DynamoDB tables for:
+     * StockAlerts (track alerted stocks)
+     * TradeHistory (store trades)
+     * PerformanceMetrics (daily stats)
+   - FREE tier (~$1-2/month after 12 months)
+
+================================================================================
+QUICK DEPLOYMENT (5 MINUTES):
+================================================================================
+
+Step 1: Deploy Dashboard to S3
+------------------------------
+cd d:\Stock Yard
+python deploy_dashboard_to_s3.py
+
+✅ You'll get a public URL like:
+   http://stockyard-dashboard-prod.s3-website-us-east-1.amazonaws.com
+
+Step 2: Setup Database
+----------------------
+python setup_dynamodb.py
+
+✅ Creates 3 DynamoDB tables
+✅ Inserts sample data
+
+Step 3: Share Dashboard Link
+-----------------------------
+1. Open the dashboard URL in your browser
+2. Click "📱 Share Link" button
+3. Telegram opens → Share with friends/groups
+
+================================================================================
+BROWSER COMPATIBILITY:
+================================================================================
+
+✅ Chrome (Desktop & Mobile)
+✅ Safari (Desktop & Mobile)  
+✅ Firefox
+✅ Edge
+✅ Opera
+✅ All modern browsers with JavaScript support
+
+Mobile Features:
+✓ Responsive layout
+✓ Touch-friendly buttons
+✓ Auto-refresh every 5 minutes
+✓ Works offline (cached data)
+
+================================================================================
+TELEGRAM SHARING:
+================================================================================
+
+When you click "📱 Share Link" button:
+1. Telegram opens automatically
+2. Share the dashboard URL with:
+   - Friends
+   - Groups
+   - Channels
+3. They can open it in any browser
+
+The message includes:
+🤖 Stock Yard Trading Bot Dashboard
+📊 Volume • 📈 Trendline • 🎯 Radar
+Live monitoring of Nifty 500 stocks
+
+================================================================================
+COST BREAKDOWN:
+================================================================================
+
+First 12 Months (FREE TIER):
+✅ S3 Dashboard: FREE (~5GB storage free)
+✅ DynamoDB Database: FREE (25GB free)
+✅ API Gateway: FREE (1M requests/month free)
+✅ Total: $0 (just EC2 at ~$5-10/month)
+
+After 12 Months:
+💰 S3: ~$0.50/month
+💰 DynamoDB: ~$1-2/month (on-demand pricing)
+💰 Total: ~$5-15/month + EC2 (~$200-300/month)
+
+================================================================================
+FEATURES INCLUDED:
+================================================================================
+
+Dashboard Features:
+✓ Real-time stock scanner (500 stocks)
+✓ Three analysis tabs (Volume, Trendline, Radar)
+✓ Live price updates
+✓ Alert history
+✓ Status indicators
+✓ Next scan countdown
+✓ Manual refresh button
+✓ Telegram share button
+✓ Auto-refresh every 5 minutes
+✓ Mobile responsive design
+✓ Works on all browsers
+
+Database Tracking:
+✓ Stock alerts (when/what was alerted)
+✓ Trade history (entry, exit, P&L)
+✓ Performance metrics (daily stats)
+✓ Win rate calculation
+✓ Best/worst trade tracking
+
+================================================================================
+NEXT STEPS:
+================================================================================
+
+1. ✅ Deploy dashboard:
+   python deploy_dashboard_to_s3.py
+
+2. ✅ Setup database:
+   python setup_dynamodb.py
+
+3. ✅ Test in browser:
+   Open the dashboard URL in Chrome/Safari
+
+4. ✅ Share with Telegram:
+   Click "📱 Share Link" in dashboard
+
+5. ✅ Monitor performance:
+   Check dashboard daily for alerts
+
+6. (Optional) Automate:
+   Bot will automatically update database with trades
+
+================================================================================
+TROUBLESHOOTING:
+================================================================================
+
+Dashboard not loading?
+→ Check internet connection
+→ Try different browser (Chrome or Safari)
+→ Clear browser cache (Ctrl+Shift+Delete)
+
+Telegram share not working?
+→ Make sure Telegram is installed
+→ Check internet connection
+→ Try manual copy-paste of URL
+
+Database not updating?
+→ Check AWS credentials in aws_config.json
+→ Verify DynamoDB tables exist: python setup_dynamodb.py
+→ Check bot is running on EC2
+
+================================================================================
+FILE LOCATIONS:
+================================================================================
+
+Your Files:
+- dashboard.html (Dashboard UI)
+- deploy_dashboard_to_s3.py (Deploy script)
+- setup_dynamodb.py (Database setup)
+- aws_config.json (AWS credentials)
+
+AWS Resources Created:
+- S3 Bucket: stockyard-dashboard-prod
+- DynamoDB Table: StockAlerts
+- DynamoDB Table: TradeHistory
+- DynamoDB Table: PerformanceMetrics
+
+Dashboard URL:
+- http://stockyard-dashboard-prod.s3-website-{region}.amazonaws.com
+
+================================================================================
+SUPPORT:
+================================================================================
+
+If you need help:
+1. Check dashboard URL in S3 console
+2. Verify DynamoDB tables exist
+3. Test API connectivity
+4. Check browser console for errors (F12)
+
+Everything is set up for FREE during first 12 months!
+
+================================================================================
