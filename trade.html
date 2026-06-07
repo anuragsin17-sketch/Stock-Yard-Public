@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Yard - Trade Confirmation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 500px;
+            width: 100%;
+            padding: 30px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .signal-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .trade-details {
+            background: #f5f7fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .detail-value {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .ticker {
+            font-size: 24px;
+            color: #667eea;
+        }
+        
+        .price-up {
+            color: #10b981;
+        }
+        
+        .price-down {
+            color: #ef4444;
+        }
+        
+        .sizing-section {
+            margin: 20px 0;
+        }
+        
+        .sizing-section h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .size-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .size-btn {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .size-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .size-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        
+        .custom-qty {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .custom-qty input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .risk-info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #856404;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-confirm {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-confirm:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-cancel:hover {
+            background: #d0d0d0;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .success h2 {
+            color: #10b981;
+            margin-bottom: 10px;
+        }
+        
+        .error {
+            background: #fee;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            border-radius: 4px;
+            color: #991b1b;
+            display: none;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Trade Confirmation</h1>
+            <div class="signal-badge">Entry Point Detected</div>
+        </div>
+        
+        <div id="errorMsg" class="error"></div>
+        
+        <div id="tradeForm">
+            <div class="trade-details">
+                <div class="detail-row">
+                    <span class="detail-label">Stock</span>
+                    <span class="detail-value ticker" id="ticker">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Current Price</span>
+                    <span class="detail-value" id="price">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Target</span>
+                    <span class="detail-value price-up" id="target">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Stop Loss</span>
+                    <span class="detail-value price-down" id="stoploss">-</span>
+                </div>
+            </div>
+            
+            <div class="sizing-section">
+                <h3>📊 Select Position Size</h3>
+                <div class="size-options">
+                    <button class="size-btn" onclick="setQuantity(10)">10 Qty</button>
+                    <button class="size-btn" onclick="setQuantity(20)">20 Qty</button>
+                    <button class="size-btn" onclick="setQuantity(50)">50 Qty</button>
+                </div>
+                <div class="custom-qty">
+                    <input type="number" id="customQty" placeholder="Custom quantity" min="1" max="1000">
+                    <button class="size-btn" onclick="setCustomQuantity()">Set</button>
+                </div>
+            </div>
+            
+            <div class="risk-info">
+                <strong>⚠️ Risk Summary:</strong><br>
+                Capital: ₹<span id="riskCapital">0</span><br>
+                Max Loss: ₹<span id="riskLoss">0</span><br>
+                Potential Profit: ₹<span id="riskGain">0</span>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-confirm" onclick="placeOrder()">✅ Confirm Trade</button>
+                <button class="btn btn-cancel" onclick="cancelTrade()">❌ Cancel</button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Placing order on Angel One...</p>
+        </div>
+        
+        <div id="success" class="success">
+            <div class="success-icon">✅</div>
+            <h2>Order Placed Successfully!</h2>
+            <p id="successMsg">Your trade is now LIVE</p>
+            <button class="btn btn-confirm" onclick="goToDashboard()">Back to Dashboard</button>
+        </div>
+    </div>
+    
+    <script>
+        let selectedQty = 10;
+        let tradeData = {};
+        
+        // Parse URL parameters
+        function getURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                ticker: params.get('ticker') || 'N/A',
+                price: parseFloat(params.get('price')) || 0,
+                target: parseFloat(params.get('target')) || 0,
+                stoploss: parseFloat(params.get('stoploss')) || 0,
+                type: params.get('type') || 'unknown'
+            };
+        }
+        
+        // Initialize
+        function init() {
+            tradeData = getURLParams();
+            displayTradeDetails();
+        }
+        
+        function displayTradeDetails() {
+            document.getElementById('ticker').textContent = tradeData.ticker;
+            document.getElementById('price').textContent = `₹${tradeData.price.toFixed(2)}`;
+            document.getElementById('target').textContent = `₹${tradeData.target.toFixed(2)}`;
+            document.getElementById('stoploss').textContent = `₹${tradeData.stoploss.toFixed(2)}`;
+            updateRiskInfo();
+        }
+        
+        function setQuantity(qty) {
+            selectedQty = qty;
+            document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            updateRiskInfo();
+        }
+        
+        function setCustomQuantity() {
+            const qty = parseInt(document.getElementById('customQty').value);
+            if (qty > 0 && qty <= 1000) {
+                selectedQty = qty;
+                updateRiskInfo();
+            }
+        }
+        
+        function updateRiskInfo() {
+            const capital = tradeData.price * selectedQty;
+            const maxLoss = (tradeData.price - tradeData.stoploss) * selectedQty;
+            const maxGain = (tradeData.target - tradeData.price) * selectedQty;
+            
+            document.getElementById('riskCapital').textContent = capital.toFixed(0);
+            document.getElementById('riskLoss').textContent = maxLoss.toFixed(0);
+            document.getElementById('riskGain').textContent = maxGain.toFixed(0);
+        }
+        
+        function placeOrder() {
+            document.getElementById('tradeForm').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            
+            // Simulate API call - in production, call Angel One API
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('success').style.display = 'block';
+                document.getElementById('successMsg').textContent = 
+                    `Trade placed for ${tradeData.ticker}: ${selectedQty} units @ ₹${tradeData.price.toFixed(2)}`;
+            }, 2000);
+        }
+        
+        function cancelTrade() {
+            window.history.back();
+        }
+        
+        function goToDashboard() {
+            window.location.href = 'https://anuragsin17-sketch.github.io/Stock-Yard-Public/';
+        }
+        
+        // Initialize on load
+        window.onload = init;
+    </script>
+</body>
+</html>
