@@ -194,31 +194,14 @@ jobs:
     
     - name: Deploy dashboard data to EC2
       run: |
-        echo "🚀 Deploying trendline data to EC2 dashboard..."
+        echo "🚀 Deploying trendline data to GitHub Pages..."
         
         # Check if trendline_screen.json exists
         if [ -f "trendline_screen.json" ]; then
           echo "📊 Found trendline_screen.json, size: $(wc -c < trendline_screen.json) bytes"
-          
-          # Create SSH key from secret
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
-          chmod 600 ~/.ssh/ec2_key.pem
-          
-          # Disable SSH key checking temporarily
-          echo "StrictHostKeyChecking=no" >> ~/.ssh/config
-          echo "UserKnownHostsFile=/dev/null" >> ~/.ssh/config
-          
-          # Copy JSON to EC2
-          scp -i ~/.ssh/ec2_key.pem -o ConnectTimeout=10 \
-              trendline_screen.json ubuntu@32.194.58.75:/var/www/stockyard/trendline_screen.json \
-              && echo "✅ Dashboard data deployed successfully" \
-              || echo "⚠️ SCP failed - dashboard may not update"
-          
-          # Clean up SSH key
-          rm -f ~/.ssh/ec2_key.pem
+          echo "✅ Data ready for GitHub Pages deployment"
         else
-          echo "⚠️ trendline_screen.json not found, skipping dashboard deploy"
+          echo "⚠️ trendline_screen.json not found"
         fi
     
     - name: Deploy to public repository
@@ -262,7 +245,7 @@ jobs:
         git commit -m "🔄 Auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC') - Run #${{ github.run_number }}" || echo "ℹ️ No changes to commit"
         
         # Push
-        git push origin HEAD 2>&1 && echo "✅ Deployed successfully" || echo "❌ Push failed"
+        git push origin main 2>&1 && echo "✅ Deployed to GitHub Pages" || echo "❌ Push failed"
         
         cd ..
         rm -rf public-repo
