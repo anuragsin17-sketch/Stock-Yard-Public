@@ -108,9 +108,41 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
-        echo "📣 Sending Telegram alerts for new stocks..."
-        python notify_new_stocks.py || echo "⚠️ Notifier failed, continuing..."
-        echo "✅ Notifications completed"
+        echo "📣 Sending Telegram alerts with buttons..."
+        
+        # Install requests if needed
+        pip install requests --quiet 2>/dev/null || true
+        
+        # Send alerts for new stocks
+        python -c "
+        import json
+        import os
+        from telegram_trade_bot import TelegramTradeBot
+        
+        bot = TelegramTradeBot()
+        
+        # Load trendline data
+        try:
+            with open('trendline_screen.json') as f:
+                stocks = json.load(f)
+        except:
+            stocks = []
+        
+        # Send alerts for each stock (limit to 5)
+        for stock in stocks[:5]:
+            ticker = stock.get('ticker', 'N/A')
+            price = stock.get('current_price', 0)
+            target = stock.get('target_exit', 0)
+            stoploss = stock.get('stop_loss', 0)
+            signal_type = stock.get('tab_type', 'unknown')
+            confluence = stock.get('confluence_score', 0)
+            
+            if price and target and stoploss:
+                print(f'📨 Alert: {ticker}')
+                bot.send_trade_alert_with_buttons(ticker, price, target, stoploss, signal_type, confluence)
+        " || echo "⚠️ Alert sending skipped"
+        
+        echo "✅ Telegram alerts sent"
 
     - name: Monitor open positions (Angel One)
       env:
@@ -226,6 +258,7 @@ jobs:
         
         # Copy files to public repo
         cp index.html public-repo/
+        cp trade.html public-repo/
         cp data.json public-repo/
         cp trendline_screen.json public-repo/ || true
         cp radar_trades.json public-repo/ || true
