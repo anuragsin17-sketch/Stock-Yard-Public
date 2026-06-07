@@ -107,36 +107,10 @@ jobs:
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        TRADING_MODE: live
       run: |
-        echo "📣 Sending Telegram alerts with trade buttons..."
-        
-        # Send alerts with inline buttons for trade execution
-        python -c "
-        from telegram_trade_bot import send_webhook_update
-        import json
-        
-        # Load scanner results
-        try:
-            with open('trendline_screen.json') as f:
-                data = json.load(f)
-                
-            # Send alerts for each stock
-            for stock in data[:5]:  # Limit to 5 for demo
-                ticker = stock.get('ticker', 'N/A')
-                price = stock.get('current_price', 0)
-                target = stock.get('target_exit', 0)
-                stoploss = stock.get('stop_loss', 0)
-                signal_type = stock.get('tab_type', 'unknown')
-                confluence = stock.get('confluence_score', 0)
-                
-                print(f'📨 Sending alert for {ticker}...')
-                send_webhook_update(ticker, signal_type, price, target, stoploss, confluence)
-        except Exception as e:
-            print(f'⚠️ Alert sending failed: {e}')
-        " || echo "⚠️ Alert script failed"
-        
-        echo "✅ Telegram alerts with buttons sent"
+        echo "📣 Sending Telegram alerts for new stocks..."
+        python notify_new_stocks.py || echo "⚠️ Notifier failed, continuing..."
+        echo "✅ Notifications completed"
 
     - name: Monitor open positions (Angel One)
       env:
