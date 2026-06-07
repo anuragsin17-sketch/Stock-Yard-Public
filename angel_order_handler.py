@@ -6,10 +6,11 @@ Receives order confirmation from dashboard and places on Angel One
 
 import os
 import json
+import secrets
 import pyotp
 from SmartApi import SmartConnect
 from flask import Flask, request, jsonify
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -48,24 +49,88 @@ def get_angel_session():
         print(f"Session error: {e}")
         return None
 
-@app.route('/api/place-order', methods=['POST'])
-def place_order():
-    """Place order on Angel One"""
+@app.route('/api/verify-token', methods=['POST'])
+def verify_token():
+    """Verify trade confirmation token"""
     try:
         data = request.json
+        token = data.get('token', '').strip()
+        
+        if not token:
+            return jsonify({'success': False, 'error': 'No token provided'}), 400
+        
+        tokens_file = 'active_trade_tokens.json'
+        if not os.path.exists(tokens_file):
+            return jsonify({'success': False, 'error': 'No active tokens'}), 404
+        
+        with open(tokens_file) as f:
+            tokens = json.load(f)
+        
+        if token not in tokens:
+            return jsonify({'success': False, 'error': 'Invalid token'}), 401
+        
+        token_data = tokens[token]
+        
+        # Check expiration
+        expires_at = datetime.fromisoformat(token_data['expires_at'])
+        if datetime.now() > expires_at:
+            del tokens[token]
+            with open(tokens_file, 'w') as f:
+                json.dump(tokens, f, indent=2)
+            return jsonify({'success': False, 'error': 'Token expired'}), 401
+        
+        # Return trade details
+        return jsonify({
+            'success': True,
+            'trade': token_data,
+            'token_expires_in_seconds': int((expires_at - datetime.now()).total_seconds())
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/place-order', methods=['POST'])
+def place_order():
+    """Place order on Angel One (requires valid token)"""
+    try:
+        data = request.json
+        token = data.get('token', '').strip()
         symbol = data.get('symbol')
         quantity = int(data.get('quantity', 1))
         entry_price = float(data.get('entry_price', 0))
         target_price = float(data.get('target_price', 0))
         stop_loss = float(data.get('stop_loss', 0))
-        source = data.get('source', 'Trendline')
+        
+        # Verify token
+        tokens_file = 'active_trade_tokens.json'
+        if not os.path.exists(tokens_file):
+            return jsonify({'success': False, 'error': 'No valid token'}), 401
+        
+        with open(tokens_file) as f:
+            tokens = json.load(f)
+        
+        if token not in tokens:
+            return jsonify({'success': False, 'error': 'Invalid token'}), 401
+        
+        token_data = tokens[token]
+        
+        # Verify token not expired
+        expires_at = datetime.fromisoformat(token_data['expires_at'])
+        if datetime.now() > expires_at:
+            del tokens[token]
+            with open(tokens_file, 'w') as f:
+                json.dump(tokens, f, indent=2)
+            return jsonify({'success': False, 'error': 'Token expired'}), 401
+        
+        # Verify symbol matches
+        if token_data['ticker'] != symbol:
+            return jsonify({'success': False, 'error': 'Symbol mismatch - possible security issue'}), 403
         
         print(f"\n📋 Order Placement Request:")
         print(f"   Stock: {symbol}")
         print(f"   Quantity: {quantity}")
         print(f"   Price: ₹{entry_price}")
-        print(f"   Target: ₹{target_price}")
-        print(f"   Stop Loss: ₹{stop_loss}")
+        print(f"   Token: {token[:10]}... (verified)")
         
         # Get session
         smart = get_angel_session()
@@ -127,7 +192,7 @@ def place_order():
             'entry_price': entry_price,
             'target_price': target_price,
             'stop_loss': stop_loss,
-            'source': source,
+            'source': token_data['source'],
             'placed_at': datetime.now().isoformat(),
             'status': 'PENDING'
         }
@@ -147,6 +212,11 @@ def place_order():
         
         with open('angel_orders.json', 'w') as f:
             json.dump(orders_log, f, indent=2)
+        
+        # Delete used token
+        del tokens[token]
+        with open(tokens_file, 'w') as f:
+            json.dump(tokens, f, indent=2)
         
         return jsonify({
             'success': True,

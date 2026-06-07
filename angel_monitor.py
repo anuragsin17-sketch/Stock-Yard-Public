@@ -44,14 +44,45 @@ def send_telegram(message: str) -> bool:
 
 def send_telegram_with_action(ticker: str, entry_price: float, current_price: float, 
                               target_price: float, stoploss_price: float, source: str) -> bool:
-    """Send Telegram with 'Confirm Trade' inline button"""
+    """Send Telegram with secure token for order confirmation"""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
         print("⚠️ Telegram not configured")
         return False
     
     try:
+        import secrets
+        from datetime import datetime, timedelta
+        
+        # Generate secure token (32 random chars)
+        token = secrets.token_urlsafe(24)
+        token_expires = datetime.now() + timedelta(minutes=5)
+        
+        # Save token for verification
+        tokens_file = 'active_trade_tokens.json'
+        tokens = {}
+        if os.path.exists(tokens_file):
+            try:
+                with open(tokens_file) as f:
+                    tokens = json.load(f)
+            except:
+                tokens = {}
+        
+        tokens[token] = {
+            'ticker': ticker,
+            'entry_price': entry_price,
+            'target_price': target_price,
+            'stop_loss': stoploss_price,
+            'source': source,
+            'expires_at': token_expires.isoformat(),
+            'created_at': datetime.now().isoformat()
+        }
+        
+        with open(tokens_file, 'w') as f:
+            json.dump(tokens, f, indent=2)
+        
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         
+        # Message with secure token (user must enter manually)
         message = (
             f"🎯 *TRADE TRIGGERED - {source.upper()}*\n\n"
             f"Stock: *{ticker}*\n"
@@ -60,28 +91,25 @@ def send_telegram_with_action(ticker: str, entry_price: float, current_price: fl
             f"Target: ₹{target_price:,.2f} _(+20%)_\n"
             f"Stop Loss: ₹{stoploss_price:,.2f} _(8% loss)_\n"
             f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}\n\n"
-            f"📊 Click below to confirm trade or check dashboard"
+            f"🔐 *CONFIRMATION TOKEN:*\n"
+            f"`{token}`\n\n"
+            f"⏰ Token expires in 5 minutes\n\n"
+            f"📱 To confirm trade:\n"
+            f"1. Open dashboard\n"
+            f"2. Go to Radar or pending trades\n"
+            f"3. Paste token above to unlock trade confirmation\n"
+            f"4. Adjust quantity\n"
+            f"5. Click Confirm"
         )
-        
-        # Create inline keyboard with button
-        reply_markup = {
-            "inline_keyboard": [[
-                {
-                    "text": "✅ Confirm Trade",
-                    "url": "https://anuragsin17-sketch.github.io/Stock-Yard-Public/?action=confirmTrade&stock=" + ticker
-                }
-            ]]
-        }
         
         resp = requests.post(url, json={
             'chat_id': TELEGRAM_CHAT,
             'text': message,
-            'parse_mode': 'Markdown',
-            'reply_markup': reply_markup
+            'parse_mode': 'Markdown'
         }, timeout=10)
         
         if resp.status_code == 200:
-            print("✅ Telegram with action sent")
+            print("✅ Telegram with secure token sent")
             return True
         print(f"❌ Telegram failed: {resp.text[:200]}")
     except Exception as e:
