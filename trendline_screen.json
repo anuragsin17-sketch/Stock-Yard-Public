@@ -362,7 +362,7 @@
     {
         "ticker": "MRF",
         "currentPrice": 123505.0,
-        "triggerPrice": 121457.26,
+        "triggerPrice": 121457.25,
         "distanceRemaining": 1.69,
         "fibLevelMatch": "N/A",
         "patternZone": "No Fib within 2% (closest: 78.6% at 7.2%)",
