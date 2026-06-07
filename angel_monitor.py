@@ -42,6 +42,53 @@ def send_telegram(message: str) -> bool:
     return False
 
 
+def send_telegram_with_action(ticker: str, entry_price: float, current_price: float, 
+                              target_price: float, stoploss_price: float, source: str) -> bool:
+    """Send Telegram with 'Confirm Trade' inline button"""
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
+        print("⚠️ Telegram not configured")
+        return False
+    
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        
+        message = (
+            f"🎯 *TRADE TRIGGERED - {source.upper()}*\n\n"
+            f"Stock: *{ticker}*\n"
+            f"Entry Price: ₹{entry_price:,.2f}\n"
+            f"Current Price: ₹{current_price:,.2f}\n"
+            f"Target: ₹{target_price:,.2f} _(+20%)_\n"
+            f"Stop Loss: ₹{stoploss_price:,.2f} _(8% loss)_\n"
+            f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}\n\n"
+            f"📊 Click below to confirm trade or check dashboard"
+        )
+        
+        # Create inline keyboard with button
+        reply_markup = {
+            "inline_keyboard": [[
+                {
+                    "text": "✅ Confirm Trade",
+                    "url": "https://anuragsin17-sketch.github.io/Stock-Yard-Public/?action=confirmTrade&stock=" + ticker
+                }
+            ]]
+        }
+        
+        resp = requests.post(url, json={
+            'chat_id': TELEGRAM_CHAT,
+            'text': message,
+            'parse_mode': 'Markdown',
+            'reply_markup': reply_markup
+        }, timeout=10)
+        
+        if resp.status_code == 200:
+            print("✅ Telegram with action sent")
+            return True
+        print(f"❌ Telegram failed: {resp.text[:200]}")
+    except Exception as e:
+        print(f"❌ Telegram error: {e}")
+    return False
+
+
 def get_live_price(ticker: str) -> float:
     """Get current price via yfinance"""
     try:
@@ -141,17 +188,15 @@ def check_trendline_stocks_for_entry():
             })
             changed = True
 
-            # Send Telegram
-            msg = (
-                f"🎯 *TRADE TRIGGERED - TRENDLINE*\n\n"
-                f"Stock: *{ticker}*\n"
-                f"Entry Price: ₹{entry_price:,.2f}\n"
-                f"Current Price: ₹{current_price:,.2f}\n"
-                f"Target: ₹{target_price:,.2f} _(+20%)_\n"
-                f"Stop Loss: ₹{stoploss_price:,.2f} _(8% loss)_\n"
-                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M IST')}"
+            # Send Telegram with Confirm Trade button
+            send_telegram_with_action(
+                ticker=ticker,
+                entry_price=entry_price,
+                current_price=current_price,
+                target_price=target_price,
+                stoploss_price=stoploss_price,
+                source='Trendline'
             )
-            send_telegram(msg)
 
     if changed:
         save_radar(radar_trades)

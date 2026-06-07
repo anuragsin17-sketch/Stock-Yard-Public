@@ -5816,3 +5816,165 @@
             </div>
         </div>
     </div>
+
+    <!-- ORDER CONFIRMATION MODAL -->
+    <div id="orderConfirmModal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background: rgba(0,0,0,0.8);">
+        <div class="bg-slate-900 rounded-2xl p-8 max-w-md w-full mx-4 border border-slate-700">
+            <!-- Header -->
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-white mb-2">🎯 Confirm Order</h2>
+                <p class="text-slate-400 text-sm">Entry Price Triggered - Ready to Place Order</p>
+            </div>
+            
+            <!-- Warning -->
+            <div class="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-xs text-red-200">
+                ⚠️ Real Order: This will place a LIVE LIMIT ORDER on Angel One
+            </div>
+            
+            <!-- Trade Details -->
+            <div class="bg-slate-800 rounded-lg p-4 mb-6 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Stock:</span>
+                    <span class="text-white font-bold" id="modalStock">INFY</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Entry Price:</span>
+                    <span class="text-white font-bold">₹<span id="modalEntry">2490.00</span></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Target (20%):</span>
+                    <span class="text-green-400 font-bold">₹<span id="modalTarget">2988.00</span></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Stop Loss (8%):</span>
+                    <span class="text-red-400 font-bold">₹<span id="modalStop">2291.20</span></span>
+                </div>
+            </div>
+            
+            <!-- Quantity Adjustment -->
+            <div class="mb-6">
+                <label class="block text-white font-bold text-sm mb-3">Number of Shares</label>
+                <div class="flex items-center gap-3">
+                    <button id="qtyMinus" onclick="decreaseQtyModal()" class="bg-slate-700 hover:bg-slate-600 text-white w-10 h-10 rounded font-bold">−</button>
+                    <input id="qtyInput" type="number" value="1" min="1" max="1000" class="flex-1 bg-slate-800 border border-slate-600 rounded p-2 text-white text-center font-bold" onchange="updateModalCalculations()">
+                    <button id="qtyPlus" onclick="increaseQtyModal()" class="bg-slate-700 hover:bg-slate-600 text-white w-10 h-10 rounded font-bold">+</button>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="setQtyModal(1)" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded">1</button>
+                    <button onclick="setQtyModal(5)" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded">5</button>
+                    <button onclick="setQtyModal(10)" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded">10</button>
+                    <button onclick="setQtyModal(20)" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded">20</button>
+                </div>
+            </div>
+            
+            <!-- Cost Calculation -->
+            <div class="bg-slate-800 rounded-lg p-4 mb-6 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Capital Required:</span>
+                    <span class="text-white font-bold">₹<span id="modalCapital">2490.00</span></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Potential Gain:</span>
+                    <span class="text-green-400 font-bold">₹<span id="modalGain">498.00</span> (+20%)</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Max Loss:</span>
+                    <span class="text-red-400 font-bold">₹<span id="modalLoss">199.20</span> (-8%)</span>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex gap-3">
+                <button id="modalCancel" onclick="cancelOrderModal()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg">Cancel</button>
+                <button id="modalConfirm" onclick="confirmOrderModal()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg">Confirm Order</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Order Confirmation Modal Functions
+    let pendingOrderData = null;
+
+    function showOrderConfirmModal(stockData) {
+        pendingOrderData = stockData;
+        
+        // Populate modal with data
+        document.getElementById('modalStock').textContent = stockData.symbol;
+        document.getElementById('modalEntry').textContent = stockData.entry.toFixed(2);
+        document.getElementById('modalTarget').textContent = stockData.target.toFixed(2);
+        document.getElementById('modalStop').textContent = stockData.stop.toFixed(2);
+        
+        // Reset quantity
+        document.getElementById('qtyInput').value = 1;
+        updateModalCalculations();
+        
+        // Show modal
+        document.getElementById('orderConfirmModal').classList.remove('hidden');
+    }
+
+    function closeOrderConfirmModal() {
+        document.getElementById('orderConfirmModal').classList.add('hidden');
+        pendingOrderData = null;
+    }
+
+    function increaseQtyModal() {
+        const input = document.getElementById('qtyInput');
+        input.value = Math.min(parseInt(input.value) + 1, 1000);
+        updateModalCalculations();
+    }
+
+    function decreaseQtyModal() {
+        const input = document.getElementById('qtyInput');
+        input.value = Math.max(parseInt(input.value) - 1, 1);
+        updateModalCalculations();
+    }
+
+    function setQtyModal(qty) {
+        document.getElementById('qtyInput').value = qty;
+        updateModalCalculations();
+    }
+
+    function updateModalCalculations() {
+        if (!pendingOrderData) return;
+        
+        const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+        const entry = pendingOrderData.entry;
+        const capital = (entry * qty).toFixed(2);
+        const gain = (capital * 0.20).toFixed(2);
+        const loss = (capital * 0.08).toFixed(2);
+        
+        document.getElementById('modalCapital').textContent = capital;
+        document.getElementById('modalGain').textContent = gain;
+        document.getElementById('modalLoss').textContent = loss;
+    }
+
+    function confirmOrderModal() {
+        if (!pendingOrderData) return;
+        
+        const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+        const confirmation = confirm(
+            `Place order for ${qty} share(s) of ${pendingOrderData.symbol}?\n` +
+            `Capital: ₹${(pendingOrderData.entry * qty).toFixed(2)}\n\n` +
+            `This will place a REAL LIMIT ORDER on Angel One.`
+        );
+        
+        if (confirmation) {
+            placeAngelOrder(
+                pendingOrderData.symbol,
+                'BUY',
+                qty,
+                pendingOrderData.entry,
+                pendingOrderData.stop,
+                pendingOrderData.target,
+                pendingOrderData.source || 'Trendline'
+            );
+            closeOrderConfirmModal();
+        }
+    }
+
+    function cancelOrderModal() {
+        if (confirm('Cancel this order?')) {
+            closeOrderConfirmModal();
+        }
+    }
+    </script>
