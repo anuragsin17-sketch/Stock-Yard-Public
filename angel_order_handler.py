@@ -11,6 +11,7 @@ import json
 import secrets
 import pyotp
 import logging
+import requests
 from SmartApi import SmartConnect
 from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
@@ -43,6 +44,31 @@ def load_credentials():
     
     return credentials
 
+def send_telegram_notification(message):
+    """Send Telegram notification"""
+    try:
+        # Hardcoded credentials (since env vars aren't loading in systemd)
+        token = "8253327701:AAGNFzBJ8QwKw8x8Hg-tlvWHg18DD4lgogQ"
+        chat_id = "8901309420"
+        
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {
+            'chat_id': chat_id,
+            'text': message,
+            'parse_mode': 'Markdown'
+        }
+        
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            logger.info("✓ Telegram notification sent")
+            return True
+        else:
+            logger.warning(f"✗ Telegram failed: {response.status_code} - {response.text}")
+            return False
+    except Exception as e:
+        logger.warning(f"✗ Telegram error: {e}")
+        return False
+
 def get_angel_session():
     """Get authenticated SmartConnect session"""
     credentials = load_credentials()
@@ -52,133 +78,81 @@ def get_angel_session():
         return None
     
     try:
+        logger.info("Creating SmartConnect session...")
         smart = SmartConnect(api_key=credentials.get('ANGEL_API_KEY'))
-        totp = pyotp.TOTP(credentials.get('ANGEL_TOTP_SECRET')).now()
+        logger.info("SmartConnect object created, generating TOTP...")
         
+        totp = pyotp.TOTP(credentials.get('ANGEL_TOTP_SECRET')).now()
+        logger.info(f"TOTP generated: {totp}")
+        
+        logger.info("Calling generateSession...")
         session = smart.generateSession(
             credentials.get('ANGEL_CLIENT_ID'),
             credentials.get('ANGEL_PASSWORD'),
             totp
         )
+        logger.info(f"Session response received: {type(session)}")
         
         if not isinstance(session, dict) or not session.get('status'):
-            logger.error("Session generation failed")
+            logger.error(f"Session generation failed: {session}")
             return None
         
         logger.info("Angel One session created successfully")
         return smart
     except Exception as e:
-        logger.error(f"Session error: {e}")
+        logger.error(f"Session error: {e}", exc_info=True)
         return None
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
-    credentials = load_credentials()
-    if credentials:
-        logger.info("Health check: OK")
-        return jsonify({'status': 'ok', 'service': 'angel-order-handler'}), 200
-    else:
-        logger.warning("Health check: Missing credentials")
-        return jsonify({'status': 'error', 'service': 'angel-order-handler', 'error': 'Missing credentials'}), 503
-
-@app.route('/api/verify-token', methods=['POST'])
-def verify_token():
-    """Verify trade confirmation token"""
+    """Health check endpoint - NO authentication required"""
     try:
-        data = request.json
-        token = data.get('token', '').strip()
-        
-        if not token:
-            logger.warning("Token verification failed: No token provided")
-            return jsonify({'success': False, 'error': 'No token provided'}), 400
-        
-        tokens_file = 'active_trade_tokens.json'
-        if not os.path.exists(tokens_file):
-            logger.warning("Token verification failed: No active tokens file")
-            return jsonify({'success': False, 'error': 'No active tokens'}), 404
-        
-        with open(tokens_file) as f:
-            tokens = json.load(f)
-        
-        if token not in tokens:
-            logger.warning("Token verification failed: Invalid token")
-            return jsonify({'success': False, 'error': 'Invalid token'}), 401
-        
-        token_data = tokens[token]
-        
-        # Check expiration
-        expires_at = datetime.fromisoformat(token_data['expires_at'])
-        if datetime.now() > expires_at:
-            del tokens[token]
-            with open(tokens_file, 'w') as f:
-                json.dump(tokens, f, indent=2)
-            logger.warning("Token verification failed: Token expired")
-            return jsonify({'success': False, 'error': 'Token expired'}), 401
-        
-        logger.info(f"Token verified: {token[:10]}...")
-        # Return trade details
-        return jsonify({
-            'success': True,
-            'trade': token_data,
-            'token_expires_in_seconds': int((expires_at - datetime.now()).total_seconds())
-        }), 200
-        
+        credentials = load_credentials()
+        if credentials:
+            logger.info("Health check: OK")
+            return jsonify({'status': 'ok', 'service': 'angel-order-handler', 'timestamp': datetime.now().isoformat()}), 200
+        else:
+            logger.warning("Health check: Missing credentials")
+            return jsonify({'status': 'error', 'service': 'angel-order-handler', 'error': 'Missing credentials'}), 503
     except Exception as e:
-        logger.error(f"Token verification error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        logger.error(f"Health check error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
 
 @app.route('/api/place-order', methods=['POST'])
 def place_order():
-    """Place order on Angel One (requires valid token)"""
+    """Place order on Angel One"""
     try:
         data = request.json
-        token = data.get('token', '').strip()
         symbol = data.get('symbol')
         quantity = int(data.get('quantity', 1))
         entry_price = float(data.get('entry_price', 0))
         target_price = float(data.get('target_price', 0))
         stop_loss = float(data.get('stop_loss', 0))
         
-        # Verify token
-        tokens_file = 'active_trade_tokens.json'
-        if not os.path.exists(tokens_file):
-            logger.warning("Order placement failed: No valid token file")
-            return jsonify({'success': False, 'error': 'No valid token'}), 401
+        logger.info(f"Order request: {symbol} x{quantity} @ Rs{entry_price}")
         
-        with open(tokens_file) as f:
-            tokens = json.load(f)
-        
-        if token not in tokens:
-            logger.warning("Order placement failed: Invalid token")
-            return jsonify({'success': False, 'error': 'Invalid token'}), 401
-        
-        token_data = tokens[token]
-        
-        # Verify token not expired
-        expires_at = datetime.fromisoformat(token_data['expires_at'])
-        if datetime.now() > expires_at:
-            del tokens[token]
-            with open(tokens_file, 'w') as f:
-                json.dump(tokens, f, indent=2)
-            logger.warning("Order placement failed: Token expired")
-            return jsonify({'success': False, 'error': 'Token expired'}), 401
-        
-        # Verify symbol matches
-        if token_data['ticker'] != symbol:
-            logger.warning(f"Order placement failed: Symbol mismatch - {symbol} vs {token_data['ticker']}")
-            return jsonify({'success': False, 'error': 'Symbol mismatch - possible security issue'}), 403
-        
-        logger.info(f"Order Placement Request: {symbol} x{quantity} @ Rs{entry_price}")
+        if not symbol:
+            logger.warning("Order placement failed: No symbol provided")
+            return jsonify({'success': False, 'error': 'No symbol provided'}), 400
         
         # Get session
+        logger.info("Getting Angel One session...")
         smart = get_angel_session()
         if not smart:
             logger.error("Order placement failed: Could not connect to Angel One")
             return jsonify({'success': False, 'error': 'Failed to connect to Angel One'}), 401
         
+        logger.info("Session obtained, searching for symbol...")
         # Search for symbol
-        search_result = smart.searchScrip("NSE", symbol)
+        try:
+            search_result = smart.searchScrip("NSE", symbol)
+            logger.info(f"Search result received: {len(search_result.get('data', []))} results")
+        except Exception as e:
+            logger.error(f"Symbol search failed: {e}", exc_info=True)
+            return jsonify({'success': False, 'error': f'Symbol search failed: {e}'}), 500
+        
         if not search_result.get('data'):
             logger.warning(f"Order placement failed: Symbol {symbol} not found")
             return jsonify({'success': False, 'error': f'Symbol {symbol} not found'}), 404
@@ -195,6 +169,7 @@ def place_order():
         
         trading_symbol = scrip_data.get('tradingsymbol')
         symbol_token = scrip_data.get('symboltoken')
+        logger.info(f"Found trading symbol: {trading_symbol}, token: {symbol_token}")
         
         # Place limit order
         order_params = {
@@ -213,18 +188,28 @@ def place_order():
             "trailingstoploss": "0"
         }
         
-        logger.info(f"Sending order to Angel One: {trading_symbol}")
-        result = smart.placeOrder(order_params)
+        logger.info(f"Sending order to Angel One with params: {order_params}")
+        try:
+            result = smart.placeOrder(order_params)
+            logger.info(f"Order result received: {result}")
+        except Exception as e:
+            logger.error(f"Place order API call failed: {e}", exc_info=True)
+            return jsonify({'success': False, 'error': f'Place order failed: {e}'}), 500
         
         if isinstance(result, str):
             order_id = result
         elif isinstance(result, dict) and result.get('status'):
             order_id = result.get('data', result.get('orderid'))
         else:
-            logger.error(f"Order placement failed: {result}")
+            logger.error(f"Order placement failed: Unexpected result {result}")
             return jsonify({'success': False, 'error': 'Order placement failed'}), 400
         
         logger.info(f"Order placed successfully: {order_id}")
+        
+        # Send Telegram notification
+        trade_value = entry_price * quantity
+        message = f"✅ *ORDER PLACED*\n\n🔹 *Symbol:* {symbol}\n🔹 *Quantity:* {quantity}\n🔹 *Entry Price:* ₹{entry_price}\n🔹 *Target:* ₹{target_price}\n🔹 *Stop Loss:* ₹{stop_loss}\n🔹 *Order Value:* ₹{trade_value:,.0f}\n🔹 *Order ID:* `{order_id}`"
+        send_telegram_notification(message)
         
         # Save order to file
         order_record = {
@@ -234,7 +219,6 @@ def place_order():
             'entry_price': entry_price,
             'target_price': target_price,
             'stop_loss': stop_loss,
-            'source': token_data.get('source', 'unknown'),
             'placed_at': datetime.now().isoformat(),
             'status': 'PENDING'
         }
@@ -256,10 +240,7 @@ def place_order():
         with open('angel_orders.json', 'w') as f:
             json.dump(orders_log, f, indent=2)
         
-        # Delete used token
-        del tokens[token]
-        with open(tokens_file, 'w') as f:
-            json.dump(tokens, f, indent=2)
+        logger.info(f"Order logged to angel_orders.json")
         
         return jsonify({
             'success': True,

@@ -12,6 +12,8 @@ Environment="ANGEL_API_KEY=SZqPJrCA"
 Environment="ANGEL_CLIENT_ID=AAAA971572"
 Environment="ANGEL_PASSWORD=1990"
 Environment="ANGEL_TOTP_SECRET=75HLXE2L3L7NASX47RCIJTKEKM"
+Environment="TELEGRAM_BOT_TOKEN=8253327701:AAGNFzBJ8QwKw8x8Hg-tlvWHg18DD4lgogQ"
+Environment="TELEGRAM_CHAT_ID=8901309420"
 # Python path to ensure dependencies are found
 Environment="PYTHONUNBUFFERED=1"
 Environment="PYTHONPATH=/home/ubuntu"
