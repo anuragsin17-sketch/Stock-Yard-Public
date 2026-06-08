@@ -35,7 +35,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas yfinance requests numpy openpyxl scipy
+        pip install pandas yfinance requests numpy openpyxl scipy pyotp smartapi-python
     
     - name: Test basic functionality
       run: |
