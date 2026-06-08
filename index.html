@@ -4770,6 +4770,8 @@
         // Global variables
         let screeningData = null;
         let currentTab = 'volume';
+        let livePriceUpdateTimer = null;
+        let indexUpdateTimer = null;
         
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
@@ -4783,6 +4785,12 @@
             setupEventListeners();
             loadData();
             fetchIndexData();
+            
+            // Start live price updates every 10 seconds
+            startLivePriceUpdates();
+            
+            // Start index price updates every 15 seconds
+            startIndexUpdates();
 
             // Handle stock highlight deep link
             if (stockParam) {
@@ -4878,34 +4886,42 @@
         async function fetchLivePricesForPriorityStocks() {
             if (!screeningData) return;
             
-            console.log('🔴 Fetching live prices for priority stocks...');
+            console.log('🔴 Fetching live prices for all stocks...');
             
-            // Collect all priority stocks (AT ENTRY or radar status)
-            const priorityStocks = [];
+            // Collect ALL stocks from all tabs
+            const allStocks = [];
             
             // Check volume breakout stocks
             screeningData.volume_breakout_stocks?.forEach(stock => {
-                if (stock.radar_status === 'Active' || stock.near_breakout_low) {
-                    priorityStocks.push({
-                        symbol: stock.symbol,
-                        type: 'volume',
-                        entryPrice: stock.radar_trigger_price,
-                        currentPrice: stock.current_price
-                    });
-                }
+                allStocks.push({
+                    symbol: stock.symbol,
+                    type: 'volume',
+                    entryPrice: stock.radar_trigger_price,
+                    currentPrice: stock.current_price
+                });
             });
             
-            if (priorityStocks.length === 0) {
-                console.log('📊 No priority stocks found for live price updates');
+            // Check golden stocks
+            screeningData.golden_stocks?.forEach(stock => {
+                allStocks.push({
+                    symbol: stock.symbol,
+                    type: 'trendline',
+                    entryPrice: stock.trendline_price,
+                    currentPrice: stock.current_price
+                });
+            });
+            
+            if (allStocks.length === 0) {
+                console.log('📊 No stocks found for live price updates');
                 return;
             }
             
-            console.log(`🎯 Updating live prices for ${priorityStocks.length} priority stocks`);
+            console.log(`🎯 Updating live prices for ${allStocks.length} stocks...`);
             
             // Fetch live prices in batches to avoid rate limiting
             const batchSize = 5;
-            for (let i = 0; i < priorityStocks.length; i += batchSize) {
-                const batch = priorityStocks.slice(i, i + batchSize);
+            for (let i = 0; i < allStocks.length; i += batchSize) {
+                const batch = allStocks.slice(i, i + batchSize);
                 
                 await Promise.all(batch.map(async (stock) => {
                     try {
@@ -4916,23 +4932,60 @@
                             
                             // Update the stock data in screeningData
                             updateStockPrice(stock.symbol, stock.type, livePrice);
-                            
-                            console.log(`📈 ${stock.symbol}: ₹${livePrice.toFixed(2)} (was ₹${stock.currentPrice})`);
                         }
                     } catch (error) {
-                        console.warn(`Failed to fetch live price for ${stock.symbol}:`, error);
+                        console.warn(`Failed to fetch live price for ${stock.symbol}`);
                     }
                 }));
                 
-                // Small delay between batches to avoid rate limiting
-                if (i + batchSize < priorityStocks.length) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                // Small delay between batches
+                if (i + batchSize < allStocks.length) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
             }
             
             // Update UI with new prices
-            updateUI();
+            updateTabPrices();
             console.log('✅ Live price updates completed');
+        }
+        
+        // Start continuous live price updates every 10 seconds
+        function startLivePriceUpdates() {
+            // Initial update
+            fetchLivePricesForPriorityStocks();
+            
+            // Set up interval for live price updates
+            livePriceUpdateTimer = setInterval(() => {
+                fetchLivePricesForPriorityStocks();
+            }, 10000);  // Update every 10 seconds
+            
+            console.log('🟢 Live price updates started (every 10 seconds)');
+        }
+        
+        // Start continuous index updates every 15 seconds
+        function startIndexUpdates() {
+            // Initial update
+            fetchIndexData();
+            
+            // Set up interval for index updates
+            indexUpdateTimer = setInterval(() => {
+                fetchIndexData();
+            }, 15000);  // Update every 15 seconds
+            
+            console.log('🟢 Index price updates started (every 15 seconds)');
+        }
+        
+        // Update only the visible tab prices without full re-render
+        function updateTabPrices() {
+            if (!screeningData) return;
+            
+            const currentTab = document.querySelector('.pill-tab.active');
+            if (!currentTab) return;
+            
+            const tabName = Array.from(currentTab.classList).find(c => c.match(/^(volume|trendline|performance|pastperf)$/));
+            if (tabName) {
+                switchTab(tabName);  // Re-render current tab
+            }
         }
         
         // Update stock price in screeningData
@@ -6475,6 +6528,13 @@
             }
             placeAngelOrder(ms.symbol, 'BUY', qty, ms.entryTrigger, ms.stopLoss, ms.targetExit, 'Manual');
         };
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (livePriceUpdateTimer) clearInterval(livePriceUpdateTimer);
+            if (indexUpdateTimer) clearInterval(indexUpdateTimer);
+            console.log('🔴 Live price updates stopped');
+        });
 
     </script>
 

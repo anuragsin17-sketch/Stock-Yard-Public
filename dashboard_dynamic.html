@@ -101,10 +101,84 @@
         // Configuration
         const CONFIG = {
             dataFile: 'trendline_screen.json',
-            refreshInterval: 300000  // 5 minutes in milliseconds
+            refreshInterval: 300000,  // 5 minutes - reload full data
+            priceUpdateInterval: 10000  // 10 seconds - live price updates
         };
 
         let dashboardData = null;
+        let livePriceCache = {};  // Cache for live prices
+        let priceUpdateTimer = null;
+        let dataRefreshTimer = null;
+
+        // Fetch live prices from yfinance API (free alternative)
+        async function fetchLivePrice(ticker) {
+            try {
+                // Using alternative free API - finnhub or alpha_vantage would need keys
+                // Using a simple fetch to NSE data or yfinance endpoint
+                const response = await fetch(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}.NS?modules=price`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const price = data.quoteSummary?.result?.[0]?.price?.regularMarketPrice;
+                    if (price) {
+                        return price;
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.log(`Could not fetch live price for ${ticker}:`, error.message);
+                return null;
+            }
+        }
+
+        // Fetch multiple live prices with optimized batching
+        async function fetchLivePrices(tickers) {
+            const uniqueTickers = [...new Set(tickers)];
+            
+            // Batch fetch with controlled concurrency
+            const batchSize = 5;
+            for (let i = 0; i < uniqueTickers.length; i += batchSize) {
+                const batch = uniqueTickers.slice(i, i + batchSize);
+                await Promise.all(batch.map(ticker => 
+                    fetchLivePrice(ticker).then(price => {
+                        if (price) {
+                            livePriceCache[ticker] = price;
+                        }
+                    })
+                ));
+            }
+        }
+
+        // Update live prices across all visible tabs
+        async function updateLivePrices() {
+            if (!dashboardData || !dashboardData.results) return;
+            
+            // Get all tickers
+            const tickers = dashboardData.results.map(r => r.ticker);
+            
+            // Fetch new prices
+            await fetchLivePrices(tickers);
+            
+            // Update UI for all tabs with new prices
+            updateAllTabsWithLivePrices();
+        }
+
+        // Update all tabs with new live prices
+        function updateAllTabsWithLivePrices() {
+            if (!dashboardData || !dashboardData.results) return;
+            
+            const volumeStocks = dashboardData.results.filter(r => r.tab_type === 'volume') || [];
+            const trendlineStocks = dashboardData.results.filter(r => r.tab_type === 'trendline') || [];
+            const radarStocks = dashboardData.results.filter(r => r.tab_type === 'radar' && r.status === 'CRITICAL_TOUCH') || [];
+
+            // Re-render each tab with updated prices
+            renderVolumeTab(volumeStocks);
+            renderTrendlineTab(trendlineStocks);
+            renderRadarTab(radarStocks);
+            
+            // Update timestamp to show refresh happened
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
 
         // Load data from trendline_screen.json
         async function loadData() {
@@ -151,7 +225,24 @@
             document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
         }
 
-        // Render Volume Tab
+        // Get current price - live or from cache
+        function getCurrentPrice(ticker, originalPrice) {
+            return livePriceCache[ticker] || originalPrice;
+        }
+
+        // Calculate price change indicator
+        function getPriceChangeClass(currentPrice, triggerPrice) {
+            const pctChange = ((currentPrice - triggerPrice) / triggerPrice) * 100;
+            if (pctChange >= 0) {
+                return 'style="color: #28a745; font-weight: bold;"';  // Green - positive
+            } else if (pctChange >= -2) {
+                return 'style="color: #ffc107; font-weight: bold;"';  // Yellow - near trigger
+            } else {
+                return 'style="color: #dc3545; font-weight: bold;"';  // Red - far from trigger
+            }
+        }
+
+        // Render Volume Tab with live prices
         function renderVolumeTab(stocks) {
             const container = document.getElementById('volumeContent');
             
@@ -160,16 +251,20 @@
                 return;
             }
 
-            container.innerHTML = stocks.map(stock => `
-                <div class="stock-card">
-                    <div class="stock-ticker">${stock.ticker}</div>
-                    <div class="stock-price">Price: ${stock.current_price} | Volume: ${stock.volume || 'N/A'}</div>
-                    <div class="stock-status">NEW</div>
-                </div>
-            `).join('');
+            container.innerHTML = stocks.map(stock => {
+                const livePrice = getCurrentPrice(stock.ticker, stock.current_price);
+                const priceClass = getPriceChangeClass(livePrice, stock.trigger_price);
+                return `
+                    <div class="stock-card">
+                        <div class="stock-ticker">${stock.ticker}</div>
+                        <div class="stock-price">Price: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Volume: ${stock.volume || 'N/A'}</div>
+                        <div class="stock-status">NEW</div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        // Render Trendline Tab
+        // Render Trendline Tab with live prices
         function renderTrendlineTab(stocks) {
             const container = document.getElementById('trendlineContent');
             
@@ -178,16 +273,20 @@
                 return;
             }
 
-            container.innerHTML = stocks.map(stock => `
-                <div class="stock-card">
-                    <div class="stock-ticker">${stock.ticker}</div>
-                    <div class="stock-price">Current: ${stock.current_price} | Trigger: ${stock.trigger_price} | Target: ${stock.target_exit}</div>
-                    <div class="stock-status">ENTRY</div>
-                </div>
-            `).join('');
+            container.innerHTML = stocks.map(stock => {
+                const livePrice = getCurrentPrice(stock.ticker, stock.current_price);
+                const priceClass = getPriceChangeClass(livePrice, stock.trigger_price);
+                return `
+                    <div class="stock-card">
+                        <div class="stock-ticker">${stock.ticker}</div>
+                        <div class="stock-price">Current: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Trigger: ₹${stock.trigger_price.toFixed(2)} | Target: ₹${stock.target_exit.toFixed(2)}</div>
+                        <div class="stock-status">ENTRY</div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        // Render Radar Tab
+        // Render Radar Tab with live prices
         function renderRadarTab(stocks) {
             const container = document.getElementById('radarContent');
             
@@ -200,13 +299,17 @@
                 <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px; border-radius: 5px; margin-bottom: 15px; color: #155724;">
                     ${stocks.length} stock(s) in CRITICAL zone - Ready for entry!
                 </div>
-                ${stocks.map(stock => `
-                    <div class="stock-card" style="border-left-color: #ff4757; background: #ffe5e5;">
-                        <div class="stock-ticker">${stock.ticker}</div>
-                        <div class="stock-price">Entry: ${stock.trigger_price} | Distance: ${stock.distance_percentage}% | Target: ${stock.target_exit}</div>
-                        <div style="padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; background: #ff4757; color: white; display: inline-block; margin-top: 5px;">CRITICAL</div>
-                    </div>
-                `).join('')}
+                ${stocks.map(stock => {
+                    const livePrice = getCurrentPrice(stock.ticker, stock.current_price);
+                    const priceClass = getPriceChangeClass(livePrice, stock.trigger_price);
+                    return `
+                        <div class="stock-card" style="border-left-color: #ff4757; background: #ffe5e5;">
+                            <div class="stock-ticker">${stock.ticker}</div>
+                            <div class="stock-price">Entry: ₹${stock.trigger_price.toFixed(2)} | Current: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Distance: ${stock.distance_percentage.toFixed(2)}% | Target: ₹${stock.target_exit.toFixed(2)}</div>
+                            <div style="padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; background: #ff4757; color: white; display: inline-block; margin-top: 5px;">CRITICAL</div>
+                        </div>
+                    `;
+                }).join('')}
             `;
             
             container.innerHTML = html;
@@ -238,8 +341,17 @@
         window.addEventListener('load', function() {
             loadData();
             
-            // Auto-refresh every 5 minutes
-            setInterval(loadData, CONFIG.refreshInterval);
+            // Start live price updates every 10 seconds
+            priceUpdateTimer = setInterval(updateLivePrices, CONFIG.priceUpdateInterval);
+            
+            // Reload full data every 5 minutes
+            dataRefreshTimer = setInterval(loadData, CONFIG.refreshInterval);
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (priceUpdateTimer) clearInterval(priceUpdateTimer);
+            if (dataRefreshTimer) clearInterval(dataRefreshTimer);
         });
 
         // Fallback: Load initial static data if JSON not available yet

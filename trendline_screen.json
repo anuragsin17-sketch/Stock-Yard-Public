@@ -112,7 +112,7 @@
         "positionSizing": {
             "sharesToBuy": 0,
             "strictStopLoss": 111740.67,
-            "pivotTargetExit": 148785.14,
+            "pivotTargetExit": 148785.13,
             "allocatedAmount": 50000.0
         },
         "wickTouches": 13,
