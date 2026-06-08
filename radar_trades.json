@@ -1,1 +1,15 @@
-﻿[]
+[
+  {
+    "ticker": "BALKRISIND",
+    "order_id": "260608000232881",
+    "entry_price": 2140.9,
+    "quantity": 23,
+    "target": 2567.77,
+    "stoploss": 1968.62,
+    "trade_value": 49240.700000000004,
+    "status": "Open",
+    "source": "LocalTest",
+    "timestamp": "2026-06-08T10:40:30.123106",
+    "execution_platform": "Angel One (Real - DELIVERY)"
+  }
+]

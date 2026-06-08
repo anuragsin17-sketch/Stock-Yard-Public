@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-Angel One Trade Execution via REST API
-Uses HTTP requests instead of SmartConnect library
-No external dependencies needed (requests is built-in)
+Angel One Trade Execution - REAL API Integration
+Places actual orders at Angel One using SmartConnect - DELIVERY product type
 """
 
 import os
@@ -12,190 +11,17 @@ import requests
 from datetime import datetime
 from typing import Optional, Dict
 
-
-class AngelOneTraderAPI:
-    """Execute trades via Angel One REST API (no SmartConnect required)"""
-    
-    def __init__(self):
-        self.api_key = os.environ.get('ANGEL_API_KEY', '').strip()
-        self.client_id = os.environ.get('ANGEL_CLIENT_ID', '').strip()
-        self.password = os.environ.get('ANGEL_PASSWORD', '').strip()
-        self.telegram_token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
-        self.telegram_chat = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
-        self.trade_limit = 50000  # ₹50,000 strict limit
-        
-        if not all([self.api_key, self.client_id, self.password]):
-            print("⚠️ Missing Angel One credentials")
-    
-    def send_telegram(self, message: str) -> bool:
-        """Send Telegram notification"""
-        if not self.telegram_token or not self.telegram_chat:
-            return False
-        try:
-            resp = requests.post(
-                f"https://api.telegram.org/bot{self.telegram_token}/sendMessage",
-                json={'chat_id': self.telegram_chat, 'text': message, 'parse_mode': 'Markdown'},
-                timeout=10
-            )
-            return resp.status_code == 200
-        except Exception as e:
-            print(f"⚠️ Telegram error: {e}")
-            return False
-    
-    def place_order(self, ticker: str, price: float, quantity: int, 
-                   target: float, stoploss: float, source: str = 'GitHub') -> Optional[Dict]:
-        """
-        Place a BUY order with Angel One
-        
-        Args:
-            ticker: Stock symbol (without .NS)
-            price: Entry price
-            quantity: Number of shares
-            target: Target exit price
-            stoploss: Stop loss price
-            source: Order source
-            
-        Returns:
-            Order result dict or None if failed
-        """
-        
-        # Validate trade value
-        trade_value = price * quantity
-        if trade_value > self.trade_limit:
-            msg = (
-                f"❌ *TRADE REJECTED*\n"
-                f"Stock: {ticker}\n"
-                f"Qty: {quantity} @ ₹{price}\n"
-                f"Value: ₹{trade_value:,.0f} > ₹{self.trade_limit:,.0f}\n"
-                f"*Reason: Exceeds ₹50,000 limit*\n\n"
-                f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
-            )
-            print(msg)
-            self.send_telegram(msg)
-            return None
-        
-        try:
-            print(f"\n📊 Placing order via Angel One...")
-            print(f"Ticker: {ticker} | Qty: {quantity} | Price: ₹{price}")
-            print(f"Trade Value: ₹{trade_value:,.0f}")
-            
-            # Generate order ID
-            order_id = f"SAFARI-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
-            print(f"✅ Order placement initiated!")
-            print(f"Order ID: {order_id}")
-            
-            # Save to radar
-            self._save_to_radar({
-                'ticker': ticker,
-                'order_id': order_id,
-                'entry_price': price,
-                'quantity': quantity,
-                'target': target,
-                'stoploss': stoploss,
-                'trade_value': trade_value,
-                'status': 'Pending',
-                'source': source,
-                'timestamp': datetime.now().isoformat(),
-                'execution_platform': 'Angel One'
-            })
-            
-            # Send Telegram notification
-            msg = (
-                f"✅ *ORDER INITIATED*\n"
-                f"Stock: *{ticker}*\n"
-                f"Qty: {quantity} @ ₹{price}\n"
-                f"Value: ₹{trade_value:,.0f}\n"
-                f"Target: ₹{target}\n"
-                f"SL: ₹{stoploss}\n"
-                f"Order ID: `{order_id}`\n"
-                f"Time: {datetime.now().strftime('%H:%M IST')}\n"
-                f"Status: Pending execution\n\n"
-                f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
-            )
-            self.send_telegram(msg)
-            
-            return {
-                'status': 'success',
-                'order_id': order_id,
-                'ticker': ticker,
-                'quantity': quantity,
-                'price': price,
-                'trade_value': trade_value
-            }
-                
-        except Exception as e:
-            print(f"❌ Order placement error: {str(e)}")
-            msg = (
-                f"❌ *ERROR*: {str(e)}\n\n"
-                f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
-            )
-            self.send_telegram(msg)
-            return None
-    
-    def _save_to_radar(self, order_data: Dict):
-        """Save order to radar_trades.json"""
-        try:
-            radar_file = 'radar_trades.json'
-            trades = []
-            
-            if os.path.exists(radar_file):
-                with open(radar_file, 'r') as f:
-                    trades = json.load(f)
-            
-            trades.append(order_data)
-            
-            with open(radar_file, 'w') as f:
-                json.dump(trades, f, indent=2)
-                
-            print(f"💾 Trade saved to radar_trades.json")
-        except Exception as e:
-            print(f"⚠️ Error saving to radar: {e}")
+try:
+    from SmartApi import SmartConnect
+    import pyotp
+except ImportError as e:
+    print(f"ERROR: Missing dependency: {e}")
+    print("Install with: pip install smartapi-python pyotp")
+    sys.exit(1)
 
 
-def main():
-    """Main entry point"""
-    if len(sys.argv) < 5:
-        print("Usage: python angel_trade_full.py <ticker> <price> <target> <stoploss> [quantity] [source]")
-        print("Example: python angel_trade_full.py SAFARI 1615.90 1958.61 1501.60 30 GitHub")
-        sys.exit(1)
-    
-    ticker = sys.argv[1].upper()
-    price = float(sys.argv[2])
-    target = float(sys.argv[3])
-    stoploss = float(sys.argv[4])
-    quantity = int(sys.argv[5]) if len(sys.argv) > 5 else 10
-    source = sys.argv[6] if len(sys.argv) > 6 else 'Manual'
-    
-    print(f"\n{'='*60}")
-    print(f"ANGEL ONE TRADE EXECUTOR")
-    print(f"{'='*60}")
-    print(f"Stock: {ticker}")
-    print(f"Price: ₹{price}")
-    print(f"Qty: {quantity}")
-    print(f"Target: ₹{target}")
-    print(f"Stop Loss: ₹{stoploss}")
-    print(f"Source: {source}")
-    
-    # Create trader instance
-    trader = AngelOneTraderAPI()
-    
-    # Place order
-    result = trader.place_order(ticker, price, quantity, target, stoploss, source)
-    
-    if result:
-        print(f"\n✅ Trade execution completed successfully")
-        print(f"{'='*60}\n")
-        sys.exit(0)
-    else:
-        print(f"\n❌ Trade execution failed")
-        print(f"{'='*60}\n")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
-    """Execute trades directly on Angel One"""
+class AngelOneTraderReal:
+    """Execute trades directly on Angel One via SmartConnect"""
     
     def __init__(self):
         self.api_key = os.environ.get('ANGEL_API_KEY', '').strip()
@@ -204,25 +30,20 @@ if __name__ == "__main__":
         self.totp_secret = os.environ.get('ANGEL_TOTP_SECRET', '').strip()
         self.telegram_token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
         self.telegram_chat = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
-        self.trade_limit = 50000  # ₹50,000 strict limit
+        self.trade_limit = 50000
         self.obj = None
-        self.auth_token = None
-        self.feed_token = None
         
         if not all([self.api_key, self.client_id, self.password, self.totp_secret]):
-            print("⚠️ Missing Angel One credentials")
+            print("WARNING: Missing credentials")
     
     def authenticate(self) -> bool:
         """Authenticate with Angel One"""
         try:
-            print("🔐 Authenticating with Angel One...")
+            print("[AUTH] Authenticating with Angel One...")
             self.obj = SmartConnect(api_key=self.api_key)
-            
-            # Generate TOTP
             totp = pyotp.TOTP(self.totp_secret)
             otp = totp.now()
             
-            # Login
             data = self.obj.generateSession(
                 self.client_id,
                 self.password,
@@ -230,16 +51,14 @@ if __name__ == "__main__":
             )
             
             if data['status']:
-                self.auth_token = data['data']['authToken']
-                self.feed_token = data['data']['feedToken']
-                print(f"✅ Authenticated successfully")
+                print("[AUTH] SUCCESS: Authenticated")
                 return True
             else:
-                print(f"❌ Authentication failed: {data.get('message', 'Unknown error')}")
+                print(f"[AUTH] FAILED: {data.get('message')}")
                 return False
                 
         except Exception as e:
-            print(f"❌ Authentication error: {str(e)}")
+            print(f"[AUTH] ERROR: {str(e)}")
             return False
     
     def send_telegram(self, message: str) -> bool:
@@ -254,73 +73,95 @@ if __name__ == "__main__":
             )
             return resp.status_code == 200
         except Exception as e:
-            print(f"⚠️ Telegram error: {e}")
+            print(f"[TELEGRAM] ERROR: {e}")
             return False
     
     def place_order(self, ticker: str, price: float, quantity: int, 
                    target: float, stoploss: float, source: str = 'GitHub') -> Optional[Dict]:
-        """
-        Place a BUY order with Angel One
+        """Place real BUY order at Angel One"""
         
-        Args:
-            ticker: Stock symbol (without .NS)
-            price: Entry price
-            quantity: Number of shares
-            target: Target exit price
-            stoploss: Stop loss price
-            source: Order source
-            
-        Returns:
-            Order result dict or None if failed
-        """
-        
-        # Validate trade value
         trade_value = price * quantity
         if trade_value > self.trade_limit:
-            msg = (
-                f"❌ *TRADE REJECTED*\n"
-                f"Stock: {ticker}\n"
-                f"Qty: {quantity} @ ₹{price}\n"
-                f"Value: ₹{trade_value:,.0f} > ₹{self.trade_limit:,.0f}\n"
-                f"*Reason: Exceeds ₹50,000 limit*\n\n"
-                f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
-            )
+            msg = f"REJECTED: Trade value Rs{trade_value:,.0f} > Rs{self.trade_limit:,.0f}\nStock: {ticker}\nDashboard: https://anuragsin17-sketch.github.io/Stock-Yard-Public/"
             print(msg)
             self.send_telegram(msg)
             return None
         
         if not self.obj:
-            print("❌ Not authenticated")
+            print("[ORDER] ERROR: Not authenticated")
             return None
         
         try:
-            print(f"\n📊 Placing order...")
-            print(f"Ticker: {ticker} | Qty: {quantity} | Price: ₹{price}")
-            print(f"Trade Value: ₹{trade_value:,.0f}")
+            print(f"\n[ORDER] Placing REAL order at Angel One...")
+            print(f"[ORDER] Ticker: {ticker} | Qty: {quantity} | Price: Rs{price}")
             
-            # Prepare order
+            # Search for symbol (IMPORTANT!)
+            print(f"[ORDER] Searching for {ticker}...")
+            search_result = self.obj.searchScrip("NSE", ticker)
+            print(f"[ORDER] Search result data: {search_result.get('data', [])[:2] if search_result else 'None'}")
+            
+            symbol_data = None
+            trading_symbol = None
+            symbol_token = None
+            
+            if search_result and search_result.get('data'):
+                # Try to find -EQ variant first
+                for item in search_result['data']:
+                    if item.get('tradingsymbol') == f"{ticker}-EQ":
+                        symbol_data = item
+                        break
+                
+                # Fallback to first result if -EQ not found
+                if not symbol_data:
+                    symbol_data = search_result['data'][0]
+                
+                trading_symbol = symbol_data.get('tradingsymbol')
+                symbol_token = symbol_data.get('symboltoken')
+                
+                print(f"[ORDER] Found: {trading_symbol} (Token: {symbol_token})")
+            else:
+                print(f"[ORDER] Search failed, using mapped token")
+                trading_symbol = f"{ticker}-EQ"
+                symbol_token = self._get_symbol_token(ticker)
+            
+            if not symbol_token:
+                print(f"[ORDER] ERROR: No symbol token for {ticker}")
+                return None
+            
+            # Prepare order with DELIVERY product type (NOT MIS)
             orderparams = {
                 "variety": "NORMAL",
-                "tradingsymbol": f"{ticker}.NS",
-                "symboltoken": self._get_symbol_token(ticker),
+                "tradingsymbol": trading_symbol,
+                "symboltoken": symbol_token,
                 "transactiontype": "BUY",
                 "exchange": "NSE",
                 "ordertype": "LIMIT",
-                "producttype": "MIS",  # Intraday
-                "price": str(price),
+                "producttype": "DELIVERY",  # CRITICAL: DELIVERY not MIS
+                "duration": "DAY",
+                "price": str(int(price)),
                 "quantity": str(quantity),
-                "timeframe": "1"
+                "squareoff": "0",
+                "stoploss": "0",
+                "trailingstoploss": "0"
             }
             
-            # Place order
+            print(f"[ORDER] Order params: {json.dumps(orderparams, indent=2)}")
             order_response = self.obj.placeOrder(orderparams)
             
-            if order_response['status']:
-                order_id = order_response['data']['orderid']
-                print(f"✅ Order placed successfully!")
-                print(f"Order ID: {order_id}")
+            print(f"[ORDER] Response: {order_response}")
+            print(f"[ORDER] Response type: {type(order_response)}")
+            
+            # Handle response (can be string or dict)
+            order_id = None
+            if isinstance(order_response, str):
+                order_id = order_response
+            elif isinstance(order_response, dict):
+                if order_response.get('status'):
+                    order_id = order_response.get('data', {}).get('orderid')
+            
+            if order_id:
+                print(f"[ORDER] SUCCESS: Order ID: {order_id}")
                 
-                # Save to radar
                 self._save_to_radar({
                     'ticker': ticker,
                     'order_id': order_id,
@@ -332,21 +173,10 @@ if __name__ == "__main__":
                     'status': 'Open',
                     'source': source,
                     'timestamp': datetime.now().isoformat(),
-                    'execution_platform': 'Angel One'
+                    'execution_platform': 'Angel One (Real - DELIVERY)'
                 })
                 
-                # Send Telegram notification
-                msg = (
-                    f"✅ *ORDER PLACED*\n"
-                    f"Stock: *{ticker}*\n"
-                    f"Qty: {quantity} @ ₹{price}\n"
-                    f"Value: ₹{trade_value:,.0f}\n"
-                    f"Target: ₹{target}\n"
-                    f"SL: ₹{stoploss}\n"
-                    f"Order ID: `{order_id}`\n"
-                    f"Time: {datetime.now().strftime('%H:%M IST')}\n\n"
-                    f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
-                )
+                msg = f"ORDER PLACED AT ANGEL ONE\nStock: {ticker}\nQty: {quantity} @ Rs{price}\nValue: Rs{trade_value:,.0f}\nTarget: Rs{target}\nSL: Rs{stoploss}\nOrder ID: {order_id}\nDashboard: https://anuragsin17-sketch.github.io/Stock-Yard-Public/"
                 self.send_telegram(msg)
                 
                 return {
@@ -358,40 +188,39 @@ if __name__ == "__main__":
                     'trade_value': trade_value
                 }
             else:
-                error_msg = order_response.get('message', 'Unknown error')
-                print(f"❌ Order failed: {error_msg}")
-                
-                msg = (
-                    f"❌ *ORDER FAILED*\n"
-                    f"Stock: {ticker}\n"
-                    f"Error: {error_msg}\n\n"
-                    f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
-                )
+                error_msg = order_response if isinstance(order_response, str) else str(order_response)
+                print(f"[ORDER] FAILED: {error_msg}")
+                msg = f"ORDER FAILED\nStock: {ticker}\nError: {error_msg}\nDashboard: https://anuragsin17-sketch.github.io/Stock-Yard-Public/"
                 self.send_telegram(msg)
                 return None
                 
         except Exception as e:
-            print(f"❌ Order placement error: {str(e)}")
-            msg = (
-                f"❌ *ERROR*: {str(e)}\n\n"
-                f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
-            )
+            print(f"[ORDER] ERROR: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            msg = f"ERROR: {str(e)}\nDashboard: https://anuragsin17-sketch.github.io/Stock-Yard-Public/"
             self.send_telegram(msg)
             return None
     
     def _get_symbol_token(self, ticker: str) -> str:
-        """Get symbol token from ticker (simplified)"""
-        # This is a simplified version - in production you'd fetch this from Angel's data
-        # For now returning a placeholder that would need to be looked up
-        symbol_tokens = {
-            'RELIANCE': '2885',
-            'INFY': '1594',
-            'TCS': '3429',
-            'WIPRO': '6051',
-            'HCLTECH': '2055',
-            'TECHM': '3420'
+        """Get symbol token - use EQ variants for equity trading"""
+        tokens = {
+            'BALKRISIND': '335',      # BALKRISIND-EQ
+            'APOLLOTYRE': '3385',     
+            'BSOFT': '3045',
+            'JKCEMENT': '1961',       
+            'HCLTECH': '2055',        
+            'SHREECEM': '3422',       
+            'BAYERCROP': '3408',      
+            'INFY': '1594',           
+            'SAFARI': '3097',         
+            'DCMSHRIRAM': '1747',     
+            'GSFC': '2104',           
+            'BRITANNIA': '500087',    
+            'UTIAMC': '3475',         
+            'ORIENTCEM': '3393'       
         }
-        return symbol_tokens.get(ticker.upper(), '')
+        return tokens.get(ticker.upper(), '')
     
     def _save_to_radar(self, order_data: Dict):
         """Save order to radar_trades.json"""
@@ -400,24 +229,26 @@ if __name__ == "__main__":
             trades = []
             
             if os.path.exists(radar_file):
-                with open(radar_file, 'r') as f:
-                    trades = json.load(f)
+                try:
+                    with open(radar_file, 'r') as f:
+                        trades = json.load(f)
+                except:
+                    trades = []
             
             trades.append(order_data)
             
             with open(radar_file, 'w') as f:
                 json.dump(trades, f, indent=2)
                 
-            print(f"💾 Trade saved to radar_trades.json")
+            print(f"[RADAR] Saved to radar_trades.json")
         except Exception as e:
-            print(f"⚠️ Error saving to radar: {e}")
+            print(f"[RADAR] ERROR: {e}")
 
 
 def main():
     """Main entry point"""
     if len(sys.argv) < 5:
         print("Usage: python angel_trade_full.py <ticker> <price> <target> <stoploss> [quantity] [source]")
-        print("Example: python angel_trade_full.py INFY 2150 2580 1978 10 GitHub")
         sys.exit(1)
     
     ticker = sys.argv[1].upper()
@@ -428,32 +259,25 @@ def main():
     source = sys.argv[6] if len(sys.argv) > 6 else 'Manual'
     
     print(f"\n{'='*60}")
-    print(f"ANGEL ONE TRADE EXECUTOR")
+    print(f"ANGEL ONE REAL TRADE EXECUTOR")
     print(f"{'='*60}")
-    print(f"Stock: {ticker}")
-    print(f"Price: ₹{price}")
-    print(f"Qty: {quantity}")
-    print(f"Target: ₹{target}")
-    print(f"Stop Loss: ₹{stoploss}")
-    print(f"Source: {source}")
+    print(f"Stock: {ticker} | Price: Rs{price} | Qty: {quantity}")
+    print(f"Target: Rs{target} | SL: Rs{stoploss} | Source: {source}")
     
-    # Create trader instance
-    trader = AngelOneTrader()
+    trader = AngelOneTraderReal()
     
-    # Authenticate
     if not trader.authenticate():
-        print("❌ Failed to authenticate")
+        print("[MAIN] Auth failed - exiting")
         sys.exit(1)
     
-    # Place order
     result = trader.place_order(ticker, price, quantity, target, stoploss, source)
     
     if result:
-        print(f"\n✅ Trade execution completed successfully")
+        print(f"\n[MAIN] SUCCESS: Trade placed")
         print(f"{'='*60}\n")
         sys.exit(0)
     else:
-        print(f"\n❌ Trade execution failed")
+        print(f"\n[MAIN] FAILED: Trade not placed")
         print(f"{'='*60}\n")
         sys.exit(1)
 
