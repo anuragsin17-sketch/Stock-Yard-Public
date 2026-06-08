@@ -7,5 +7,32 @@
     "source": "Trendline",
     "expires_at": "2026-06-07T19:35:23.764722",
     "created_at": "2026-06-07T19:30:23.764758"
+  },
+  "273a6ff733c3157384c9adf06e090936fb777f4b57bad7ed3d716de5d562ab9c": {
+    "ticker": "INFY",
+    "currentPrice": 1500.0,
+    "targetExit": 1800.0,
+    "stopLoss": 1380.0,
+    "sharesToBuy": 1,
+    "source": "manual_trigger",
+    "expires_at": "2026-06-08T21:47:29.568841"
+  },
+  "859956b87f387ae9008a926c0669c40d6b2ce1d4ab366afad47f789c6f7fbc50": {
+    "ticker": "INFY",
+    "currentPrice": 1500.0,
+    "targetExit": 1800.0,
+    "stopLoss": 1380.0,
+    "sharesToBuy": 1,
+    "source": "manual_trigger",
+    "expires_at": "2026-06-08T21:48:00.056056"
+  },
+  "e0f64462c56ea7bcf605b3a456f055ed42dd4d2bcb0017c9e96b73e74ab60900": {
+    "ticker": "INFY",
+    "currentPrice": 1500.0,
+    "targetExit": 1800.0,
+    "stopLoss": 1380.0,
+    "sharesToBuy": 1,
+    "source": "manual_trigger",
+    "expires_at": "2026-06-08T22:00:57.041423"
   }
 }

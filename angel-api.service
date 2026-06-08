@@ -1,0 +1,31 @@
+[Unit]
+Description=Stock Yard Angel One API Handler
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+# Load credentials from environment variables
+Environment="ANGEL_API_KEY=SZqPJrCA"
+Environment="ANGEL_CLIENT_ID=AAAA971572"
+Environment="ANGEL_PASSWORD=1990"
+Environment="ANGEL_TOTP_SECRET=75HLXE2L3L7NASX47RCIJTKEKM"
+# Python path to ensure dependencies are found
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONPATH=/home/ubuntu"
+# Start the service
+ExecStart=/usr/bin/python3 /home/ubuntu/angel_order_handler.py
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=5
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=angel-api
+
+[Install]
+WantedBy=multi-user.target
