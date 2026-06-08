@@ -5012,6 +5012,14 @@
                 stock.live_change_percent = change;
                 stock.is_live_updated = true;
             }
+            
+            // Also update radar trades with current price
+            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+            const trade = trades.find(t => t.ticker === symbol);
+            if (trade) {
+                trade.currentPrice = newPrice;
+                localStorage.setItem('radarTrades', JSON.stringify(trades));
+            }
         }
         
         // Fetch real-time NIFTY and SENSEX data
@@ -5274,6 +5282,7 @@
                     stopLoss: stopLoss,
                     positionSize: positionSize,
                     quantity: qty,
+                    currentPrice: entry,  // Add LTP tracking
                     takenAt: new Date().toISOString(),
                     status: 'Open',
                     source: 'Volume'
@@ -5319,6 +5328,7 @@
                     stopLoss: parseFloat(stop.toFixed(2)),
                     positionSize,
                     quantity: qty,
+                    currentPrice: parseFloat(entry.toFixed(2)),  // Add LTP tracking
                     takenAt: new Date().toISOString(),
                     status: 'Open',
                     source: 'Trendline'
@@ -6325,7 +6335,11 @@
                             </div>
                             <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${trade.status}</span>
                         </div>
-                        <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="grid grid-cols-4 gap-2 mb-3">
+                            <div>
+                                <div class="text-xs text-slate-500 mb-1">LTP</div>
+                                <div class="text-sm font-bold mono" style="color: #06B6D4;">₹${trade.currentPrice?.toLocaleString() || 'N/A'}</div>
+                            </div>
                             <div>
                                 <div class="text-xs text-slate-500 mb-1">Entry</div>
                                 <div class="text-sm font-bold mono" style="color: #3B82F6;">₹${trade.entryTrigger?.toLocaleString()}</div>

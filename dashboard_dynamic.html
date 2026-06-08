@@ -257,7 +257,7 @@
                 return `
                     <div class="stock-card">
                         <div class="stock-ticker">${stock.ticker}</div>
-                        <div class="stock-price">Price: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Volume: ${stock.volume || 'N/A'}</div>
+                        <div class="stock-price">LTP: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Volume: ${stock.volume || 'N/A'}</div>
                         <div class="stock-status">NEW</div>
                     </div>
                 `;
@@ -279,7 +279,7 @@
                 return `
                     <div class="stock-card">
                         <div class="stock-ticker">${stock.ticker}</div>
-                        <div class="stock-price">Current: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Trigger: ₹${stock.trigger_price.toFixed(2)} | Target: ₹${stock.target_exit.toFixed(2)}</div>
+                        <div class="stock-price">LTP: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Trigger: ₹${stock.trigger_price.toFixed(2)} | Target: ₹${stock.target_exit.toFixed(2)}</div>
                         <div class="stock-status">ENTRY</div>
                     </div>
                 `;
@@ -305,7 +305,7 @@
                     return `
                         <div class="stock-card" style="border-left-color: #ff4757; background: #ffe5e5;">
                             <div class="stock-ticker">${stock.ticker}</div>
-                            <div class="stock-price">Entry: ₹${stock.trigger_price.toFixed(2)} | Current: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Distance: ${stock.distance_percentage.toFixed(2)}% | Target: ₹${stock.target_exit.toFixed(2)}</div>
+                            <div class="stock-price">LTP: <span ${priceClass}>₹${livePrice.toFixed(2)}</span> | Trigger: ₹${stock.trigger_price.toFixed(2)} | Distance: ${stock.distance_percentage.toFixed(2)}% | Target: ₹${stock.target_exit.toFixed(2)}</div>
                             <div style="padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; background: #ff4757; color: white; display: inline-block; margin-top: 5px;">CRITICAL</div>
                         </div>
                     `;
