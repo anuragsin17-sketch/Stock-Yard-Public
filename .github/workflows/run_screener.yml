@@ -8,14 +8,8 @@ on:
   schedule:
     # Market hours: 9:15 AM - 3:30 PM IST = 3:45 UTC - 10:00 UTC
     # Run every 30 minutes during market hours (Monday-Friday)
-    - cron: '0,30 4-9 * * 1-5'  # 9:15 AM - 2:30 PM IST (every 30 min)
-    - cron: '0 10 * * 1-5'      # 3:30 PM IST exact (catch market close)
-    
-    # Pre-market scan (before 9:15 AM)
-    - cron: '15 4 * * 1-5'      # 9:15 AM IST
-    
-    # Post-market scan (after 3:30 PM)
-    - cron: '30 10 * * 1-5'     # 4:00 PM IST
+    - cron: '0,30 4-9 * * 1-5'
+    - cron: '0 10 * * 1-5'
 
 permissions:
   contents: write
@@ -40,155 +34,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas yfinance requests numpy openpyxl scipy pyotp smartapi-python
     
-    - name: Test basic functionality
-      run: |
-        echo "🧪 Testing basic Python functionality..."
-        python -c "import pandas as pd; import yfinance as yf; print('✅ Dependencies OK')"
-        echo "✅ Basic tests completed"
-    
-    - name: Run Yahoo Finance screener
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-        RUN_TIME: ${{ github.event.schedule }}
-      run: |
-        echo "🚀 Starting Stock Yard Screener with Yahoo Finance data..."
-        echo "Scheduled run time: ${RUN_TIME:-manual}"
-        echo "Current UTC time: $(date -u)"
-        echo "Current IST time: $(TZ='Asia/Kolkata' date)"
-        echo "GitHub Event: ${{ github.event_name }}"
-        echo "Workflow run number: ${{ github.run_number }}"
-        
-        # Check if secrets are available
-        if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
-          echo "⚠️ TELEGRAM_BOT_TOKEN not set"
-        else
-          echo "✅ TELEGRAM_BOT_TOKEN is configured"
-        fi
-        
-        if [ -z "$TELEGRAM_CHAT_ID" ]; then
-          echo "⚠️ TELEGRAM_CHAT_ID not set"
-        else
-          echo "✅ TELEGRAM_CHAT_ID is configured"
-        fi
-        
-        # Simple execution with fallback
-        echo "🔄 Starting screener..."
-        python screener.py || {
-          echo "⚠️ Screener failed, creating fallback data..."
-          echo '{"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'","golden_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"elliott_wave_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"golden_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"elliott_wave_matches":0,"errors":["Screener execution failed"]}}' > data.json
-        }
-        
-        echo "✅ Screener execution completed"
-    
     - name: Run trendline scanner
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
-        echo "📊 Running trendline scanner..."
-        # Check if today is Sunday (day 0) - run full scan
-        DAY_OF_WEEK=$(date +%u)
-        if [ "$DAY_OF_WEEK" -eq "7" ]; then
-          echo "🔄 Sunday - Running FULL trendline scan (recalculates all trendlines)"
-          python update_feed.py || {
-            echo "⚠️ Full trendline scanner failed, creating empty data..."
-            echo '[]' > trendline_screen.json
-          }
-        else
-          echo "⚡ Weekday - Running FAST price-only update (uses cached trendlines)"
-          python update_trendline_prices.py || {
-            echo "⚠️ Price update failed, falling back to full scan..."
-            python update_feed.py || echo '[]' > trendline_screen.json
-          }
-        fi
-        echo "✅ Trendline scanner completed"
-
-    - name: Preview Trades Before Execution
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: |
-        echo "📋 Previewing trades that will be executed..."
-        
-        python3 << 'PYEOF'
-        import json
-        import requests
-        import os
-        from datetime import datetime
-        
-        TELEGRAM_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
-        TELEGRAM_CHAT = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
-        
-        # Dashboard URLs
-        DASHBOARD_URL = "https://anuragsin17-sketch.github.io/Stock-Yard-Public/"
-        TRENDLINE_URL = "https://anuragsin17-sketch.github.io/Stock-Yard-Public/trendline_screen.html"
-        GITHUB_URL = "https://github.com/anuragsin17-sketch/Stock-Yard-Public"
-        
-        def send_telegram(msg):
-            if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
-                return False
-            try:
-                requests.post(
-                    f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                    json={'chat_id': TELEGRAM_CHAT, 'text': msg, 'parse_mode': 'Markdown'},
-                    timeout=10
-                )
-                return True
-            except:
-                return False
-        
-        # Load trendline data
-        try:
-            with open('trendline_screen.json') as f:
-                stocks = json.load(f)
-        except:
-            stocks = []
-        
-        if not stocks:
-            msg = (
-                "⚠️ *No Trendline Signals Found*\n\n"
-                "📊 Dashboard: [View Live]("+DASHBOARD_URL+")\n"
-                "📈 Trendline Screen: [Details]("+TRENDLINE_URL+")\n"
-                "⏰ Next scan: 30 minutes"
-            )
-            send_telegram(msg)
-            print(msg)
-        else:
-            # Preview message
-            preview_msg = f"🔔 *TRADE EXECUTION INCOMING*\n"
-            preview_msg += f"⏱️ {datetime.now().strftime('%H:%M IST')} | Signals: {len(stocks)}\n\n"
-            
-            for i, stock in enumerate(stocks[:5], 1):
-                ticker = stock.get('ticker', 'N/A')
-                price = stock.get('current_price', 0)
-                target = stock.get('target_exit', 0)
-                stoploss = stock.get('stop_loss', 0)
-                distance = stock.get('distanceRemaining', 0)
-                trade_value = price * 10  # Assuming 10 shares default
-                
-                if price and target and stoploss:
-                    status = "✅" if trade_value <= 50000 else "❌"
-                    preview_msg += (
-                        f"{status} *{ticker}* @ ₹{price}\n"
-                        f"   Target: ₹{target} | SL: ₹{stoploss} | {distance}% away\n\n"
-                    )
-            
-            preview_msg += (
-                "⏳ *Placing orders now...*\n\n"
-                "📊 [Live Dashboard]("+DASHBOARD_URL+")\n"
-                "📈 [Trendline Details]("+TRENDLINE_URL+")\n"
-                "📁 [Repository]("+GITHUB_URL+")"
-            )
-            
-            send_telegram(preview_msg)
-            print(preview_msg)
-        
-        PYEOF
-
-    - name: Auto-Execute Trades (Trendline Signals)
+        echo "Running trendline scanner..."
+        python update_feed.py || python update_trendline_prices.py || echo "Scanner failed"
+    
+    - name: Auto-Execute Trades
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -197,218 +51,50 @@ jobs:
         ANGEL_PASSWORD: ${{ secrets.ANGEL_PASSWORD }}
         ANGEL_TOTP_SECRET: ${{ secrets.ANGEL_TOTP_SECRET }}
       run: |
-        echo "🚀 Auto-executing trades from trendline signals..."
-        
-        # Install required packages
-        echo "📦 Installing dependencies..."
-        pip install requests pyotp smartapi-python
-        
+        echo "Auto-executing trades from signals..."
         python3 << 'PYEOF'
         import json
         import subprocess
         import os
-        from datetime import datetime
         
-        # Load trendline data
         try:
-            with open('trendline_screen.json') as f:
-                stocks = json.load(f)
-        except Exception as e:
-            print(f"❌ Error loading trendline_screen.json: {e}")
-            stocks = []
+          with open('trendline_screen.json') as f:
+            stocks = json.load(f)
+        except:
+          stocks = []
         
-        print(f"\n📊 Found {len(stocks)} total signals")
+        print(f"Found {len(stocks)} signals")
         
-        # Filter critical signals (notificationTrigger = true)
         critical = [s for s in stocks if s.get('notificationTrigger', False)]
-        print(f"🎯 Critical signals (ready to execute): {len(critical)}")
+        print(f"Critical signals: {len(critical)}")
         
-        if not critical:
-            print("⚠️ No critical signals found")
-        else:
-            # Auto-execute trades for each critical signal (limit to 5)
-            executed = 0
-            failed = 0
-            
-            for stock in critical[:5]:
-                ticker = stock.get('ticker', 'N/A')
-                price = stock.get('currentPrice', 0)
-                target = stock.get('positionSizing', {}).get('pivotTargetExit', 0)
-                stoploss = stock.get('positionSizing', {}).get('strictStopLoss', 0)
-                qty = stock.get('positionSizing', {}).get('sharesToBuy', 10)
-                
-                if price and target and stoploss:
-                    print(f"\n📈 Executing: {ticker}")
-                    print(f"   Price: ₹{price} | Qty: {qty} | Target: ₹{target} | SL: ₹{stoploss}")
-                    
-                    # Place trade via angel_trade_full.py
-                    try:
-                        result = subprocess.run([
-                            'python3', 'angel_trade_full.py',
-                            ticker, str(price), str(target), str(stoploss), str(qty), 'GitHub'
-                        ], capture_output=True, text=True, timeout=60, env=os.environ.copy())
-                        
-                        print(f"   Return code: {result.returncode}")
-                        if result.stdout:
-                            print(f"   Output: {result.stdout[:200]}")
-                        if result.stderr:
-                            print(f"   Error: {result.stderr[:200]}")
-                        
-                        if result.returncode == 0:
-                            print(f"   ✅ Success")
-                            executed += 1
-                        else:
-                            print(f"   ❌ Failed")
-                            failed += 1
-                    except Exception as e:
-                        print(f"   ❌ Exception: {e}")
-                        failed += 1
-            
-            print(f"\n{'='*60}")
-            print(f"SUMMARY: {executed} executed, {failed} failed")
-            print(f"{'='*60}")
-        
+        for stock in critical[:5]:
+          ticker = stock.get('ticker', 'N/A')
+          price = stock.get('currentPrice', 0)
+          target = stock.get('positionSizing', {}).get('pivotTargetExit', 0)
+          stoploss = stock.get('positionSizing', {}).get('strictStopLoss', 0)
+          qty = stock.get('positionSizing', {}).get('sharesToBuy', 10)
+          
+          if price and target and stoploss:
+            print(f"Executing: {ticker}")
+            try:
+              result = subprocess.run([
+                'python3', 'angel_trade_full.py',
+                ticker, str(price), str(target), str(stoploss), str(qty), 'GitHub'
+              ], capture_output=True, text=True, timeout=60, env=os.environ.copy())
+              
+              if result.returncode == 0:
+                print(f"Success: {ticker}")
+              else:
+                print(f"Failed: {ticker}")
+            except Exception as e:
+              print(f"Error: {e}")
         PYEOF
-        
-        echo "✅ Auto-execution step completed"
-
-    - name: Monitor open positions (Angel One)
-      env:
-        ANGEL_API_KEY:      ${{ secrets.ANGEL_API_KEY }}
-        ANGEL_CLIENT_ID:    ${{ secrets.ANGEL_CLIENT_ID }}
-        ANGEL_PASSWORD:     ${{ secrets.ANGEL_PASSWORD }}
-        ANGEL_TOTP_SECRET:  ${{ secrets.ANGEL_TOTP_SECRET }}
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: |
-        echo "📡 Monitoring open positions..."
-        python angel_monitor.py || echo "⚠️ Monitor failed, continuing..."
-        echo "✅ Position monitoring completed"
     
-    - name: Verify results
-      run: |
-        if [ -f "data.json" ]; then
-          echo "✅ data.json created successfully"
-          echo "📊 File size: $(wc -c < data.json) bytes"
-          echo "📄 First 10 lines:"
-          head -10 data.json
-        else
-          echo "❌ data.json not found - creating fallback"
-          echo '{"timestamp":"2024-12-19T16:30:00.000Z","golden_stocks":[],"volume_breakout_stocks":[],"w_pattern_stocks":[],"elliott_wave_stocks":[],"diagnostics":{"total_stocks_processed":0,"successful_downloads":0,"failed_downloads":0,"golden_matches":0,"volume_breakout_matches":0,"w_pattern_matches":0,"elliott_wave_matches":0,"errors":["Screener execution failed"]}}' > data.json
-        fi
-        - name: Check Open Positions for Target or SL Hits
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: |
-        python check_alerts.py
-
-    - name: Commit and Push structural changes back to UI
+    - name: Commit results
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add radar_trades.json || true
-        git commit -m "chore: cloud workflow auto-synced alert logs" || echo "No changes"
-        git push || echo "Push failed"
-
-    - name: Commit and push results
-      run: |
-        git config --global user.name "GitHub Action"
-        git config --global user.email "action@github.com"
-        
-        # Run our separate Python script cleanly
-        python update_html.py || echo "⚠️ update_html.py failed, continuing..."
-        
-        # Inject build timestamp into HTML for cache busting
-        BUILD_TIME=$(date -u +%Y%m%d%H%M%S)
-        sed -i "s/<!-- BUILD_TIMESTAMP: will be replaced by workflow -->/<!-- BUILD: ${BUILD_TIME} -->/" index.html || true
-        
-        # Commit changes to private repo
-        git add data.json index.html trendline_screen.json
-        git add radar_trades.json alerted_today.json notify_new_stocks.py previous_stocks.json 2>/dev/null || true
-        
-        # Create commit message with run context and better formatting
-        RUN_CONTEXT="${{ github.event.schedule }}"
-        if [ -z "$RUN_CONTEXT" ]; then
-          RUN_CONTEXT="manual"
-        fi
-        
-        CURRENT_TIME=$(date '+%Y-%m-%d %H:%M:%S UTC')
-        COMMIT_MSG="🔄 Auto-update: $CURRENT_TIME [$RUN_CONTEXT] - Run #${{ github.run_number }}"
-        
-        echo "📝 Commit message: $COMMIT_MSG"
-        git commit -m "$COMMIT_MSG" || echo "ℹ️ No changes to commit"
-        
-        # Push to private repo
-        for i in {1..3}; do
-          if git push origin main 2>/dev/null || git push origin master 2>/dev/null; then
-            echo "✅ Successfully pushed to private repo (attempt $i)"
-            break
-          else
-            echo "⚠️ Push failed (attempt $i), retrying in 5 seconds..."
-            sleep 5
-          fi
-        done
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Deploy dashboard data to EC2
-      run: |
-        echo "🚀 Deploying trendline data to GitHub Pages..."
-        
-        # Check if trendline_screen.json exists
-        if [ -f "trendline_screen.json" ]; then
-          echo "📊 Found trendline_screen.json, size: $(wc -c < trendline_screen.json) bytes"
-          echo "✅ Data ready for GitHub Pages deployment"
-        else
-          echo "⚠️ trendline_screen.json not found"
-        fi
-    
-    - name: Deploy to public repository
-      run: |
-        echo "🚀 Deploying to public repository..."
-        echo "Testing token access..."
-        
-        # Test if token works
-        curl -s -o /dev/null -w "%{http_code}" \
-          -H "Authorization: token ${{ secrets.DEPLOY_TOKEN }}" \
-          https://api.github.com/repos/anuragsin17-sketch/Stock-Yard-Public \
-          | xargs -I{} echo "API response code: {}"
-        
-        # Clone the public repository with verbose output
-        git clone --verbose https://x-access-token:${{ secrets.DEPLOY_TOKEN }}@github.com/anuragsin17-sketch/Stock-Yard-Public.git public-repo 2>&1 || {
-          echo "❌ Clone failed - checking token..."
-          echo "Token length: ${#DEPLOY_TOKEN}"
-          exit 1
-        }
-        
-        echo "✅ Cloned successfully"
-        
-        # Copy files to public repo
-        cp index.html public-repo/
-        cp trade.html public-repo/
-        cp data.json public-repo/
-        cp trendline_screen.json public-repo/ || true
-        cp radar_trades.json public-repo/ || true
-        cp "Stock List.csv" public-repo/ || true
-        cp backtest_performance.json public-repo/ || true
-        
-        # Navigate to public repo
-        cd public-repo
-        
-        # Configure git
-        git config user.name "GitHub Action"
-        git config user.email "action@github.com"
-        
-        # Add and commit changes
-        git add -A
-        git diff --cached --stat
-        git commit -m "🔄 Auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC') - Run #${{ github.run_number }}" || echo "ℹ️ No changes to commit"
-        
-        # Push
-        git push origin main 2>&1 && echo "✅ Deployed to GitHub Pages" || echo "❌ Push failed"
-        
-        cd ..
-        rm -rf public-repo
-      env:
-        DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        git add radar_trades.json trendline_screen.json || true
+        git commit -m "Auto-update: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
+        git push || true
