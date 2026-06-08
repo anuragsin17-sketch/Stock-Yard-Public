@@ -1,0 +1,196 @@
+========================================
+TELEGRAM WEBHOOK SETUP - STEP BY STEP
+========================================
+
+This guide deploys the Telegram webhook server to your EC2 instance
+so that clicking "Confirm Trade" buttons in Telegram will execute trades.
+
+
+REQUIREMENTS:
+=============
+✅ EC2 instance running (32.194.58.75)
+✅ SSH access to EC2
+✅ GitHub Actions workflow configured with Telegram bot
+
+
+STEP 1: PREPARE YOUR LOCAL FILES
+=================================
+
+Files needed on your local machine (already created):
+  ✅ telegram_webhook_simple.py      (updated with logging)
+  ✅ telegram_trade_bot.py            (sends alerts with buttons)
+  ✅ angel_trade.py                   (executes trades)
+  ✅ deploy_telegram_webhook.sh       (deployment script)
+
+Commit and push these to GitHub:
+  git add telegram_webhook_simple.py telegram_trade_bot.py angel_trade.py deploy_telegram_webhook.sh
+  git commit -m "🚀 Add Telegram webhook server with SSL support"
+  git push origin main
+
+
+STEP 2: SSH INTO EC2 AND PULL LATEST CODE
+==========================================
+
+On your Windows machine, open PowerShell and run:
+  
+  cd "d:\Stock Yard"
+  wsl                                    # Enter WSL
+  ssh -i stock-yard-key.pem ubuntu@32.194.58.75
+
+Once connected to EC2, run:
+  
+  cd /home/ubuntu
+  git pull origin main
+  ls -la deploy_telegram_webhook.sh     # Verify file exists
+
+
+STEP 3: DEPLOY THE WEBHOOK SERVER
+==================================
+
+On EC2, run the deployment script:
+  
+  bash deploy_telegram_webhook.sh
+
+This will:
+  ✅ Install Python dependencies (Flask, requests, pyopenssl)
+  ✅ Generate SSL certificate (self-signed, valid 365 days)
+  ✅ Create systemd service for auto-restart
+  ✅ Start the service
+  ✅ Register webhook with Telegram
+
+Expected output:
+  ✅ DEPLOYMENT COMPLETE
+  ✅ Service is running
+
+
+STEP 4: TEST THE WEBHOOK
+=========================
+
+On EC2, check service is running:
+  
+  sudo systemctl status telegram-webhook
+  sudo journalctl -u telegram-webhook -f    # View live logs
+
+
+STEP 5: TEST END-TO-END
+=======================
+
+1. Go to GitHub Actions (your repository)
+2. Find .github/workflows/run_screener.yml
+3. Click "Run workflow" → "Run workflow"
+4. Wait for "Send Telegram alerts" step to complete
+5. Check Telegram for alert with buttons:
+   - Should show: 📈 TRADE SIGNAL, Entry Price, Target, SL, buttons
+   - Buttons: ✅ Confirm Trade, ⏭️ Skip
+6. Click ✅ Confirm Trade button
+7. Watch for:
+   ✅ Confirmation in Telegram: "Trade executed"
+   ✅ Entry added to radar_trades.json
+   ✅ Logs in EC2: sudo journalctl -u telegram-webhook -f
+
+
+EXPECTED TELEGRAM FLOW:
+=======================
+
+ALERT MESSAGE (from GitHub Actions):
+  🚨 TRADE SIGNAL
+  📈 INFY
+  💹 Entry: ₹2,150
+  🎯 Target: ₹2,580
+  🛑 SL: ₹1,978
+  📊 Size: 10 units
+  ⏰ 14:30 IST
+  
+  [✅ Confirm Trade] [⏭️ Skip]
+
+AFTER CLICKING CONFIRM:
+  Alert popup: "✅ Trade confirmed! INFY @ ₹2,150"
+  
+CONFIRMATION MESSAGE:
+  ✅ TRADE EXECUTED
+  📈 INFY
+  💹 Entry: ₹2,150
+  📊 Qty: 10
+  🎯 Target: ₹2,580
+  🛑 SL: ₹1,978
+  ⏰ 14:30 IST
+
+
+MONITORING & TROUBLESHOOTING:
+==============================
+
+View live logs:
+  sudo journalctl -u telegram-webhook -f
+
+View last 50 lines:
+  sudo journalctl -u telegram-webhook -n 50
+
+Restart service:
+  sudo systemctl restart telegram-webhook
+
+Stop service:
+  sudo systemctl stop telegram-webhook
+
+Check service status:
+  sudo systemctl status telegram-webhook
+
+View SSL certificate:
+  openssl x509 -in /home/ubuntu/ssl/telegram.crt -text -noout
+
+
+COMMON ISSUES:
+==============
+
+1. "Webhook registration failed"
+   → Normal on first startup. Telegram will connect automatically.
+   
+2. "Connection refused" when clicking button
+   → Check SSL certificate: sudo journalctl -u telegram-webhook -n 20
+   → Restart: sudo systemctl restart telegram-webhook
+   
+3. "Trade execution timeout"
+   → angel_trade.py not found. Verify: ls -la /home/ubuntu/angel_trade.py
+   → Check permissions: chmod +x /home/ubuntu/angel_trade.py
+   
+4. "Telegram bot not responding"
+   → Verify environment variables in service:
+     grep TELEGRAM /etc/systemd/system/telegram-webhook.service
+   → Check network: ping google.com
+   → Restart service: sudo systemctl restart telegram-webhook
+
+
+AFTER SUCCESSFUL SETUP:
+=======================
+
+1. Every time GitHub Actions sends an alert, you'll get:
+   - Alert message with stock details and buttons
+   - Click "Confirm Trade" to execute
+   - See confirmation in Telegram
+   - Entry appears in radar_trades.json
+
+2. GitHub Actions workflow continues to:
+   - Run every 30 minutes during market hours
+   - Scan stocks for setups
+   - Send Telegram alerts with buttons
+   - Commit results to GitHub
+
+3. Monitor in real-time:
+   sudo journalctl -u telegram-webhook -f
+
+
+DISABLE/REMOVE WEBHOOK:
+=======================
+
+To stop the webhook:
+  sudo systemctl stop telegram-webhook
+  sudo systemctl disable telegram-webhook
+
+To remove the service:
+  sudo systemctl stop telegram-webhook
+  sudo rm /etc/systemd/system/telegram-webhook.service
+  sudo systemctl daemon-reload
+
+
+========================================
+SETUP COMPLETE - ENJOY AUTOMATED TRADING!
+========================================

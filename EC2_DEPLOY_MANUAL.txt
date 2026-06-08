@@ -1,0 +1,113 @@
+===============================================================
+MANUAL DEPLOYMENT GUIDE - TELEGRAM BOT ON EC2
+===============================================================
+
+STEP 1: Open terminal on your computer
+=========================================
+Run: ssh -i stock-yard-key.pem ubuntu@32.194.58.75
+
+If key permissions error, see troubleshooting at bottom.
+
+
+STEP 2: Once logged into EC2, run these commands ONE BY ONE
+===========================================================
+
+# Navigate to home
+cd /home/ubuntu
+
+# Pull latest code from GitHub
+git pull origin main
+
+# Install Python requests library if needed
+pip3 install requests --quiet 2>/dev/null
+
+# Create the systemd service file
+sudo tee /etc/systemd/system/telegram-bot.service > /dev/null << 'EOF'
+[Unit]
+Description=Stock Yard Telegram Bot Poller
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+Environment="TELEGRAM_BOT_TOKEN=8253327701:AAGNFzBJ8QwKw8x8Hg-tlvWHg18DD4lgogQ"
+Environment="TELEGRAM_CHAT_ID=8901309420"
+Environment="TRADING_MODE=live"
+ExecStart=/usr/bin/python3 /home/ubuntu/telegram_webhook_server.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable telegram-bot
+sudo systemctl start telegram-bot
+
+# Check if service is running
+sudo systemctl status telegram-bot
+
+# View logs
+journalctl -u telegram-bot -f
+
+
+STEP 3: Test the bot
+====================
+1. Go back to your computer
+2. Click "Confirm Trade" on any Telegram alert
+3. You should see sizing options popup in Telegram
+4. Select quantity and confirm - trade will execute!
+
+
+TROUBLESHOOTING
+===============
+
+If SSH says "bad permissions" on the key:
+  
+  Option A: Use WSL (Windows Subsystem for Linux)
+  - Install WSL2 from Microsoft Store
+  - Run: wsl
+  - Then use: ssh -i /mnt/d/Stock\ Yard/stock-yard-key.pem ubuntu@32.194.58.75
+
+  Option B: Convert key format using PuTTY
+  - Download PuTTYgen
+  - Load stock-yard-key.pem
+  - Save as Private Key (.ppk)
+  - Use PuTTY with the .ppk file
+
+  Option C: Manual copy-paste
+  - Open AWS EC2 console
+  - Click Connect → EC2 Instance Connect (browser-based)
+  - Copy-paste the commands above into the browser terminal
+
+If bot service won't start:
+  - Check logs: journalctl -u telegram-bot -n 50
+  - Restart: sudo systemctl restart telegram-bot
+  - Check Python files exist: ls -la telegram_*.py
+
+If Telegram bot still doesn't respond:
+  - Verify token: echo $TELEGRAM_BOT_TOKEN
+  - Check internet: ping google.com
+  - Restart service: sudo systemctl restart telegram-bot
+
+
+QUICK REFERENCE
+===============
+Service commands:
+  sudo systemctl start telegram-bot      # Start
+  sudo systemctl stop telegram-bot       # Stop
+  sudo systemctl restart telegram-bot    # Restart
+  sudo systemctl status telegram-bot     # Check status
+  journalctl -u telegram-bot -f          # View logs in real-time
+
+File locations on EC2:
+  /home/ubuntu/telegram_trade_bot.py          # Main bot
+  /home/ubuntu/telegram_webhook_server.py     # Poller
+  /etc/systemd/system/telegram-bot.service    # Service config
+  /home/ubuntu/.bashrc                        # Environment
+
