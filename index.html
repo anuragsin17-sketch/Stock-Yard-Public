@@ -5170,8 +5170,6 @@
         // Place order via GitHub Actions (credentials stay in GitHub Secrets)
         async function placeAngelOrder(symbol, action, qty, price, stopLoss, target, source) {
             try {
-                // Create a simple proxy request through GitHub Pages
-                // We'll use a CORS-enabled endpoint
                 const EC2_API = "http://32.194.58.75:5000/api/place-order";
                 
                 console.log(`📤 Placing order via EC2 API...`);
@@ -5180,10 +5178,8 @@
                 const response = await fetch(EC2_API, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Content-Type': 'application/json'
                     },
-                    mode: 'no-cors',  // Allow cross-origin
                     body: JSON.stringify({
                         symbol: symbol,
                         action: action,
@@ -5195,21 +5191,25 @@
                     })
                 });
 
-                // With no-cors mode, we can't read the response directly
-                // But the request will be sent
-                console.log(`✅ Order request sent to EC2 API`);
-                alert(
-                    `✅ Order sent to Angel One!\n\n` +
-                    `Stock: ${symbol}\n` +
-                    `Qty: ${qty}\n` +
-                    `Entry: ₹${price.toFixed(2)}\n\n` +
-                    `Check Angel One app in 2-3 seconds.\n` +
-                    `You'll get a Telegram notification when placed.`
-                );
-                switchTab('performance');
+                try {
+                    const result = await response.json();
+                    console.log('Order response:', result);
+                    
+                    if (result.success || result.order_id) {
+                        alert(`✅ Order placed!\n\nStock: ${symbol}\nOrder ID: ${result.order_id || 'Pending'}\n\nCheck Angel One app.`);
+                        switchTab('performance');
+                    } else {
+                        alert(`❌ Order failed: ${result.error || 'Unknown error'}`);
+                    }
+                } catch (e) {
+                    // CORS error or no response - but order might still be sent
+                    console.log('Response parsing error (order may still be sent):', e.message);
+                    alert(`✅ Order sent to Angel One!\n\nPlease check the app in 2-3 seconds.\nYou'll get a Telegram notification when confirmed.`);
+                    switchTab('performance');
+                }
 
             } catch (error) {
-                alert(`❌ Network error: ${error.message}`);
+                alert(`❌ Error: ${error.message}`);
                 console.error('Order error:', error);
             }
         }
