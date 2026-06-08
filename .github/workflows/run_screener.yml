@@ -42,20 +42,14 @@ jobs:
         echo "Running trendline scanner..."
         python update_feed.py || python update_trendline_prices.py || echo "Scanner failed"
     
-    - name: Auto-Execute Trades
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        ANGEL_API_KEY: ${{ secrets.ANGEL_API_KEY }}
-        ANGEL_CLIENT_ID: ${{ secrets.ANGEL_CLIENT_ID }}
-        ANGEL_PASSWORD: ${{ secrets.ANGEL_PASSWORD }}
-        ANGEL_TOTP_SECRET: ${{ secrets.ANGEL_TOTP_SECRET }}
+    - name: Auto-Execute Trades via EC2 API
       run: |
-        echo "Auto-executing trades from signals..."
+        echo "Auto-executing trades via EC2 API..."
         python3 << 'PYEOF'
         import json
-        import subprocess
-        import os
+        import requests
+        
+        EC2_API = "http://32.194.58.75:5000"
         
         try:
           with open('trendline_screen.json') as f:
@@ -73,22 +67,30 @@ jobs:
           price = stock.get('currentPrice', 0)
           target = stock.get('positionSizing', {}).get('pivotTargetExit', 0)
           stoploss = stock.get('positionSizing', {}).get('strictStopLoss', 0)
-          qty = stock.get('positionSizing', {}).get('sharesToBuy', 10)
+          qty = stock.get('positionSizing', {}).get('sharesToBuy', 1)
           
           if price and target and stoploss:
-            print(f"Executing: {ticker}")
+            print(f"Placing order: {ticker} x{qty} @ Rs{price}")
             try:
-              result = subprocess.run([
-                'python3', 'angel_trade_full.py',
-                ticker, str(price), str(target), str(stoploss), str(qty), 'GitHub'
-              ], capture_output=True, text=True, timeout=60, env=os.environ.copy())
+              response = requests.post(
+                f"{EC2_API}/api/place-order",
+                json={
+                  'symbol': ticker,
+                  'quantity': qty,
+                  'entry_price': price,
+                  'target_price': target,
+                  'stop_loss': stoploss
+                },
+                timeout=30
+              )
               
-              if result.returncode == 0:
-                print(f"Success: {ticker}")
+              result = response.json()
+              if result.get('success'):
+                print(f"✓ Order placed: {result.get('order_id')}")
               else:
-                print(f"Failed: {ticker}")
+                print(f"✗ Order failed: {result.get('error')}")
             except Exception as e:
-              print(f"Error: {e}")
+              print(f"✗ Error: {e}")
         PYEOF
     
     - name: Commit results
