@@ -196,7 +196,9 @@ jobs:
       run: |
         echo "🚀 Auto-executing trades from trendline signals..."
         
-        pip install requests pyotp smartapi-python --quiet 2>/dev/null || true
+        # Install required packages
+        echo "📦 Installing dependencies..."
+        pip install requests pyotp smartapi-python
         
         python3 << 'PYEOF'
         import json
@@ -208,38 +210,64 @@ jobs:
         try:
             with open('trendline_screen.json') as f:
                 stocks = json.load(f)
-        except:
+        except Exception as e:
+            print(f"❌ Error loading trendline_screen.json: {e}")
             stocks = []
         
-        print(f"📊 Found {len(stocks)} signals")
+        print(f"\n📊 Found {len(stocks)} total signals")
         
-        # Auto-execute trades for each signal (limit to 5)
-        executed = 0
-        for stock in stocks[:5]:
-            ticker = stock.get('ticker', 'N/A')
-            price = stock.get('current_price', 0)
-            target = stock.get('target_exit', 0)
-            stoploss = stock.get('stop_loss', 0)
+        # Filter critical signals (notificationTrigger = true)
+        critical = [s for s in stocks if s.get('notificationTrigger', False)]
+        print(f"🎯 Critical signals (ready to execute): {len(critical)}")
+        
+        if not critical:
+            print("⚠️ No critical signals found")
+        else:
+            # Auto-execute trades for each critical signal (limit to 5)
+            executed = 0
+            failed = 0
             
-            if price and target and stoploss:
-                print(f"\n📈 Executing: {ticker} @ ₹{price}")
+            for stock in critical[:5]:
+                ticker = stock.get('ticker', 'N/A')
+                price = stock.get('currentPrice', 0)
+                target = stock.get('positionSizing', {}).get('pivotTargetExit', 0)
+                stoploss = stock.get('positionSizing', {}).get('strictStopLoss', 0)
+                qty = stock.get('positionSizing', {}).get('sharesToBuy', 10)
                 
-                # Place trade via angel_trade_full.py
-                result = subprocess.run([
-                    'python3', 'angel_trade_full.py',
-                    ticker, str(price), str(target), str(stoploss), '10', 'GitHub'
-                ], capture_output=True, text=True, timeout=30, env=os.environ.copy())
-                
-                if result.returncode == 0:
-                    print(f"✅ Order executed: {ticker}")
-                    executed += 1
-                else:
-                    print(f"❌ Execution failed: {result.stderr}")
+                if price and target and stoploss:
+                    print(f"\n📈 Executing: {ticker}")
+                    print(f"   Price: ₹{price} | Qty: {qty} | Target: ₹{target} | SL: ₹{stoploss}")
+                    
+                    # Place trade via angel_trade_full.py
+                    try:
+                        result = subprocess.run([
+                            'python3', 'angel_trade_full.py',
+                            ticker, str(price), str(target), str(stoploss), str(qty), 'GitHub'
+                        ], capture_output=True, text=True, timeout=60, env=os.environ.copy())
+                        
+                        print(f"   Return code: {result.returncode}")
+                        if result.stdout:
+                            print(f"   Output: {result.stdout[:200]}")
+                        if result.stderr:
+                            print(f"   Error: {result.stderr[:200]}")
+                        
+                        if result.returncode == 0:
+                            print(f"   ✅ Success")
+                            executed += 1
+                        else:
+                            print(f"   ❌ Failed")
+                            failed += 1
+                    except Exception as e:
+                        print(f"   ❌ Exception: {e}")
+                        failed += 1
+            
+            print(f"\n{'='*60}")
+            print(f"SUMMARY: {executed} executed, {failed} failed")
+            print(f"{'='*60}")
         
-        print(f"\n✅ Trade execution completed: {executed} trades placed")
         PYEOF
         
-        echo "✅ Auto-execution completed"
+        echo "✅ Auto-execution step completed"
 
     - name: Monitor open positions (Angel One)
       env:
