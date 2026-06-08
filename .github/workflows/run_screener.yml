@@ -103,6 +103,78 @@ jobs:
         fi
         echo "✅ Trendline scanner completed"
 
+    - name: Preview Trades Before Execution
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        echo "📋 Previewing trades that will be executed..."
+        
+        python3 << 'PYEOF'
+        import json
+        import requests
+        import os
+        from datetime import datetime
+        
+        TELEGRAM_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
+        TELEGRAM_CHAT = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
+        
+        def send_telegram(msg):
+            if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
+                return False
+            try:
+                requests.post(
+                    f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                    json={'chat_id': TELEGRAM_CHAT, 'text': msg, 'parse_mode': 'Markdown'},
+                    timeout=10
+                )
+                return True
+            except:
+                return False
+        
+        # Load trendline data
+        try:
+            with open('trendline_screen.json') as f:
+                stocks = json.load(f)
+        except:
+            stocks = []
+        
+        if not stocks:
+            msg = "⚠️ No trendline signals found in this scan"
+            send_telegram(msg)
+            print(msg)
+        else:
+            # Preview message
+            preview_msg = f"🔔 *TRADE PREVIEW* - {len(stocks)} signal(s) found\n"
+            preview_msg += f"Time: {datetime.now().strftime('%H:%M IST')}\n\n"
+            
+            for i, stock in enumerate(stocks[:5], 1):
+                ticker = stock.get('ticker', 'N/A')
+                price = stock.get('current_price', 0)
+                target = stock.get('target_exit', 0)
+                stoploss = stock.get('stop_loss', 0)
+                distance = stock.get('distanceRemaining', 0)
+                trade_value = price * 10  # Assuming 10 shares default
+                
+                if price and target and stoploss:
+                    status = "🟢" if trade_value <= 50000 else "🔴"
+                    preview_msg += (
+                        f"{status} *{i}. {ticker}*\n"
+                        f"   Entry: ₹{price}\n"
+                        f"   Target: ₹{target}\n"
+                        f"   SL: ₹{stoploss}\n"
+                        f"   Distance: {distance}%\n"
+                        f"   Value: ₹{trade_value:,.0f}\n\n"
+                    )
+            
+            preview_msg += "⏳ Executing orders now...\n"
+            preview_msg += "_Updates will follow per trade_"
+            
+            send_telegram(preview_msg)
+            print(preview_msg)
+        
+        PYEOF
+
     - name: Auto-Execute Trades (Trendline Signals)
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -120,9 +192,7 @@ jobs:
         import json
         import subprocess
         import os
-        from telegram_trade_bot import TelegramTradeBot
-        
-        bot = TelegramTradeBot()
+        from datetime import datetime
         
         # Load trendline data
         try:
@@ -134,12 +204,12 @@ jobs:
         print(f"📊 Found {len(stocks)} signals")
         
         # Auto-execute trades for each signal (limit to 5)
+        executed = 0
         for stock in stocks[:5]:
             ticker = stock.get('ticker', 'N/A')
             price = stock.get('current_price', 0)
             target = stock.get('target_exit', 0)
             stoploss = stock.get('stop_loss', 0)
-            signal_type = stock.get('tab_type', 'unknown')
             
             if price and target and stoploss:
                 print(f"\n📈 Executing: {ticker} @ ₹{price}")
@@ -152,10 +222,11 @@ jobs:
                 
                 if result.returncode == 0:
                     print(f"✅ Order executed: {ticker}")
+                    executed += 1
                 else:
                     print(f"❌ Execution failed: {result.stderr}")
         
-        print("\n✅ Trade execution round completed")
+        print(f"\n✅ Trade execution completed: {executed} trades placed")
         PYEOF
         
         echo "✅ Auto-execution completed"
