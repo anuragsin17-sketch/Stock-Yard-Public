@@ -109,7 +109,8 @@ class AngelOneTrader:
                 f"Stock: {ticker}\n"
                 f"Qty: {quantity} @ ₹{price}\n"
                 f"Value: ₹{trade_value:,.0f} > ₹{self.trade_limit:,.0f}\n"
-                f"*Reason: Exceeds ₹50,000 limit*"
+                f"*Reason: Exceeds ₹50,000 limit*\n\n"
+                f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
             )
             print(msg)
             self.send_telegram(msg)
@@ -170,7 +171,8 @@ class AngelOneTrader:
                     f"Target: ₹{target}\n"
                     f"SL: ₹{stoploss}\n"
                     f"Order ID: `{order_id}`\n"
-                    f"Time: {datetime.now().strftime('%H:%M IST')}"
+                    f"Time: {datetime.now().strftime('%H:%M IST')}\n\n"
+                    f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
                 )
                 self.send_telegram(msg)
                 
@@ -189,14 +191,18 @@ class AngelOneTrader:
                 msg = (
                     f"❌ *ORDER FAILED*\n"
                     f"Stock: {ticker}\n"
-                    f"Error: {error_msg}"
+                    f"Error: {error_msg}\n\n"
+                    f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
                 )
                 self.send_telegram(msg)
                 return None
                 
         except Exception as e:
             print(f"❌ Order placement error: {str(e)}")
-            msg = f"❌ *ERROR*: {str(e)}"
+            msg = (
+                f"❌ *ERROR*: {str(e)}\n\n"
+                f"📊 [View Dashboard](https://anuragsin17-sketch.github.io/Stock-Yard-Public/)"
+            )
             self.send_telegram(msg)
             return None
     

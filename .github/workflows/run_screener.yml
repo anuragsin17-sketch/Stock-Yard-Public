@@ -119,6 +119,11 @@ jobs:
         TELEGRAM_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
         TELEGRAM_CHAT = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
         
+        # Dashboard URLs
+        DASHBOARD_URL = "https://anuragsin17-sketch.github.io/Stock-Yard-Public/"
+        TRENDLINE_URL = "https://anuragsin17-sketch.github.io/Stock-Yard-Public/trendline_screen.html"
+        GITHUB_URL = "https://github.com/anuragsin17-sketch/Stock-Yard-Public"
+        
         def send_telegram(msg):
             if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
                 return False
@@ -140,13 +145,18 @@ jobs:
             stocks = []
         
         if not stocks:
-            msg = "⚠️ No trendline signals found in this scan"
+            msg = (
+                "⚠️ *No Trendline Signals Found*\n\n"
+                "📊 Dashboard: [View Live]("+DASHBOARD_URL+")\n"
+                "📈 Trendline Screen: [Details]("+TRENDLINE_URL+")\n"
+                "⏰ Next scan: 30 minutes"
+            )
             send_telegram(msg)
             print(msg)
         else:
             # Preview message
-            preview_msg = f"🔔 *TRADE PREVIEW* - {len(stocks)} signal(s) found\n"
-            preview_msg += f"Time: {datetime.now().strftime('%H:%M IST')}\n\n"
+            preview_msg = f"🔔 *TRADE EXECUTION INCOMING*\n"
+            preview_msg += f"⏱️ {datetime.now().strftime('%H:%M IST')} | Signals: {len(stocks)}\n\n"
             
             for i, stock in enumerate(stocks[:5], 1):
                 ticker = stock.get('ticker', 'N/A')
@@ -157,18 +167,18 @@ jobs:
                 trade_value = price * 10  # Assuming 10 shares default
                 
                 if price and target and stoploss:
-                    status = "🟢" if trade_value <= 50000 else "🔴"
+                    status = "✅" if trade_value <= 50000 else "❌"
                     preview_msg += (
-                        f"{status} *{i}. {ticker}*\n"
-                        f"   Entry: ₹{price}\n"
-                        f"   Target: ₹{target}\n"
-                        f"   SL: ₹{stoploss}\n"
-                        f"   Distance: {distance}%\n"
-                        f"   Value: ₹{trade_value:,.0f}\n\n"
+                        f"{status} *{ticker}* @ ₹{price}\n"
+                        f"   Target: ₹{target} | SL: ₹{stoploss} | {distance}% away\n\n"
                     )
             
-            preview_msg += "⏳ Executing orders now...\n"
-            preview_msg += "_Updates will follow per trade_"
+            preview_msg += (
+                "⏳ *Placing orders now...*\n\n"
+                "📊 [Live Dashboard]("+DASHBOARD_URL+")\n"
+                "📈 [Trendline Details]("+TRENDLINE_URL+")\n"
+                "📁 [Repository]("+GITHUB_URL+")"
+            )
             
             send_telegram(preview_msg)
             print(preview_msg)
