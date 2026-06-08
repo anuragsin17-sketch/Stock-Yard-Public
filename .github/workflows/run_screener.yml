@@ -2,9 +2,6 @@ name: Stock Yard Screener
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
   schedule:
     # Market hours: 9:15 AM - 3:30 PM IST = 3:45 UTC - 10:00 UTC
     # Run every 30 minutes during market hours (Monday-Friday)
@@ -15,14 +12,12 @@ permissions:
   contents: write
 
 jobs:
-  screen-stocks:
+  screen-and-trade:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -40,11 +35,11 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
         echo "Running trendline scanner..."
-        python update_feed.py || python update_trendline_prices.py || echo "Scanner failed"
+        python update_feed.py || python update_trendline_prices.py || echo "Scanner completed"
     
-    - name: Auto-Execute Trades via EC2 API
+    - name: Place Orders via EC2 API
       run: |
-        echo "Auto-executing trades via EC2 API..."
+        echo "Scanning signals and placing orders..."
         python3 << 'PYEOF'
         import json
         import requests
@@ -55,13 +50,15 @@ jobs:
           with open('trendline_screen.json') as f:
             stocks = json.load(f)
         except:
+          print("No signals file found")
           stocks = []
         
         print(f"Found {len(stocks)} signals")
         
         critical = [s for s in stocks if s.get('notificationTrigger', False)]
-        print(f"Critical signals: {len(critical)}")
+        print(f"Critical signals ready for trading: {len(critical)}")
         
+        orders_placed = 0
         for stock in critical[:5]:
           ticker = stock.get('ticker', 'N/A')
           price = stock.get('currentPrice', 0)
@@ -70,7 +67,9 @@ jobs:
           qty = stock.get('positionSizing', {}).get('sharesToBuy', 1)
           
           if price and target and stoploss:
-            print(f"Placing order: {ticker} x{qty} @ Rs{price}")
+            print(f"\n📊 Placing order: {ticker}")
+            print(f"   Price: Rs{price} | Target: Rs{target} | SL: Rs{stoploss} | Qty: {qty}")
+            
             try:
               response = requests.post(
                 f"{EC2_API}/api/place-order",
@@ -86,17 +85,22 @@ jobs:
               
               result = response.json()
               if result.get('success'):
-                print(f"✓ Order placed: {result.get('order_id')}")
+                order_id = result.get('order_id')
+                print(f"   ✓ SUCCESS! Order ID: {order_id}")
+                orders_placed += 1
               else:
-                print(f"✗ Order failed: {result.get('error')}")
+                error = result.get('error', 'Unknown error')
+                print(f"   ✗ FAILED: {error}")
             except Exception as e:
-              print(f"✗ Error: {e}")
+              print(f"   ✗ ERROR: {e}")
+        
+        print(f"\n✅ Completed: {orders_placed} orders placed")
         PYEOF
     
     - name: Commit results
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add radar_trades.json trendline_screen.json || true
-        git commit -m "Auto-update: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
+        git add trendline_screen.json angel_orders.json 2>/dev/null || true
+        git commit -m "Auto-update: Orders placed $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
         git push || true
