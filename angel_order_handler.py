@@ -14,6 +14,7 @@ import logging
 import requests
 from SmartApi import SmartConnect
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from datetime import datetime, timedelta
 
 # Configure logging for systemd
@@ -25,6 +26,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Enable CORS for all routes (allow browser requests from GitHub Pages)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["*"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    },
+    r"/health": {
+        "origins": ["*"],
+        "methods": ["GET", "OPTIONS"]
+    }
+})
 
 # Load Angel One credentials from environment variables
 def load_credentials():
