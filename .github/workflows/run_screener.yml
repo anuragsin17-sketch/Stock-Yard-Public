@@ -2,6 +2,9 @@ name: Stock Yard Screener
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
   schedule:
     # Market hours: 9:15 AM - 3:30 PM IST = 3:45 UTC - 10:00 UTC
     # Run every 30 minutes during market hours (Monday-Friday)
