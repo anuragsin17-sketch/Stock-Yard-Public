@@ -5170,8 +5170,8 @@
         // Place order via GitHub Actions (credentials stay in GitHub Secrets)
         async function placeAngelOrder(symbol, action, qty, price, stopLoss, target, source) {
             try {
-                // Call EC2 API directly (no GitHub Actions needed)
-                const EC2_API = "http://32.194.58.75:5000";
+                // Call EC2 API directly via HTTPS (no GitHub Actions needed)
+                const EC2_API = "https://32.194.58.75:5000";  // HTTPS endpoint
                 
                 console.log(`📤 Placing order via EC2 API...`);
                 console.log(`   Symbol: ${symbol}, Qty: ${qty}, Price: ₹${price}, Target: ₹${target}, SL: ₹${stopLoss}`);

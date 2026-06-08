@@ -315,5 +315,18 @@ if __name__ == '__main__':
     logger.info("Angel One Order Handler API Starting")
     logger.info("Listening on 0.0.0.0:5000 (accessible from network)")
     
+    # SSL/TLS configuration
+    ssl_context = None
+    cert_file = '/etc/ssl/certs/server.crt'
+    key_file = '/etc/ssl/private/server.key'
+    
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        logger.info("Using HTTPS with SSL certificates")
+        ssl_context = (cert_file, key_file)
+    else:
+        logger.warning("SSL certificates not found - using HTTP (insecure)")
+        logger.info("To enable HTTPS, run:")
+        logger.info("  sudo openssl req -x509 -newkey rsa:4096 -nodes -out /etc/ssl/certs/server.crt -keyout /etc/ssl/private/server.key -days 365")
+    
     # Bind to 0.0.0.0 so it's accessible from EC2 instance outside localhost
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True, ssl_context=ssl_context)
