@@ -5069,6 +5069,12 @@
             const container = document.getElementById('resultsContainer');
             if (!container) return;
             
+            // For trendline tab, make sure we refresh from the updated sessionStorage
+            if (currentTab === 'trendline') {
+                displayTrendlineScreen();
+                return;
+            }
+            
             // Re-render current tab
             displayResults(currentTab);
             
@@ -5133,6 +5139,17 @@
                     stock.live_change_percent = change;
                     stock.is_live_updated = true;
                     console.log(`✓ Trendline: ${symbol} = ₹${newPrice.toFixed(2)}`);
+                }
+            }
+            
+            // CRITICAL: Handle trendline_json type (from trendline_screen.json)
+            if (type === 'trendline_json') {
+                const trendlineStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+                const stock = trendlineStocks.find(s => s.ticker === symbol);
+                if (stock) {
+                    stock.currentPrice = newPrice;
+                    sessionStorage.setItem('trendlineStocks', JSON.stringify(trendlineStocks));
+                    console.log(`✓ Trendline JSON: ${symbol} = ₹${newPrice.toFixed(2)}`);
                 }
             }
             
@@ -6353,22 +6370,53 @@
         function mergeRadarTrades(local, server) {
             if (!server || server.length === 0) return local;
             const merged = [...local];
+            
             server.forEach(st => {
-                const idx = merged.findIndex(lt => lt.ticker === st.ticker &&
-                    lt.takenAt && st.placed_at &&
-                    Math.abs(new Date(lt.takenAt) - new Date(st.placed_at)) < 86400000);
+                // Check if this server trade already exists in merged
+                const idx = merged.findIndex(lt => lt.ticker === st.ticker);
+                
                 if (idx >= 0) {
-                    // Update status from server
-                    if (st.status !== 'Open' && merged[idx].status === 'Open') {
-                        merged[idx].status = st.status === 'Target Hit' ? 'Target Hit' :
-                                             st.status === 'Stop Loss' ? 'Stop Loss' : merged[idx].status;
-                        merged[idx].exitPrice = st.exit_price;
-                        merged[idx].finalPnl = st.final_pnl_pct;
+                    // Update existing trade
+                    const localTrade = merged[idx];
+                    
+                    // Update current price (normalize field names)
+                    if (st.current_price !== undefined) {
+                        localTrade.currentPrice = st.current_price;
+                        localTrade.current_price = st.current_price;
                     }
-                    if (st.current_price) merged[idx].currentPrice = st.current_price;
-                    if (st.current_pnl_pct !== undefined) merged[idx].currentPnl = st.current_pnl_pct;
+                    
+                    // Update P&L if available
+                    if (st.current_pnl_pct !== undefined) {
+                        localTrade.currentPnl = st.current_pnl_pct;
+                    }
+                    
+                    // Update status if server has newer status
+                    if (st.status && st.status !== 'Triggered' && st.status !== 'Open') {
+                        localTrade.status = st.status;
+                    }
+                } else {
+                    // Add new server trade (from angel_monitor.py)
+                    // Normalize field names to camelCase for consistency
+                    const normalizedTrade = {
+                        ticker: st.ticker,
+                        source: st.source || 'Trendline',
+                        entryTrigger: st.entry_price || 0,
+                        entry_price: st.entry_price || 0,
+                        currentPrice: st.current_price || 0,
+                        current_price: st.current_price || 0,
+                        targetExit: st.target || 0,
+                        target: st.target || 0,
+                        stopLoss: st.stop_loss || 0,
+                        stop_loss: st.stop_loss || 0,
+                        status: st.status || 'Triggered',
+                        takenAt: st.triggered_at || new Date().toISOString(),
+                        triggered_at: st.triggered_at || new Date().toISOString(),
+                        currentPnl: st.current_pnl_pct || 0
+                    };
+                    merged.push(normalizedTrade);
                 }
             });
+            
             // Save merged back to localStorage
             localStorage.setItem('radarTrades', JSON.stringify(merged));
             return merged;
@@ -6389,8 +6437,8 @@
                 return;
             }
 
-            const open = trades.filter(t => t.status === 'Open');
-            const closed = trades.filter(t => t.status !== 'Open');
+            const open = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
+            const closed = trades.filter(t => t.status !== 'Open' && t.status !== 'Triggered');
 
             let html = `
                 <div class="mobile-card rounded-xl p-4 mb-4">
@@ -6412,49 +6460,62 @@
             `;
 
             trades.forEach((trade, idx) => {
-                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${trade.ticker}`;
-                const takenDate = new Date(trade.takenAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
-                const borderColor = trade.status === 'Open' ? '#D97706' : trade.status === 'Target Hit' ? '#047857' : '#DC2626';
+                // Normalize field names (handle both camelCase and snake_case)
+                const ticker = trade.ticker || '';
+                const currentPrice = trade.currentPrice || trade.current_price || 0;
+                const entryPrice = trade.entryTrigger || trade.entry_price || 0;
+                const target = trade.targetExit || trade.target || 0;
+                const stopLoss = trade.stopLoss || trade.stop_loss || 0;
+                const status = trade.status || 'Open';
+                const source = trade.source || 'Manual';
+                const takenAt = trade.takenAt || trade.triggered_at || new Date().toISOString();
+                
+                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ticker}`;
+                const takenDate = new Date(takenAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+                const borderColor = status === 'Open' || status === 'Triggered' ? '#D97706' : status === 'Target Hit' ? '#047857' : '#DC2626';
                 const statusColor = borderColor;
+                
                 let pnlDisplay = '';
-                if (trade.status === 'Open' && trade.currentPnl !== undefined) {
-                    const pnlColor = trade.currentPnl >= 0 ? '#10B981' : '#DC2626';
-                    pnlDisplay = `<div class="text-xs mono mt-1" style="color: ${pnlColor};">Live P&L: ${trade.currentPnl >= 0 ? '+' : ''}${trade.currentPnl?.toFixed(2)}%</div>`;
+                if ((status === 'Open' || status === 'Triggered') && currentPrice && entryPrice) {
+                    const pnl = ((currentPrice - entryPrice) / entryPrice) * 100;
+                    const pnlColor = pnl >= 0 ? '#10B981' : '#DC2626';
+                    pnlDisplay = `<div class="text-xs mono mt-1" style="color: ${pnlColor};">Live P&L: ${pnl >= 0 ? '+' : ''}${pnl?.toFixed(2)}%</div>`;
                 } else if (trade.finalPnl !== undefined) {
                     const pnlColor = trade.finalPnl >= 0 ? '#10B981' : '#DC2626';
                     pnlDisplay = `<div class="text-xs mono mt-1" style="color: ${pnlColor};">Final P&L: ${trade.finalPnl >= 0 ? '+' : ''}${trade.finalPnl?.toFixed(2)}%</div>`;
                 }
+                
                 html += `
                     <div class="stock-card mb-4" style="border-left: 3px solid ${borderColor};">
                         <div class="flex justify-between items-start mb-3">
                             <div>
-                                <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${trade.ticker}</a>
-                                <div class="text-xs text-slate-500 mt-1">${takenDate} | ${trade.source || 'Manual'}</div>
+                                <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${ticker}</a>
+                                <div class="text-xs text-slate-500 mt-1">${takenDate} | ${source}</div>
                                 ${pnlDisplay}
                             </div>
-                            <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${trade.status}</span>
+                            <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${status}</span>
                         </div>
                         <div class="grid grid-cols-4 gap-2 mb-3">
                             <div>
                                 <div class="text-xs text-slate-500 mb-1">LTP</div>
-                                <div class="text-sm font-bold mono" style="color: #06B6D4;">₹${trade.currentPrice?.toLocaleString() || 'N/A'}</div>
+                                <div class="text-sm font-bold mono" style="color: #06B6D4;">₹${currentPrice ? currentPrice.toLocaleString('en-IN', {maximumFractionDigits: 2}) : 'N/A'}</div>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-500 mb-1">Entry</div>
-                                <div class="text-sm font-bold mono" style="color: #3B82F6;">₹${trade.entryTrigger?.toLocaleString()}</div>
+                                <div class="text-sm font-bold mono" style="color: #3B82F6;">₹${entryPrice.toLocaleString('en-IN', {maximumFractionDigits: 2})}</div>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-500 mb-1">Target</div>
-                                <div class="text-sm font-bold mono" style="color: #10B981;">₹${trade.targetExit?.toLocaleString()}</div>
+                                <div class="text-sm font-bold mono" style="color: #10B981;">₹${target.toLocaleString('en-IN', {maximumFractionDigits: 2})}</div>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-500 mb-1">Stop</div>
-                                <div class="text-sm font-bold mono" style="color: #DC2626;">₹${trade.stopLoss?.toLocaleString()}</div>
+                                <div class="text-sm font-bold mono" style="color: #DC2626;">₹${stopLoss.toLocaleString('en-IN', {maximumFractionDigits: 2})}</div>
                             </div>
                         </div>
-                        <div class="text-xs text-slate-500 mono mb-3">${trade.quantity || trade.qty || (trade.positionSize && trade.entryTrigger ? Math.floor(trade.positionSize / trade.entryTrigger) : 0)} shares | ₹${trade.positionSize?.toLocaleString() || 0} position</div>
+                        <div class="text-xs text-slate-500 mono mb-3">${trade.quantity || trade.qty || (trade.positionSize && entryPrice ? Math.floor(trade.positionSize / entryPrice) : 0)} shares | ₹${(trade.positionSize || (trade.quantity * entryPrice) || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})} position</div>
                         <div class="flex space-x-2">
-                            ${trade.status === 'Open' ? `
+                            ${(status === 'Open' || status === 'Triggered') ? `
                             <button onclick="updateTradeStatus(${idx}, 'Target Hit')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(4,120,87,0.2); color: #10B981;">✅ Target Hit</button>
                             <button onclick="updateTradeStatus(${idx}, 'Stop Loss')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(220,38,38,0.2); color: #DC2626;">🛑 Stop Loss</button>
                             ` : ''}
