@@ -6440,20 +6440,67 @@
             const open = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
             const closed = trades.filter(t => t.status !== 'Open' && t.status !== 'Triggered');
 
+            // Calculate totals for all OPEN trades only
+            let totalAmountUsed = 0;
+            let totalCurrentValue = 0;
+            let totalPnL = 0;
+            let totalGain = 0;
+            let totalLoss = 0;
+
+            open.forEach(trade => {
+                const entryPrice = trade.entryTrigger || trade.entry_price || 0;
+                const currentPrice = trade.currentPrice || trade.current_price || 0;
+                const quantity = trade.quantity || 0;
+                
+                const amountUsed = entryPrice * quantity;
+                const currentValue = currentPrice * quantity;
+                const pnl = currentValue - amountUsed;
+                
+                totalAmountUsed += amountUsed;
+                totalCurrentValue += currentValue;
+                totalPnL += pnl;
+                
+                if (pnl >= 0) totalGain += pnl;
+                else totalLoss += Math.abs(pnl);
+            });
+
+            const totalPnLPercent = totalAmountUsed > 0 ? ((totalPnL / totalAmountUsed) * 100) : 0;
+            const pnlColor = totalPnL >= 0 ? '#10B981' : '#DC2626';
+
             let html = `
-                <div class="mobile-card rounded-xl p-4 mb-4">
-                    <div class="grid grid-cols-3 gap-3 text-center">
+                <!-- PORTFOLIO SUMMARY -->
+                <div class="mobile-card rounded-xl p-4 mb-4" style="background: linear-gradient(135deg, rgba(4,120,87,0.15), rgba(6,182,212,0.1));">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <!-- Amount Used -->
+                        <div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Amount Used (Capital)</div>
+                            <div class="text-2xl font-bold mono" style="color: #3B82F6;">₹${totalAmountUsed.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div class="text-xs text-slate-500 mt-1">${open.length} open trade${open.length !== 1 ? 's' : ''}</div>
+                        </div>
+                        
+                        <!-- Current Value -->
+                        <div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Current Value</div>
+                            <div class="text-2xl font-bold mono" style="color: #06B6D4;">₹${totalCurrentValue.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div class="text-xs" style="color: ${pnlColor}; margin-top: 4px;">
+                                ${totalPnL >= 0 ? '+' : ''}₹${totalPnL.toLocaleString('en-IN', {maximumFractionDigits: 0})} (${totalPnLPercent >= 0 ? '+' : ''}${totalPnLPercent.toFixed(2)}%)
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- P&L Breakdown -->
+                    <div class="grid grid-cols-3 gap-3 text-center" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
                         <div>
                             <div class="text-2xl font-bold mono" style="color: #D97706;">${open.length}</div>
                             <div class="text-xs text-slate-400 uppercase tracking-wider">Open</div>
                         </div>
                         <div>
-                            <div class="text-2xl font-bold mono" style="color: #047857;">${closed.filter(t=>t.status==='Target Hit').length}</div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider">Target Hit</div>
+                            <div class="text-2xl font-bold mono" style="color: #10B981;">+₹${totalGain.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Winning</div>
                         </div>
                         <div>
-                            <div class="text-2xl font-bold mono" style="color: #DC2626;">${closed.filter(t=>t.status==='Stop Loss').length}</div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider">Stop Loss</div>
+                            <div class="text-2xl font-bold mono" style="color: #DC2626;">-₹${totalLoss.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Losing</div>
                         </div>
                     </div>
                 </div>
@@ -6466,24 +6513,22 @@
                 const entryPrice = trade.entryTrigger || trade.entry_price || 0;
                 const target = trade.targetExit || trade.target || 0;
                 const stopLoss = trade.stopLoss || trade.stop_loss || 0;
+                const quantity = trade.quantity || 0;
                 const status = trade.status || 'Open';
                 const source = trade.source || 'Manual';
                 const takenAt = trade.takenAt || trade.triggered_at || new Date().toISOString();
+                
+                // Calculate trade metrics
+                const amountUsed = entryPrice * quantity;
+                const currentValue = currentPrice * quantity;
+                const pnl = currentValue - amountUsed;
+                const pnlPercent = entryPrice > 0 ? ((pnl / amountUsed) * 100) : 0;
                 
                 const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ticker}`;
                 const takenDate = new Date(takenAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
                 const borderColor = status === 'Open' || status === 'Triggered' ? '#D97706' : status === 'Target Hit' ? '#047857' : '#DC2626';
                 const statusColor = borderColor;
-                
-                let pnlDisplay = '';
-                if ((status === 'Open' || status === 'Triggered') && currentPrice && entryPrice) {
-                    const pnl = ((currentPrice - entryPrice) / entryPrice) * 100;
-                    const pnlColor = pnl >= 0 ? '#10B981' : '#DC2626';
-                    pnlDisplay = `<div class="text-xs mono mt-1" style="color: ${pnlColor};">Live P&L: ${pnl >= 0 ? '+' : ''}${pnl?.toFixed(2)}%</div>`;
-                } else if (trade.finalPnl !== undefined) {
-                    const pnlColor = trade.finalPnl >= 0 ? '#10B981' : '#DC2626';
-                    pnlDisplay = `<div class="text-xs mono mt-1" style="color: ${pnlColor};">Final P&L: ${trade.finalPnl >= 0 ? '+' : ''}${trade.finalPnl?.toFixed(2)}%</div>`;
-                }
+                const pnlColor = pnl >= 0 ? '#10B981' : '#DC2626';
                 
                 html += `
                     <div class="stock-card mb-4" style="border-left: 3px solid ${borderColor};">
@@ -6491,10 +6536,11 @@
                             <div>
                                 <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${ticker}</a>
                                 <div class="text-xs text-slate-500 mt-1">${takenDate} | ${source}</div>
-                                ${pnlDisplay}
                             </div>
                             <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${status}</span>
                         </div>
+                        
+                        <!-- Trade Prices -->
                         <div class="grid grid-cols-4 gap-2 mb-3">
                             <div>
                                 <div class="text-xs text-slate-500 mb-1">LTP</div>
@@ -6513,7 +6559,27 @@
                                 <div class="text-sm font-bold mono" style="color: #DC2626;">₹${stopLoss.toLocaleString('en-IN', {maximumFractionDigits: 2})}</div>
                             </div>
                         </div>
-                        <div class="text-xs text-slate-500 mono mb-3">${trade.quantity || trade.qty || (trade.positionSize && entryPrice ? Math.floor(trade.positionSize / entryPrice) : 0)} shares | ₹${(trade.positionSize || (trade.quantity * entryPrice) || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})} position</div>
+                        
+                        <!-- Trade Amounts -->
+                        <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
+                            <div style="background: rgba(30,40,50,0.4); padding: 8px; border-radius: 6px;">
+                                <div class="text-slate-500 mb-1">Amount Used</div>
+                                <div class="font-bold mono" style="color: #3B82F6;">₹${amountUsed.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                                <div class="text-slate-600 text-xs">${quantity} @ ₹${entryPrice.toFixed(2)}</div>
+                            </div>
+                            <div style="background: rgba(30,40,50,0.4); padding: 8px; border-radius: 6px;">
+                                <div class="text-slate-500 mb-1">Current Value</div>
+                                <div class="font-bold mono" style="color: #06B6D4;">₹${currentValue.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                                <div class="text-slate-600 text-xs">${quantity} @ ₹${currentPrice.toFixed(2)}</div>
+                            </div>
+                            <div style="background: rgba(30,40,50,0.4); padding: 8px; border-radius: 6px;">
+                                <div class="text-slate-500 mb-1">P&L</div>
+                                <div class="font-bold mono" style="color: ${pnlColor};">${pnl >= 0 ? '+' : ''}₹${pnl.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                                <div class="text-slate-600 text-xs" style="color: ${pnlColor};">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
                         <div class="flex space-x-2">
                             ${(status === 'Open' || status === 'Triggered') ? `
                             <button onclick="updateTradeStatus(${idx}, 'Target Hit')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(4,120,87,0.2); color: #10B981;">✅ Target Hit</button>

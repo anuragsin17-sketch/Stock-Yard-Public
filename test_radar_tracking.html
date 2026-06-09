@@ -172,10 +172,74 @@
                 return;
             }
 
-            let html = '<div>';
+            // Calculate totals
+            let totalAmountUsed = 0;
+            let totalCurrentValue = 0;
+            let totalPnL = 0;
+            let winningAmount = 0;
+            let losingAmount = 0;
+
+            trades.forEach(trade => {
+                const entry = trade.entry_price || 0;
+                const current = trade.current_price || 0;
+                const qty = trade.quantity || 1;
+                
+                const amountUsed = entry * qty;
+                const currentValue = current * qty;
+                const pnl = currentValue - amountUsed;
+                
+                totalAmountUsed += amountUsed;
+                totalCurrentValue += currentValue;
+                totalPnL += pnl;
+                
+                if (pnl >= 0) winningAmount += pnl;
+                else losingAmount += Math.abs(pnl);
+            });
+
+            const totalPnLPercent = totalAmountUsed > 0 ? ((totalPnL / totalAmountUsed) * 100) : 0;
+            const pnlColor = totalPnL >= 0 ? '#10B981' : '#DC2626';
+
+            let html = `
+                <div style="background: linear-gradient(135deg, rgba(4,120,87,0.15), rgba(6,182,212,0.1)); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <div style="font-size: 12px; color: #94A3B8; margin-bottom: 4px;">Amount Used (Capital)</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #3B82F6;">₹${totalAmountUsed.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div style="font-size: 11px; color: #64748B;">${trades.length} open trades</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #94A3B8; margin-bottom: 4px;">Current Value</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #06B6D4;">₹${totalCurrentValue.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div style="font-size: 11px; color: ${pnlColor};">${totalPnL >= 0 ? '+' : ''}₹${totalPnL.toLocaleString('en-IN', {maximumFractionDigits: 0})} (${totalPnLPercent >= 0 ? '+' : ''}${totalPnLPercent.toFixed(2)}%)</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 16px; font-weight: bold; color: #D97706;">${trades.length}</div>
+                            <div style="font-size: 11px; color: #94A3B8;">Open</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 16px; font-weight: bold; color: #10B981;">+₹${winningAmount.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div style="font-size: 11px; color: #94A3B8;">Winning</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 16px; font-weight: bold; color: #DC2626;">-₹${losingAmount.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div style="font-size: 11px; color: #94A3B8;">Losing</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
             trades.forEach((trade, idx) => {
-                const pnl = ((trade.current_price - trade.entry_price) / trade.entry_price * 100).toFixed(2);
-                const pnlColor = pnl >= 0 ? '#10B981' : '#DC2626';
+                const entry = trade.entry_price || 0;
+                const current = trade.current_price || 0;
+                const qty = trade.quantity || 1;
+                
+                const amountUsed = entry * qty;
+                const currentValue = current * qty;
+                const pnl = currentValue - amountUsed;
+                const pnlPercent = amountUsed > 0 ? ((pnl / amountUsed) * 100) : 0;
+                const pnlColorTrade = pnl >= 0 ? '#10B981' : '#DC2626';
                 const statusClass = trade.status === 'Open' ? 'status-open' : 'status-closed';
                 
                 html += `
@@ -185,16 +249,28 @@
                             <span class="${statusClass} px-3 py-1 text-xs rounded">${trade.status}</span>
                         </div>
                         <div class="text-xs text-slate-400 grid grid-cols-4 gap-2 mb-2">
-                            <div>LTP: <strong style="color: #06B6D4;">₹${trade.current_price}</strong></div>
-                            <div>Entry: <strong style="color: #3B82F6;">₹${trade.entry_price}</strong></div>
+                            <div>LTP: <strong style="color: #06B6D4;">₹${current}</strong></div>
+                            <div>Entry: <strong style="color: #3B82F6;">₹${entry}</strong></div>
                             <div>Target: <strong style="color: #10B981;">₹${trade.target}</strong></div>
                             <div>SL: <strong style="color: #DC2626;">₹${trade.stop_loss}</strong></div>
                         </div>
-                        <div class="text-xs" style="color: ${pnlColor};">P&L: <strong>${pnl >= 0 ? '+' : ''}${pnl}%</strong></div>
+                        <div class="text-xs" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                            <div style="background: rgba(30,40,50,0.4); padding: 6px; border-radius: 4px;">
+                                <div style="color: #94A3B8; font-size: 10px;">Amount Used</div>
+                                <strong style="color: #3B82F6;">₹${amountUsed.toLocaleString('en-IN')}</strong>
+                            </div>
+                            <div style="background: rgba(30,40,50,0.4); padding: 6px; border-radius: 4px;">
+                                <div style="color: #94A3B8; font-size: 10px;">Current Value</div>
+                                <strong style="color: #06B6D4;">₹${currentValue.toLocaleString('en-IN')}</strong>
+                            </div>
+                            <div style="background: rgba(30,40,50,0.4); padding: 6px; border-radius: 4px;">
+                                <div style="color: #94A3B8; font-size: 10px;">P&L</div>
+                                <strong style="color: ${pnlColorTrade};">${pnl >= 0 ? '+' : ''}₹${pnl.toLocaleString('en-IN')} (${pnlPercent.toFixed(2)}%)</strong>
+                            </div>
+                        </div>
                     </div>
                 `;
             });
-            html += '</div>';
             document.getElementById('radarDisplay').innerHTML = html;
         }
 
