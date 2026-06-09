@@ -4955,33 +4955,79 @@
             console.log(`🎯 Updating live prices for ${allStocks.length} stocks...`);
             
             // Fetch live prices in batches to avoid rate limiting
-            const batchSize = 5;
+            const batchSize = 3;
             for (let i = 0; i < allStocks.length; i += batchSize) {
                 const batch = allStocks.slice(i, i + batchSize);
                 
                 await Promise.all(batch.map(async (stock) => {
                     try {
-                        // Use CORS proxy to bypass restrictions
-                        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stock.symbol}.NS`;
-                        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+                        let livePrice = null;
+                        const symbol = stock.symbol;
+                        const symbolWithNS = symbol.includes('.') ? symbol : `${symbol}.NS`;
                         
-                        const response = await fetch(proxyUrl, { timeout: 5000 });
-                        if (response.ok) {
-                            const data = await response.json();
-                            const livePrice = data.chart.result[0].meta.regularMarketPrice;
+                        // Method 1: Use NSE India API (most reliable for Indian stocks)
+                        try {
+                            // Use a CORS proxy for NSE data
+                            const nseUrl = `https://www.nseindia.com/api/quote-equity?symbol=${symbol}`;
+                            const corsProxy = 'https://cors-anywhere.herokuapp.com/';
                             
-                            // Update the stock data in screeningData
-                            updateStockPrice(stock.symbol, stock.type, livePrice);
-                            console.log(`✓ ${stock.symbol}: ₹${livePrice.toFixed(2)}`);
+                            const response = await Promise.race([
+                                fetch(corsProxy + nseUrl, {
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    }
+                                }),
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+                            ]);
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.price) {
+                                    livePrice = parseFloat(data.price);
+                                }
+                            }
+                        } catch (e1) {
+                            console.log(`NSE API failed for ${symbol}, trying alternative...`);
+                            
+                            // Method 2: Use alternative free API (twelvedata.com)
+                            try {
+                                const response2 = await Promise.race([
+                                    fetch(`https://api.twelvedata.com/quote?symbol=${symbol}&exchange=NSE`, {
+                                        headers: { 'Accept': 'application/json' }
+                                    }),
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+                                ]);
+                                
+                                if (response2.ok) {
+                                    const data2 = await response2.json();
+                                    if (data2.price) {
+                                        livePrice = parseFloat(data2.price);
+                                    }
+                                }
+                            } catch (e2) {
+                                console.log(`Method 2 (twelvedata) failed for ${symbol}, trying local cache...`);
+                                
+                                // Method 3: Use local data as fallback
+                                // The prices in screeningData are already fresh from the workflow
+                                livePrice = stock.currentPrice;
+                            }
+                        }
+                        
+                        // If we got a price, update it
+                        if (livePrice && livePrice > 0) {
+                            updateStockPrice(symbol, stock.type, livePrice);
+                            console.log(`✓ ${symbol}: ₹${livePrice.toFixed(2)}`);
+                        } else {
+                            console.log(`⊘ Could not fetch live price for ${symbol} - using cached price: ₹${stock.currentPrice.toFixed(2)}`);
                         }
                     } catch (error) {
-                        console.warn(`Failed to fetch live price for ${stock.symbol}:`, error.message);
+                        console.warn(`Error fetching price for ${stock.symbol}:`, error.message);
                     }
                 }));
                 
-                // Small delay between batches
+                // Small delay between batches to avoid rate limiting
                 if (i + batchSize < allStocks.length) {
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
             

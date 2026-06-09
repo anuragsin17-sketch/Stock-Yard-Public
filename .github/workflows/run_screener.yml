@@ -50,16 +50,17 @@ jobs:
         
         # Load existing orders to avoid duplicates
         existing_orders = {}
+        all_orders = []
         try:
           with open(ORDERS_LOG) as f:
-            orders = json.load(f)
-            if isinstance(orders, list):
-              for order in orders:
+            all_orders = json.load(f)
+            if isinstance(all_orders, list):
+              for order in all_orders:
                 ticker = order.get('symbol', '')
                 if ticker:
                   existing_orders[ticker] = order.get('order_id')
         except:
-          pass
+          all_orders = []
         
         print(f"Already placed orders: {len(existing_orders)}")
         if existing_orders:
@@ -111,6 +112,19 @@ jobs:
                 order_id = result.get('order_id')
                 print(f"   ✓ SUCCESS! Order ID: {order_id}")
                 orders_placed += 1
+                
+                # SAVE order to angel_orders.json to prevent re-ordering
+                new_order_record = {
+                  'symbol': ticker,
+                  'order_id': order_id,
+                  'quantity': qty,
+                  'entry_price': price,
+                  'target_price': target,
+                  'stop_loss': stoploss,
+                  'placed_at': datetime.now().isoformat(),
+                  'status': 'placed'
+                }
+                all_orders.append(new_order_record)
               else:
                 error = result.get('error', 'Unknown error')
                 print(f"   ✗ FAILED: {error}")
@@ -119,7 +133,15 @@ jobs:
           else:
             print(f"\n⊘ Skipping {ticker} - Missing price/target/SL data")
         
-        print(f"\n✅ Completed: {orders_placed} NEW orders placed")
+        # Save all orders back to file
+        try:
+          with open(ORDERS_LOG, 'w') as f:
+            json.dump(all_orders, f, indent=2)
+          print(f"\n✅ Saved {len(all_orders)} total orders to {ORDERS_LOG}")
+        except Exception as e:
+          print(f"❌ Error saving orders: {e}")
+        
+        print(f"✅ Completed: {orders_placed} NEW orders placed")
         PYEOF
     
     - name: Commit results

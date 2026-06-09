@@ -140,7 +140,12 @@ def get_live_price(ticker: str) -> float:
         data = yf.download(symbol, period='1d', interval='1m',
                            progress=False, auto_adjust=True)
         if not data.empty:
-            return float(data['Close'].iloc[-1])
+            close_price = data['Close'].iloc[-1]
+            # Handle Series or scalar value
+            if hasattr(close_price, 'item'):
+                return float(close_price.item())
+            else:
+                return float(close_price)
     except Exception as e:
         print(f"Price fetch error for {ticker}: {e}")
     return None
@@ -198,6 +203,13 @@ def check_trendline_stocks_for_entry():
     main_data = load_json(DATA_FILE)
     volume_stocks = main_data.get('volume_breakout_stocks', []) if isinstance(main_data, dict) else []
     golden_stocks = main_data.get('golden_stocks', []) if isinstance(main_data, dict) else []
+    
+    # Load orders already placed (prevent duplicate orders)
+    orders_data = load_json('angel_orders.json')
+    ordered_stocks = set()
+    if isinstance(orders_data, list):
+        ordered_stocks = {o.get('symbol', '') for o in orders_data if o.get('symbol')}
+    print(f"  Already ordered: {len(ordered_stocks)} stocks - {', '.join(sorted(ordered_stocks)[:5])}")
 
     for stock in trendline_data:
         ticker = stock.get('ticker', '')
@@ -207,6 +219,11 @@ def check_trendline_stocks_for_entry():
         stoploss_price = float(pos_sizing.get('strictStopLoss', entry_price * 0.92))
 
         if not ticker or entry_price <= 0:
+            continue
+
+        # CRITICAL: Skip if already ordered in angel_orders.json
+        if ticker in ordered_stocks:
+            print(f"  ⊘ {ticker}: Already has order in Angel One (skip)")
             continue
 
         # Skip if already in radar
@@ -260,6 +277,7 @@ def check_trendline_stocks_for_entry():
 
     if changed:
         save_radar(radar_trades)
+    
     return changed
 
 
