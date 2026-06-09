@@ -6363,8 +6363,58 @@
                 .then(serverTrades => {
                     // Merge: server trades take priority (have latest status)
                     const merged = mergeRadarTrades(localTrades, serverTrades);
-                    renderRadarTab(container, merged);
+                    
+                    // Also fetch live data from Angel One (if available)
+                    return fetchAngelOneOrders().then(angelOrders => {
+                        // Enrich trades with Angel One data
+                        const enriched = enrichTradesWithAngelData(merged, angelOrders);
+                        renderRadarTab(container, enriched);
+                    });
                 });
+        }
+        
+        // Fetch live order data from Angel One
+        async function fetchAngelOneOrders() {
+            try {
+                // Try to fetch from local EC2 sync service
+                const response = await fetch('http://localhost:5002/api/orders', { 
+                    cache: 'no-store',
+                    mode: 'cors' 
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Fetched live orders from Angel One:', data.count);
+                    return data.orders || [];
+                }
+            } catch (e) {
+                console.log('ℹ️ Angel One sync service not available (running on EC2?)');
+            }
+            return [];
+        }
+        
+        // Enrich trades with Angel One live data
+        function enrichTradesWithAngelData(trades, angelOrders) {
+            if (!angelOrders || angelOrders.length === 0) return trades;
+            
+            return trades.map(trade => {
+                const angelOrder = angelOrders.find(ao => 
+                    ao.symbol === trade.ticker || ao.ticker === trade.ticker
+                );
+                
+                if (angelOrder) {
+                    // Merge Angel One data
+                    return {
+                        ...trade,
+                        angel_order_id: angelOrder.order_id,
+                        angel_status: angelOrder.status,
+                        angel_filled_qty: angelOrder.filled_qty,
+                        angel_filled_price: angelOrder.filled_price,
+                        angel_synced_at: angelOrder.synced_at,
+                        is_angel_synced: true
+                    };
+                }
+                return trade;
+            });
         }
 
         function mergeRadarTrades(local, server) {
@@ -6536,6 +6586,11 @@
                             <div>
                                 <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${ticker}</a>
                                 <div class="text-xs text-slate-500 mt-1">${takenDate} | ${source}</div>
+                                ${status === 'Open' || status === 'Triggered' ? `
+                                    <div class="text-xs mt-1" style="color: #06B6D4;">
+                                        ${trade.is_angel_synced ? '✅ Synced with Angel One' : '⏳ Pending sync'}
+                                    </div>
+                                ` : ''}
                             </div>
                             <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${status}</span>
                         </div>
