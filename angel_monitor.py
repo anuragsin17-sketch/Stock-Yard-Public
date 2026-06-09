@@ -193,6 +193,11 @@ def check_trendline_stocks_for_entry():
     
     radar_trades = load_radar()
     changed = False
+    
+    # Load stocks already in dashboard tabs
+    main_data = load_json(DATA_FILE)
+    volume_stocks = main_data.get('volume_breakout_stocks', []) if isinstance(main_data, dict) else []
+    golden_stocks = main_data.get('golden_stocks', []) if isinstance(main_data, dict) else []
 
     for stock in trendline_data:
         ticker = stock.get('ticker', '')
@@ -206,6 +211,17 @@ def check_trendline_stocks_for_entry():
 
         # Skip if already in radar
         if any(t.get('ticker') == ticker and t.get('source') == 'Trendline' for t in radar_trades):
+            print(f"  ⊘ {ticker}: Already in Radar (skip)")
+            continue
+        
+        # Skip if already in Volume tab
+        if any(v.get('symbol') == ticker for v in volume_stocks):
+            print(f"  ⊘ {ticker}: Already in Volume tab (skip)")
+            continue
+        
+        # Skip if already in Trendline tab
+        if any(g.get('symbol') == ticker for g in golden_stocks):
+            print(f"  ⊘ {ticker}: Already in Trendline tab (skip)")
             continue
 
         # Get live price

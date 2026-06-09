@@ -43,8 +43,27 @@ jobs:
         python3 << 'PYEOF'
         import json
         import requests
+        from datetime import datetime
         
         EC2_API = "http://32.194.58.75:5000"
+        ORDERS_LOG = 'angel_orders.json'
+        
+        # Load existing orders to avoid duplicates
+        existing_orders = {}
+        try:
+          with open(ORDERS_LOG) as f:
+            orders = json.load(f)
+            if isinstance(orders, list):
+              for order in orders:
+                ticker = order.get('symbol', '')
+                if ticker:
+                  existing_orders[ticker] = order.get('order_id')
+        except:
+          pass
+        
+        print(f"Already placed orders: {len(existing_orders)}")
+        if existing_orders:
+          print(f"  Symbols: {', '.join(existing_orders.keys())}")
         
         try:
           with open('trendline_screen.json') as f:
@@ -53,13 +72,17 @@ jobs:
           print("No signals file found")
           stocks = []
         
-        print(f"Found {len(stocks)} signals")
+        print(f"\nFound {len(stocks)} total signals")
         
         critical = [s for s in stocks if s.get('notificationTrigger', False)]
-        print(f"Critical signals ready for trading: {len(critical)}")
+        print(f"Critical signals: {len(critical)}")
+        
+        # Filter OUT stocks that already have orders
+        new_orders = [s for s in critical if s.get('ticker') not in existing_orders]
+        print(f"New signals (NOT yet ordered): {len(new_orders)}")
         
         orders_placed = 0
-        for stock in critical[:5]:
+        for stock in new_orders[:5]:
           ticker = stock.get('ticker', 'N/A')
           price = stock.get('currentPrice', 0)
           target = stock.get('positionSizing', {}).get('pivotTargetExit', 0)
@@ -93,8 +116,10 @@ jobs:
                 print(f"   ✗ FAILED: {error}")
             except Exception as e:
               print(f"   ✗ ERROR: {e}")
+          else:
+            print(f"\n⊘ Skipping {ticker} - Missing price/target/SL data")
         
-        print(f"\n✅ Completed: {orders_placed} orders placed")
+        print(f"\n✅ Completed: {orders_placed} NEW orders placed")
         PYEOF
     
     - name: Commit results

@@ -4911,6 +4911,41 @@
                 });
             });
             
+            // Also fetch from trendline_screen.json for trendline stocks
+            try {
+                const response = await fetch('./trendline_screen.json', { cache: 'no-store' });
+                if (response.ok) {
+                    const trendlineData = await response.json();
+                    if (Array.isArray(trendlineData)) {
+                        trendlineData.forEach(stock => {
+                            // Only add if not already in allStocks
+                            if (!allStocks.find(s => s.symbol === stock.ticker)) {
+                                allStocks.push({
+                                    symbol: stock.ticker,
+                                    type: 'trendline_json',
+                                    entryPrice: stock.triggerPrice,
+                                    currentPrice: stock.currentPrice
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.log('Note: Could not fetch trendline_screen.json for live prices');
+            }
+            
+            // Also update radar trades with current prices
+            const radarTrades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+            radarTrades.forEach(trade => {
+                if (!allStocks.find(s => s.symbol === trade.ticker)) {
+                    allStocks.push({
+                        symbol: trade.ticker,
+                        type: 'radar',
+                        radarIndex: radarTrades.indexOf(trade)
+                    });
+                }
+            });
+            
             if (allStocks.length === 0) {
                 console.log('📊 No stocks found for live price updates');
                 return;
@@ -4932,9 +4967,10 @@
                             
                             // Update the stock data in screeningData
                             updateStockPrice(stock.symbol, stock.type, livePrice);
+                            console.log(`✓ ${stock.symbol}: ₹${livePrice.toFixed(2)}`);
                         }
                     } catch (error) {
-                        console.warn(`Failed to fetch live price for ${stock.symbol}`);
+                        console.warn(`Failed to fetch live price for ${stock.symbol}:`, error.message);
                     }
                 }));
                 
@@ -4989,38 +5025,77 @@
             if (currentTab === 'performance') {
                 displayPerformanceTracking();
             }
+            
+            // Always refresh radar tab if it exists (for LTP updates)
+            if (currentTab === 'performance' || currentTab === 'performance') {
+                const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+                const radarContainer = document.getElementById('resultsContainer');
+                if (radarContainer && trades.length > 0) {
+                    renderRadarTab(radarContainer, trades);
+                }
+            }
         }
         
         // Update stock price in screeningData
         function updateStockPrice(symbol, type, newPrice) {
-            const stockArrays = {
-                'volume': 'volume_breakout_stocks'
-            };
-            
-            const arrayName = stockArrays[type];
-            if (!arrayName || !screeningData[arrayName]) return;
-            
-            const stock = screeningData[arrayName].find(s => s.symbol === symbol);
-            if (stock) {
-                const oldPrice = stock.current_price;
-                stock.current_price = newPrice;
-                
-                // Recalculate distance percentages
-                if (type === 'volume' && stock.radar_trigger_price) {
-                    stock.distance_to_trigger_abs_percent = Math.abs(((newPrice - stock.radar_trigger_price) / stock.radar_trigger_price) * 100);
+            // Update screeningData arrays
+            if (type === 'volume' && screeningData?.volume_breakout_stocks) {
+                const stock = screeningData.volume_breakout_stocks.find(s => s.symbol === symbol);
+                if (stock) {
+                    const oldPrice = stock.current_price;
+                    stock.current_price = newPrice;
+                    
+                    // Recalculate distance percentages
+                    if (stock.radar_trigger_price) {
+                        stock.distance_to_trigger_abs_percent = Math.abs(((newPrice - stock.radar_trigger_price) / stock.radar_trigger_price) * 100);
+                    }
+                    
+                    // Update change indicator
+                    const change = oldPrice ? ((newPrice - oldPrice) / oldPrice) * 100 : 0;
+                    stock.live_change_percent = change;
+                    stock.is_live_updated = true;
+                    console.log(`✓ Volume: ${symbol} = ₹${newPrice.toFixed(2)}`);
                 }
-                
-                // Update change indicator
-                const change = ((newPrice - oldPrice) / oldPrice) * 100;
-                stock.live_change_percent = change;
-                stock.is_live_updated = true;
             }
             
-            // Also update radar trades with current price
+            if (type === 'trendline' && screeningData?.golden_stocks) {
+                const stock = screeningData.golden_stocks.find(s => s.symbol === symbol);
+                if (stock) {
+                    const oldPrice = stock.current_price;
+                    stock.current_price = newPrice;
+                    
+                    // Also update the trendlineData if it exists
+                    const trendlineStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+                    const trendStock = trendlineStocks.find(s => s.ticker === symbol);
+                    if (trendStock) {
+                        trendStock.currentPrice = newPrice;
+                        sessionStorage.setItem('trendlineStocks', JSON.stringify(trendlineStocks));
+                    }
+                    
+                    // Recalculate distance percentages
+                    if (stock.trendline_price) {
+                        stock.distance_to_trigger_abs_percent = Math.abs(((newPrice - stock.trendline_price) / stock.trendline_price) * 100);
+                    }
+                    
+                    // Update change indicator
+                    const change = oldPrice ? ((newPrice - oldPrice) / oldPrice) * 100 : 0;
+                    stock.live_change_percent = change;
+                    stock.is_live_updated = true;
+                    console.log(`✓ Trendline: ${symbol} = ₹${newPrice.toFixed(2)}`);
+                }
+            }
+            
+            // Update radar trades with current price
             const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
             const trade = trades.find(t => t.ticker === symbol);
             if (trade) {
                 trade.currentPrice = newPrice;
+                
+                // Calculate current P&L if trade is open
+                if (trade.status === 'Open' && trade.entryTrigger) {
+                    trade.currentPnl = ((newPrice - trade.entryTrigger) / trade.entryTrigger) * 100;
+                }
+                
                 localStorage.setItem('radarTrades', JSON.stringify(trades));
             }
         }
