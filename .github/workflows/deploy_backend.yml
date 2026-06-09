@@ -1,0 +1,140 @@
+name: Deploy Angel Order Handler to EC2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'angel_order_handler.py'
+      - '.github/workflows/deploy_backend.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_KEY }}
+        port: 22
+        script: |
+          set -e
+          
+          echo "🚀 Starting Angel Order Handler Deployment"
+          echo "==========================================="
+          
+          # Navigate to home directory
+          cd /home/ubuntu
+          
+          # Step 1: Pull latest code
+          echo "📥 Pulling latest code from GitHub..."
+          if [ -d "stock-yard" ]; then
+            cd stock-yard
+            git pull origin main
+          else
+            git clone https://github.com/YOUR_REPO_URL/stock-yard.git
+            cd stock-yard
+          fi
+          
+          # Step 2: Install/update dependencies
+          echo "📦 Installing Python dependencies..."
+          pip3 install --upgrade pip requests pyotp smartapi-python flask flask-cors 2>&1 | grep -v "already satisfied" || true
+          
+          # Step 3: Create systemd service file
+          echo "⚙️  Creating systemd service..."
+          sudo tee /etc/systemd/system/angel-api.service > /dev/null << 'SERVICEEOF'
+[Unit]
+Description=Angel One Order Handler API
+After=network.target
+StartLimitInterval=60s
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/stock-yard
+Environment="ANGEL_API_KEY=${{ secrets.ANGEL_API_KEY }}"
+Environment="ANGEL_CLIENT_ID=${{ secrets.ANGEL_CLIENT_ID }}"
+Environment="ANGEL_PASSWORD=${{ secrets.ANGEL_PASSWORD }}"
+Environment="ANGEL_TOTP_SECRET=${{ secrets.ANGEL_TOTP_SECRET }}"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/python3 /home/ubuntu/stock-yard/angel_order_handler.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SERVICEEOF
+          
+          # Step 4: Reload systemd and restart service
+          echo "🔄 Reloading systemd configuration..."
+          sudo systemctl daemon-reload
+          
+          echo "🔄 Enabling angel-api service..."
+          sudo systemctl enable angel-api
+          
+          echo "🔄 Restarting angel-api service..."
+          sudo systemctl restart angel-api
+          
+          # Step 5: Wait for service to start
+          echo "⏳ Waiting for service to start..."
+          sleep 3
+          
+          # Step 6: Check service status
+          echo "📊 Service status:"
+          sudo systemctl status angel-api --no-pager
+          
+          # Step 7: Check if listening on port 5000
+          echo ""
+          echo "🔍 Checking port 5000..."
+          if sudo netstat -tulpn 2>/dev/null | grep -q ":5000"; then
+            echo "✅ Service is listening on port 5000"
+          else
+            echo "⚠️  Service may not be listening yet, checking logs..."
+            sudo journalctl -u angel-api -n 10 --no-pager
+          fi
+          
+          # Step 8: Show recent logs
+          echo ""
+          echo "📋 Recent logs:"
+          sudo journalctl -u angel-api -n 20 --no-pager
+          
+          echo ""
+          echo "==========================================="
+          echo "✅ Deployment completed!"
+          echo "Service: angel-api"
+          echo "URL: http://${{ secrets.EC2_HOST }}:5000"
+    
+    - name: Verify deployment
+      run: |
+        echo "⏳ Waiting 5 seconds for service to stabilize..."
+        sleep 5
+        
+        echo "🧪 Testing API health endpoint..."
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.EC2_HOST }}:5000/health)
+        
+        if [ "$RESPONSE" = "200" ]; then
+          echo "✅ API is responding correctly (HTTP 200)"
+        else
+          echo "⚠️  API returned HTTP $RESPONSE"
+          echo "Service may still be starting. Check EC2 logs if issues persist."
+        fi
+      continue-on-error: true
+
+    - name: Notify deployment status
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const status = '${{ job.status }}' === 'success' ? '✅ SUCCESS' : '❌ FAILED';
+          console.log(`Deployment ${status}`);
+          console.log(`URL: http://${{ secrets.EC2_HOST }}:5000`);

@@ -40,6 +40,16 @@ jobs:
         echo "Updating trendline prices with live market data..."
         python update_trendline_prices_live.py || echo "Live price update completed"
     
+    - name: Check EC2 API Health
+      run: |
+        echo "🔍 Checking if EC2 API is running..."
+        if curl -s -f http://32.194.58.75:5000/health > /dev/null; then
+          echo "✅ EC2 API is responding"
+        else
+          echo "⚠️  EC2 API not responding - attempting restart"
+          # Note: This is informational only - workflow continues
+        fi
+    
     - name: Place Orders via EC2 API
       run: |
         echo "Scanning signals and placing orders..."

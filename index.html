@@ -4792,6 +4792,9 @@
             
             // Start index price updates every 15 seconds
             startIndexUpdates();
+            
+            // Start trade sync with Angel One every 5 minutes
+            startTradeSync();
 
             // Handle stock highlight deep link
             if (stockParam) {
@@ -5060,6 +5063,74 @@
             }, 15000);  // Update every 15 seconds
             
             console.log('🟢 Index price updates started (every 15 seconds)');
+        }
+        
+        // Sync trades with Angel One every 5 minutes
+        function startTradeSync() {
+            // Initial sync
+            syncTradesFromAngelOne();
+            
+            // Set up interval for trade sync
+            setInterval(() => {
+                syncTradesFromAngelOne();
+            }, 300000);  // 5 minutes
+            
+            console.log('🟢 Trade sync started (every 5 minutes)');
+        }
+        
+        // Sync trades from Angel One API
+        async function syncTradesFromAngelOne() {
+            try {
+                console.log('🔄 Syncing trades with Angel One...');
+                
+                // Call the EC2 backend sync-trades endpoint
+                const response = await fetch('http://32.194.58.75:5000/api/sync-trades', {
+                    cache: 'no-store',
+                    mode: 'cors'
+                });
+                
+                if (!response.ok) {
+                    console.warn('⚠️ Trade sync failed:', response.status);
+                    return;
+                }
+                
+                const result = await response.json();
+                console.log('✅ Trade sync complete:', result);
+                
+                // Reload Radar tab if currently viewing it
+                if (currentTab === 'performance') {
+                    displayPerformanceTracking();
+                }
+                
+            } catch (error) {
+                console.log('ℹ️ Angel One sync service not available (EC2 not running?):', error.message);
+            }
+        }
+        
+        // Fetch live LTP from Angel One for a single stock
+        async function fetchLiveQuote(symbol) {
+            try {
+                const response = await fetch(`http://32.194.58.75:5000/api/get-quote?symbol=${symbol}`, {
+                    cache: 'no-store',
+                    mode: 'cors'
+                });
+                
+                if (!response.ok) {
+                    console.warn(`⚠️ Quote fetch failed for ${symbol}:`, response.status);
+                    return null;
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    console.log(`✅ Live quote for ${symbol}: ₹${data.ltp}`);
+                    return data;
+                }
+                
+            } catch (error) {
+                console.log(`ℹ️ Could not fetch live quote for ${symbol}:`, error.message);
+            }
+            
+            return null;
         }
         
         // Update tab prices - re-render current tab to show new prices
@@ -6349,6 +6420,9 @@
             container.innerHTML = html;
         }
 
+        // Global filter state for Radar tab
+        let radarFilterState = 'all'; // 'open', 'closed', 'all'
+        
         // Display Radar tab - trades taken from trendline
         function displayPerformanceTracking() {
             const container = document.getElementById('resultsContainer');
@@ -6364,30 +6438,146 @@
                     // Merge: server trades take priority (have latest status)
                     const merged = mergeRadarTrades(localTrades, serverTrades);
                     
-                    // Also fetch live data from Angel One (if available)
-                    return fetchAngelOneOrders().then(angelOrders => {
+                    // Also fetch live data from Angel One (if available) AND sync trades endpoint
+                    return Promise.all([
+                        fetchAngelOneOrders(),
+                        syncTradesFromAngelOne(),
+                        fetchLiveLTPForRadarTrades(merged) // Fetch live LTP for all trades
+                    ]).then(([angelOrders, syncedTrades, liveQuotes]) => {
+                        // Merge synced trades with local trades
+                        let allTrades = merged;
+                        if (syncedTrades && syncedTrades.length > 0) {
+                            allTrades = mergeSyncedTrades(merged, syncedTrades);
+                        }
+                        // Update with live LTP from Angel One
+                        if (liveQuotes && liveQuotes.length > 0) {
+                            allTrades = updateTradesWithLiveQuotes(allTrades, liveQuotes);
+                        }
                         // Enrich trades with Angel One data
-                        const enriched = enrichTradesWithAngelData(merged, angelOrders);
+                        const enriched = enrichTradesWithAngelData(allTrades, angelOrders);
                         renderRadarTab(container, enriched);
                     });
                 });
         }
         
+        // Fetch live LTP for all open radar trades from Angel One
+        async function fetchLiveLTPForRadarTrades(trades) {
+            if (!trades || trades.length === 0) return [];
+            
+            const openTrades = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
+            if (openTrades.length === 0) return [];
+            
+            console.log(`🔄 Fetching live LTP for ${openTrades.length} open trades...`);
+            
+            // Fetch live quotes for all open trades concurrently
+            const quotePromises = openTrades.map(trade => {
+                return fetchLiveQuote(trade.ticker || trade.symbol)
+                    .then(quote => {
+                        if (quote) {
+                            return {
+                                ticker: trade.ticker || trade.symbol,
+                                ltp: quote.ltp,
+                                timestamp: quote.timestamp
+                            };
+                        }
+                        return null;
+                    })
+                    .catch(e => {
+                        console.warn(`Error fetching LTP for ${trade.ticker}:`, e.message);
+                        return null;
+                    });
+            });
+            
+            try {
+                const liveQuotes = await Promise.all(quotePromises);
+                const validQuotes = liveQuotes.filter(q => q !== null);
+                console.log(`✓ Fetched live LTP for ${validQuotes.length} trades`);
+                return validQuotes;
+            } catch (e) {
+                console.error('Error fetching live LTP batch:', e);
+                return [];
+            }
+        }
+        
+        // Update trades with live LTP quotes
+        function updateTradesWithLiveQuotes(trades, liveQuotes) {
+            if (!liveQuotes || liveQuotes.length === 0) return trades;
+            
+            return trades.map(trade => {
+                const quote = liveQuotes.find(q => q.ticker === (trade.ticker || trade.symbol));
+                if (quote) {
+                    return {
+                        ...trade,
+                        currentPrice: quote.ltp,
+                        current_price: quote.ltp,
+                        ltp_last_updated: quote.timestamp
+                    };
+                }
+                return trade;
+            });
+        }
+        
+        // Call /api/sync-trades endpoint from EC2 backend
+        async function syncTradesFromAngelOne() {
+            try {
+                const response = await fetch('http://32.194.58.75:5000/api/sync-trades', {
+                    cache: 'no-store',
+                    mode: 'cors'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Synced trades from Angel One:', data);
+                    return data.open_trades || [];
+                }
+            } catch (e) {
+                console.log('ℹ️ Sync endpoint not available:', e.message);
+            }
+            return [];
+        }
+        
+        // Merge synced trades with local trades
+        function mergeSyncedTrades(localTrades, syncedTrades) {
+            if (!syncedTrades || syncedTrades.length === 0) return localTrades;
+            
+            const merged = [...localTrades];
+            syncedTrades.forEach(synced => {
+                const idx = merged.findIndex(lt => lt.ticker === synced.ticker);
+                if (idx < 0) {
+                    // New synced trade - add it
+                    merged.push({
+                        ticker: synced.ticker,
+                        entry_price: synced.entry_price,
+                        current_price: synced.current_price,
+                        quantity: synced.quantity,
+                        status: 'Open',
+                        source: 'Angel One (Manual)',
+                        triggered_at: synced.triggered_at || new Date().toISOString(),
+                        is_synced: true
+                    });
+                } else {
+                    // Update LTP from synced data
+                    merged[idx].current_price = synced.current_price;
+                    merged[idx].is_synced = true;
+                }
+            });
+            return merged;
+        }
+        
         // Fetch live order data from Angel One
         async function fetchAngelOneOrders() {
             try {
-                // Try to fetch from local EC2 sync service
-                const response = await fetch('http://localhost:5002/api/orders', { 
+                // Try to fetch from EC2 sync service (use correct port and endpoint)
+                const response = await fetch('http://32.194.58.75:5000/api/sync-trades', { 
                     cache: 'no-store',
                     mode: 'cors' 
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Fetched live orders from Angel One:', data.count);
-                    return data.orders || [];
+                    console.log('✅ Fetched live orders from Angel One:', data);
+                    return data.open_trades || [];
                 }
             } catch (e) {
-                console.log('ℹ️ Angel One sync service not available (running on EC2?)');
+                console.log('ℹ️ Angel One sync service not available:', e.message);
             }
             return [];
         }
@@ -6489,6 +6679,14 @@
 
             const open = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
             const closed = trades.filter(t => t.status !== 'Open' && t.status !== 'Triggered');
+            
+            // Apply filter
+            let displayTrades = trades;
+            if (radarFilterState === 'open') {
+                displayTrades = open;
+            } else if (radarFilterState === 'closed') {
+                displayTrades = closed;
+            }
 
             // Calculate totals for all OPEN trades only
             let totalAmountUsed = 0;
@@ -6496,6 +6694,7 @@
             let totalPnL = 0;
             let totalGain = 0;
             let totalLoss = 0;
+            let totalClosedPnL = 0;
 
             open.forEach(trade => {
                 const entryPrice = trade.entryTrigger || trade.entry_price || 0;
@@ -6513,11 +6712,35 @@
                 if (pnl >= 0) totalGain += pnl;
                 else totalLoss += Math.abs(pnl);
             });
+            
+            // Calculate P&L for closed trades
+            closed.forEach(trade => {
+                const entryPrice = trade.entryTrigger || trade.entry_price || 0;
+                const exitPrice = trade.exitPrice || trade.current_price || entryPrice;
+                const quantity = trade.quantity || 0;
+                const pnl = (exitPrice - entryPrice) * quantity;
+                totalClosedPnL += pnl;
+            });
 
             const totalPnLPercent = totalAmountUsed > 0 ? ((totalPnL / totalAmountUsed) * 100) : 0;
             const pnlColor = totalPnL >= 0 ? '#10B981' : '#DC2626';
 
             let html = `
+                <!-- FILTER BUTTONS -->
+                <div class="mobile-card rounded-xl p-3 mb-4">
+                    <div class="flex space-x-2 overflow-x-auto">
+                        <button onclick="radarFilterState='all'; displayPerformanceTracking()" class="position-filter-btn ${radarFilterState === 'all' ? 'active' : ''} px-4 py-2 rounded-lg text-xs font-semibold touch-btn flex-shrink-0">
+                            📊 All (${trades.length})
+                        </button>
+                        <button onclick="radarFilterState='open'; displayPerformanceTracking()" class="position-filter-btn ${radarFilterState === 'open' ? 'active' : ''} px-4 py-2 rounded-lg text-xs font-semibold touch-btn flex-shrink-0" style="color: #D97706;">
+                            🔵 Open (${open.length})
+                        </button>
+                        <button onclick="radarFilterState='closed'; displayPerformanceTracking()" class="position-filter-btn ${radarFilterState === 'closed' ? 'active' : ''} px-4 py-2 rounded-lg text-xs font-semibold touch-btn flex-shrink-0" style="color: #047857;">
+                            ✅ Closed (${closed.length})
+                        </button>
+                    </div>
+                </div>
+            
                 <!-- PORTFOLIO SUMMARY -->
                 <div class="mobile-card rounded-xl p-4 mb-4" style="background: linear-gradient(135deg, rgba(4,120,87,0.15), rgba(6,182,212,0.1));">
                     <div class="grid grid-cols-2 gap-4 mb-4">
@@ -6539,7 +6762,7 @@
                     </div>
                     
                     <!-- P&L Breakdown -->
-                    <div class="grid grid-cols-3 gap-3 text-center" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+                    <div class="grid grid-cols-${closed.length > 0 ? '4' : '3'} gap-3 text-center" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
                         <div>
                             <div class="text-2xl font-bold mono" style="color: #D97706;">${open.length}</div>
                             <div class="text-xs text-slate-400 uppercase tracking-wider">Open</div>
@@ -6552,11 +6775,17 @@
                             <div class="text-2xl font-bold mono" style="color: #DC2626;">-₹${totalLoss.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
                             <div class="text-xs text-slate-400 uppercase tracking-wider">Losing</div>
                         </div>
+                        ${closed.length > 0 ? `
+                        <div>
+                            <div class="text-2xl font-bold mono" style="color: ${totalClosedPnL >= 0 ? '#10B981' : '#DC2626'};">${totalClosedPnL >= 0 ? '+' : ''}₹${totalClosedPnL.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
+                            <div class="text-xs text-slate-400 uppercase tracking-wider">Closed</div>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
 
-            trades.forEach((trade, idx) => {
+            displayTrades.forEach((trade, idx) => {
                 // Normalize field names (handle both camelCase and snake_case)
                 const ticker = trade.ticker || '';
                 const currentPrice = trade.currentPrice || trade.current_price || 0;
@@ -6588,18 +6817,23 @@
                                 <div class="text-xs text-slate-500 mt-1">${takenDate} | ${source}</div>
                                 ${status === 'Open' || status === 'Triggered' ? `
                                     <div class="text-xs mt-1" style="color: #06B6D4;">
-                                        ${trade.is_angel_synced ? '✅ Synced with Angel One' : '⏳ Pending sync'}
+                                        ${trade.is_angel_synced ? '✅ Synced with Angel One' : (trade.is_synced ? '🔄 Manual Angel One Trade' : '⏳ Pending sync')}
                                     </div>
                                 ` : ''}
                             </div>
                             <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${status}</span>
                         </div>
                         
-                        <!-- Trade Prices -->
+                        <!-- Trade Prices with LTP Update -->
                         <div class="grid grid-cols-4 gap-2 mb-3">
                             <div>
                                 <div class="text-xs text-slate-500 mb-1">LTP</div>
-                                <div class="text-sm font-bold mono" style="color: #06B6D4;">₹${currentPrice ? currentPrice.toLocaleString('en-IN', {maximumFractionDigits: 2}) : 'N/A'}</div>
+                                <div class="text-sm font-bold mono" style="color: #06B6D4; border-bottom: 2px solid rgba(6,182,212,0.3); padding-bottom: 2px;">
+                                    ${currentPrice ? '₹' + currentPrice.toLocaleString('en-IN', {maximumFractionDigits: 2}) : '⟳'}
+                                </div>
+                                <div class="text-xs text-slate-600 mt-1" style="color: #10B981; font-weight: 500;">
+                                    ${(status === 'Open' || status === 'Triggered') ? '🔴 LIVE' : '—'}
+                                </div>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-500 mb-1">Entry</div>
@@ -6645,7 +6879,28 @@
                     </div>
                 `;
             });
+            
+            // Closed trades summary if any closed trades exist
+            if (closed.length > 0 && radarFilterState !== 'open') {
+                html += `
+                    <div class="mobile-card rounded-xl p-4 mt-6" style="border-top: 2px solid rgba(4,120,87,0.3);">
+                        <div class="text-xs text-slate-400 uppercase tracking-wider mb-3" style="color: #10B981;">📋 Closed Trades (${closed.length})</div>
+                        <div class="text-xs text-slate-500">Total P&L: <span style="color: ${totalClosedPnL >= 0 ? '#10B981' : '#DC2626'}; font-weight: bold;">${totalClosedPnL >= 0 ? '+' : ''}₹${totalClosedPnL.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span></div>
+                    </div>
+                `;
+            }
+            
             container.innerHTML = html;
+            
+            // Auto-refresh LTP every 10 seconds (not 30)
+            if (!window.ltpRefreshInterval) {
+                window.ltpRefreshInterval = setInterval(() => {
+                    if (currentTab === 'performance') {
+                        console.log('🔄 Auto-refreshing Radar trades with live LTP...');
+                        displayPerformanceTracking();
+                    }
+                }, 10000);  // Every 10 seconds for live LTP updates
+            }
         }
         window.updateTradeStatus = function(idx, status) {
             const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');

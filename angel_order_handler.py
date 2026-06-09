@@ -454,6 +454,71 @@ def order_status(order_id):
         logger.error(f"Order status error: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/get-quote', methods=['GET'])
+def get_quote():
+    """Get live LTP (Last Traded Price) from Angel One for a symbol"""
+    try:
+        symbol = request.args.get('symbol', '').strip()
+        
+        if not symbol:
+            logger.warning("Quote request: No symbol provided")
+            return jsonify({'success': False, 'error': 'No symbol provided'}), 400
+        
+        logger.info(f"Fetching live quote for: {symbol}")
+        
+        smart = get_angel_session()
+        if not smart:
+            logger.error(f"Quote fetch failed for {symbol}: Could not connect to Angel One")
+            return jsonify({'success': False, 'error': 'Failed to connect to Angel One'}), 401
+        
+        # Add .NS suffix if not present
+        if not symbol.endswith('-EQ'):
+            quote_symbol = symbol + '-EQ'
+        else:
+            quote_symbol = symbol
+        
+        # Fetch quote from Angel One
+        try:
+            quote_data = smart.getQuote("NSE", quote_symbol)
+            logger.info(f"Quote response for {symbol}: {quote_data}")
+            
+            if isinstance(quote_data, dict) and quote_data.get('status'):
+                data = quote_data.get('data', {})
+                if isinstance(data, list) and len(data) > 0:
+                    data = data[0]
+                
+                ltp = float(data.get('ltp', 0))
+                open_price = float(data.get('open', 0))
+                high = float(data.get('high', 0))
+                low = float(data.get('low', 0))
+                close = float(data.get('close', 0))
+                volume = int(data.get('volume', 0))
+                
+                logger.info(f"✓ Quote fetched for {symbol}: LTP={ltp}, Volume={volume}")
+                
+                return jsonify({
+                    'success': True,
+                    'symbol': symbol,
+                    'ltp': ltp,
+                    'open': open_price,
+                    'high': high,
+                    'low': low,
+                    'close': close,
+                    'volume': volume,
+                    'timestamp': datetime.now().isoformat()
+                }), 200
+            else:
+                logger.warning(f"Quote fetch failed for {symbol}: Invalid response {quote_data}")
+                return jsonify({'success': False, 'error': f'Invalid quote response: {quote_data}'}), 500
+        
+        except Exception as e:
+            logger.error(f"getQuote API failed for {symbol}: {e}", exc_info=True)
+            return jsonify({'success': False, 'error': f'Quote fetch failed: {e}'}), 500
+    
+    except Exception as e:
+        logger.error(f"Quote endpoint error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/sync-trades', methods=['GET'])
 def sync_trades():
     """Fetch all open orders from Angel One and sync with our tracking"""
