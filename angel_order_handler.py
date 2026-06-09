@@ -454,6 +454,151 @@ def order_status(order_id):
         logger.error(f"Order status error: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/sync-trades', methods=['GET'])
+def sync_trades():
+    """Fetch all open orders from Angel One and sync with our tracking"""
+    try:
+        logger.info("Starting trade sync with Angel One...")
+        
+        smart = get_angel_session()
+        if not smart:
+            logger.error("Trade sync failed: Could not connect to Angel One")
+            return jsonify({'success': False, 'error': 'Failed to connect to Angel One'}), 401
+        
+        # Get all orders from Angel One
+        orders_response = smart.orderBook()
+        logger.info(f"Order book response: {orders_response}")
+        
+        if not isinstance(orders_response, dict) or not orders_response.get('status'):
+            logger.warning(f"Order book fetch failed: {orders_response}")
+            return jsonify({'success': False, 'error': 'Failed to fetch order book'}), 500
+        
+        angel_orders = orders_response.get('data', [])
+        if not isinstance(angel_orders, list):
+            angel_orders = []
+        
+        logger.info(f"Found {len(angel_orders)} orders in Angel One")
+        
+        # Get all positions (filled orders) from Angel One
+        holdings_response = smart.getHoldings()
+        logger.info(f"Holdings response: {holdings_response}")
+        
+        angel_positions = []
+        if isinstance(holdings_response, dict) and holdings_response.get('status'):
+            angel_positions = holdings_response.get('data', [])
+            if not isinstance(angel_positions, list):
+                angel_positions = []
+        
+        logger.info(f"Found {len(angel_positions)} positions in Angel One")
+        
+        # Load our tracking files
+        radar_trades = []
+        closed_trades = []
+        
+        try:
+            with open('radar_trades.json') as f:
+                radar_trades = json.load(f)
+                if not isinstance(radar_trades, list):
+                    radar_trades = []
+        except:
+            radar_trades = []
+        
+        try:
+            with open('closed_trades.json') as f:
+                closed_trades = json.load(f)
+                if not isinstance(closed_trades, list):
+                    closed_trades = []
+        except:
+            closed_trades = []
+        
+        logger.info(f"Current radar trades: {len(radar_trades)}")
+        logger.info(f"Current closed trades: {len(closed_trades)}")
+        
+        # Track changes
+        updated_radar = []
+        newly_closed = []
+        
+        # Check each radar trade for exit
+        for trade in radar_trades:
+            ticker = trade.get('ticker', '')
+            order_id = trade.get('order_id', '')
+            
+            # Find if this order exists in Angel One and has been exited
+            order_found = False
+            position_found = False
+            exit_price = None
+            
+            # Check if order still exists
+            for angel_order in angel_orders:
+                if str(angel_order.get('orderid')) == str(order_id):
+                    order_found = True
+                    logger.info(f"Order {order_id} ({ticker}) still open in Angel One")
+                    break
+            
+            # Check if position still held
+            for position in angel_positions:
+                if ticker in position.get('tradingsymbol', ''):
+                    position_found = True
+                    logger.info(f"Position {ticker} still held in Angel One")
+                    break
+            
+            # If order not found and position not held -> Trade exited
+            if not order_found and not position_found:
+                logger.warning(f"Trade {ticker} (Order {order_id}) has been exited!")
+                
+                # Move to closed trades
+                trade['status'] = 'Closed'
+                trade['closed_at'] = datetime.now().isoformat()
+                
+                # Calculate P&L if possible (would need exit price from Angel One)
+                if 'current_price' in trade:
+                    entry = float(trade.get('entry_price', 0))
+                    exit_price = float(trade.get('current_price', 0))
+                    qty = int(trade.get('quantity', 1))
+                    
+                    pnl = (exit_price - entry) * qty
+                    pnl_percent = ((exit_price - entry) / entry * 100) if entry > 0 else 0
+                    
+                    trade['exit_price'] = exit_price
+                    trade['pnl'] = pnl
+                    trade['pnl_percent'] = pnl_percent
+                
+                newly_closed.append(trade)
+                logger.info(f"Closed trade: {ticker} - P&L: ₹{trade.get('pnl', 0):,.2f}")
+            else:
+                # Trade still open
+                updated_radar.append(trade)
+        
+        # Add newly closed trades to closed_trades file
+        if newly_closed:
+            closed_trades.extend(newly_closed)
+            try:
+                with open('closed_trades.json', 'w') as f:
+                    json.dump(closed_trades, f, indent=2)
+                logger.info(f"Saved {len(closed_trades)} closed trades to closed_trades.json")
+            except Exception as e:
+                logger.error(f"Error saving closed trades: {e}")
+        
+        # Update radar trades file (removing closed ones)
+        try:
+            with open('radar_trades.json', 'w') as f:
+                json.dump(updated_radar, f, indent=2)
+            logger.info(f"Updated radar_trades.json with {len(updated_radar)} open trades")
+        except Exception as e:
+            logger.error(f"Error saving radar trades: {e}")
+        
+        return jsonify({
+            'success': True,
+            'radar_trades': len(updated_radar),
+            'closed_trades': len(newly_closed),
+            'total_positions': len(angel_positions),
+            'message': f'Synced: {len(updated_radar)} open, {len(newly_closed)} newly closed'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Trade sync error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     # Check if credentials are configured
     creds = load_credentials()
