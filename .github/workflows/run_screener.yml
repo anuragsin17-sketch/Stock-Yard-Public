@@ -54,6 +54,7 @@ jobs:
         
         # Load existing orders to avoid duplicates
         existing_orders = {}
+        rejected_orders = {}
         all_orders = []
         try:
           with open(ORDERS_LOG) as f:
@@ -62,7 +63,15 @@ jobs:
               for order in all_orders:
                 ticker = order.get('symbol', '')
                 if ticker:
-                  existing_orders[ticker] = order.get('order_id')
+                  # Track both placed and rejected orders
+                  if order.get('status') == 'rejected':
+                    rejected_orders[ticker] = {
+                      'reason': order.get('rejection_reason', 'Unknown'),
+                      'shortfall': order.get('shortfall', 0),
+                      'rejected_at': order.get('rejected_at')
+                    }
+                  else:
+                    existing_orders[ticker] = order.get('order_id')
         except:
           all_orders = []
         
@@ -80,6 +89,11 @@ jobs:
         if existing_orders:
           print(f"  Symbols: {', '.join(existing_orders.keys())}")
         
+        print(f"Previously rejected orders: {len(rejected_orders)}")
+        if rejected_orders:
+          for ticker, details in rejected_orders.items():
+            print(f"  {ticker}: {details['reason']} (Shortfall: ₹{details['shortfall']:,.0f})")
+        
         try:
           with open('trendline_screen.json') as f:
             stocks = json.load(f)
@@ -92,11 +106,12 @@ jobs:
         critical = [s for s in stocks if s.get('notificationTrigger', False)]
         print(f"Critical signals: {len(critical)}")
         
-        # Filter OUT stocks that already have orders
-        new_orders = [s for s in critical if s.get('ticker') not in existing_orders]
-        print(f"New signals (NOT yet ordered): {len(new_orders)}")
+        # Filter OUT stocks that already have orders OR were previously rejected
+        new_orders = [s for s in critical if s.get('ticker') not in existing_orders and s.get('ticker') not in rejected_orders]
+        print(f"New signals (NOT yet ordered or rejected): {len(new_orders)}")
         
         orders_placed = 0
+        orders_rejected = 0
         for stock in new_orders[:5]:
           ticker = stock.get('ticker', 'N/A')
           price = stock.get('currentPrice', 0)
@@ -157,7 +172,30 @@ jobs:
                 radar_trades.append(radar_record)
               else:
                 error = result.get('error', 'Unknown error')
-                print(f"   ✗ FAILED: {error}")
+                validation_failed = result.get('validation_failed', False)
+                shortfall = result.get('shortfall', 0)
+                
+                if validation_failed:
+                  print(f"   ❌ VALIDATION FAILED: {error}")
+                  if shortfall > 0:
+                    print(f"      Shortfall: ₹{shortfall:,.0f}")
+                  orders_rejected += 1
+                  
+                  # SAVE rejected order to prevent re-triggering
+                  rejected_order_record = {
+                    'symbol': ticker,
+                    'quantity': qty,
+                    'entry_price': price,
+                    'target_price': target,
+                    'stop_loss': stoploss,
+                    'status': 'rejected',
+                    'rejection_reason': error,
+                    'shortfall': shortfall,
+                    'rejected_at': datetime.now().isoformat()
+                  }
+                  all_orders.append(rejected_order_record)
+                else:
+                  print(f"   ✗ FAILED: {error}")
             except Exception as e:
               print(f"   ✗ ERROR: {e}")
           else:
@@ -179,7 +217,7 @@ jobs:
         except Exception as e:
           print(f"❌ Error saving radar trades: {e}")
         
-        print(f"✅ Completed: {orders_placed} NEW orders placed")
+        print(f"✅ Completed: {orders_placed} NEW orders placed, {orders_rejected} rejected")
         PYEOF
     
     - name: Commit results

@@ -117,6 +117,93 @@ def get_angel_session():
         logger.error(f"Session error: {e}", exc_info=True)
         return None
 
+def get_account_balance(smart):
+    """Fetch account balance and margin details from Angel One"""
+    try:
+        if not smart:
+            logger.error("Cannot fetch balance: No session")
+            return None
+        
+        logger.info("Fetching account balance...")
+        profile = smart.getProfile()
+        logger.info(f"Profile response: {profile}")
+        
+        if not isinstance(profile, dict) or not profile.get('data'):
+            logger.warning(f"Profile fetch failed: {profile}")
+            return None
+        
+        profile_data = profile['data'][0] if isinstance(profile['data'], list) else profile['data']
+        
+        balance_info = {
+            'cash_available': float(profile_data.get('cashavailable', 0)),
+            'margin_available': float(profile_data.get('marginavailable', 0)),
+            'total_margin': float(profile_data.get('totalmargin', 0)),
+            'margin_used': float(profile_data.get('marginused', 0)),
+            'total_balance': float(profile_data.get('totalbalance', 0))
+        }
+        
+        logger.info(f"Account balance: Cash={balance_info['cash_available']}, Margin={balance_info['margin_available']}")
+        return balance_info
+    except Exception as e:
+        logger.error(f"Balance fetch error: {e}", exc_info=True)
+        return None
+
+def validate_order_funds(smart, quantity, entry_price, symbol):
+    """Validate if account has sufficient funds to place the order"""
+    try:
+        balance_info = get_account_balance(smart)
+        
+        if not balance_info:
+            logger.warning("Cannot validate funds: Could not fetch balance")
+            return {
+                'valid': False,
+                'reason': 'Could not fetch account balance',
+                'balance_info': None,
+                'shortfall': 0
+            }
+        
+        # Calculate order value (for DELIVERY orders, need ~100% margin typically)
+        order_value = quantity * entry_price
+        
+        # For delivery orders, margin requirement is typically 100% of order value (full payment)
+        # For intraday, it's 20% but we're doing delivery, so use 100%
+        margin_required = order_value
+        
+        # Check if margin available is sufficient
+        available_margin = balance_info['margin_available']
+        
+        logger.info(f"Order value: ₹{order_value:,.2f}")
+        logger.info(f"Margin required: ₹{margin_required:,.2f}")
+        logger.info(f"Margin available: ₹{available_margin:,.2f}")
+        
+        if available_margin >= margin_required:
+            logger.info(f"✓ Sufficient funds for order: {symbol}")
+            return {
+                'valid': True,
+                'reason': 'Sufficient funds available',
+                'balance_info': balance_info,
+                'shortfall': 0
+            }
+        else:
+            shortfall = margin_required - available_margin
+            logger.warning(f"✗ Insufficient funds for order: {symbol}")
+            logger.warning(f"   Shortfall: ₹{shortfall:,.2f}")
+            
+            return {
+                'valid': False,
+                'reason': 'Insufficient margin available',
+                'balance_info': balance_info,
+                'shortfall': shortfall
+            }
+    except Exception as e:
+        logger.error(f"Order validation error: {e}", exc_info=True)
+        return {
+            'valid': False,
+            'reason': f'Validation error: {str(e)}',
+            'balance_info': None,
+            'shortfall': 0
+        }
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint - NO authentication required"""
@@ -136,7 +223,7 @@ def health_check():
 
 @app.route('/api/place-order', methods=['POST'])
 def place_order():
-    """Place order on Angel One"""
+    """Place order on Angel One with pre-validation"""
     try:
         data = request.json
         symbol = data.get('symbol')
@@ -157,6 +244,36 @@ def place_order():
         if not smart:
             logger.error("Order placement failed: Could not connect to Angel One")
             return jsonify({'success': False, 'error': 'Failed to connect to Angel One'}), 401
+        
+        # ============ CRITICAL: VALIDATE FUNDS BEFORE PROCEEDING ============
+        logger.info(f"Validating funds for order: {symbol}")
+        validation = validate_order_funds(smart, quantity, entry_price, symbol)
+        
+        if not validation['valid']:
+            logger.warning(f"Order validation failed for {symbol}: {validation['reason']}")
+            
+            # Send rejection Telegram notification
+            order_value = entry_price * quantity
+            shortfall_msg = f" (Need ₹{validation['shortfall']:,.0f} more)" if validation['shortfall'] > 0 else ""
+            telegram_msg = f"❌ *ORDER REJECTED*\n\n🔹 *Symbol:* {symbol}\n🔹 *Quantity:* {quantity}\n🔹 *Entry Price:* ₹{entry_price}\n🔹 *Order Value:* ₹{order_value:,.0f}\n\n⚠️ *Reason:* {validation['reason']}{shortfall_msg}"
+            
+            if validation['balance_info']:
+                telegram_msg += f"\n\n📊 *Account Status:*\n• Margin Available: ₹{validation['balance_info']['margin_available']:,.0f}\n• Margin Required: ₹{order_value:,.0f}"
+            
+            send_telegram_notification(telegram_msg)
+            
+            # Return validation error (do NOT place order)
+            return jsonify({
+                'success': False,
+                'error': validation['reason'],
+                'validation_failed': True,
+                'shortfall': validation['shortfall'],
+                'balance_info': validation['balance_info'],
+                'order_value': order_value
+            }), 402  # 402 Payment Required
+        
+        logger.info(f"✓ Funds validated successfully for {symbol}")
+        # =====================================================================
         
         logger.info("Session obtained, searching for symbol...")
         # Search for symbol
@@ -220,7 +337,7 @@ def place_order():
         
         logger.info(f"Order placed successfully: {order_id}")
         
-        # Send Telegram notification
+        # Send Telegram notification ONLY AFTER order is confirmed
         trade_value = entry_price * quantity
         message = f"✅ *ORDER PLACED*\n\n🔹 *Symbol:* {symbol}\n🔹 *Quantity:* {quantity}\n🔹 *Entry Price:* ₹{entry_price}\n🔹 *Target:* ₹{target_price}\n🔹 *Stop Loss:* ₹{stop_loss}\n🔹 *Order Value:* ₹{trade_value:,.0f}\n🔹 *Order ID:* `{order_id}`"
         send_telegram_notification(message)
