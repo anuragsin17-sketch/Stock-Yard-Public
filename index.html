@@ -4961,7 +4961,11 @@
                 
                 await Promise.all(batch.map(async (stock) => {
                     try {
-                        const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${stock.symbol}.NS`);
+                        // Use CORS proxy to bypass restrictions
+                        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stock.symbol}.NS`;
+                        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+                        
+                        const response = await fetch(proxyUrl, { timeout: 5000 });
                         if (response.ok) {
                             const data = await response.json();
                             const livePrice = data.chart.result[0].meta.regularMarketPrice;
