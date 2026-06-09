@@ -125,25 +125,57 @@ def get_account_balance(smart):
             return None
         
         logger.info("Fetching account balance...")
-        profile = smart.getProfile()
-        logger.info(f"Profile response: {profile}")
         
-        if not isinstance(profile, dict) or not profile.get('data'):
-            logger.warning(f"Profile fetch failed: {profile}")
-            return None
+        # Try getProfile first
+        try:
+            profile = smart.getProfile()
+            logger.info(f"Profile response: {profile}")
+            
+            if isinstance(profile, dict) and profile.get('status'):
+                profile_data = profile.get('data', {})
+                if isinstance(profile_data, list) and len(profile_data) > 0:
+                    profile_data = profile_data[0]
+                
+                # Profile might have balance info
+                if profile_data.get('cashavailable'):
+                    balance_info = {
+                        'cash_available': float(profile_data.get('cashavailable', 0)),
+                        'margin_available': float(profile_data.get('marginavailable', 0)),
+                        'total_margin': float(profile_data.get('totalmargin', 0)),
+                        'margin_used': float(profile_data.get('marginused', 0)),
+                        'total_balance': float(profile_data.get('totalbalance', 0))
+                    }
+                    logger.info(f"Account balance: Cash={balance_info['cash_available']}, Margin={balance_info['margin_available']}")
+                    return balance_info
+        except Exception as e:
+            logger.warning(f"getProfile failed: {e}")
         
-        profile_data = profile['data'][0] if isinstance(profile['data'], list) else profile['data']
+        # If profile doesn't have balance, try getRMS (Funds API)
+        try:
+            logger.info("Trying getRMS API for funds...")
+            rms = smart.getRMS()
+            logger.info(f"RMS response: {rms}")
+            
+            if isinstance(rms, dict) and rms.get('status'):
+                rms_data = rms.get('data', {})
+                if isinstance(rms_data, list) and len(rms_data) > 0:
+                    rms_data = rms_data[0]
+                
+                balance_info = {
+                    'cash_available': float(rms_data.get('net', 0)),
+                    'margin_available': float(rms_data.get('available', 0)),
+                    'total_margin': float(rms_data.get('grossavail', 0)),
+                    'margin_used': float(rms_data.get('used', 0)),
+                    'total_balance': float(rms_data.get('net', 0))
+                }
+                logger.info(f"Account balance (RMS): Available={balance_info['margin_available']}")
+                return balance_info
+        except Exception as e:
+            logger.warning(f"getRMS failed: {e}")
         
-        balance_info = {
-            'cash_available': float(profile_data.get('cashavailable', 0)),
-            'margin_available': float(profile_data.get('marginavailable', 0)),
-            'total_margin': float(profile_data.get('totalmargin', 0)),
-            'margin_used': float(profile_data.get('marginused', 0)),
-            'total_balance': float(profile_data.get('totalbalance', 0))
-        }
+        logger.error("Could not fetch balance from any API")
+        return None
         
-        logger.info(f"Account balance: Cash={balance_info['cash_available']}, Margin={balance_info['margin_available']}")
-        return balance_info
     except Exception as e:
         logger.error(f"Balance fetch error: {e}", exc_info=True)
         return None
@@ -154,52 +186,53 @@ def validate_order_funds(smart, quantity, entry_price, symbol):
         balance_info = get_account_balance(smart)
         
         if not balance_info:
-            logger.warning("Cannot validate funds: Could not fetch balance")
+            # If we can't fetch balance, let the order attempt go through
+            # Angel One will reject it if there's insufficient funds
+            logger.warning("Cannot validate funds: Could not fetch balance - allowing order to proceed")
             return {
-                'valid': False,
-                'reason': 'Could not fetch account balance',
+                'valid': True,  # Allow order to proceed, let Angel One handle validation
+                'reason': 'Balance fetch failed - proceeding with order',
                 'balance_info': None,
                 'shortfall': 0
             }
         
-        # Calculate order value (for DELIVERY orders, need ~100% margin typically)
+        # Calculate order requirements
         order_value = quantity * entry_price
+        margin_required = order_value  # For delivery orders, need full payment
+        available_margin = balance_info.get('margin_available', 0)
+        shortfall = max(0, margin_required - available_margin)
         
-        # For delivery orders, margin requirement is typically 100% of order value (full payment)
-        # For intraday, it's 20% but we're doing delivery, so use 100%
-        margin_required = order_value
+        is_valid = shortfall == 0
         
-        # Check if margin available is sufficient
-        available_margin = balance_info['margin_available']
-        
+        logger.info(f"\n{'='*60}")
+        logger.info(f"Order validation for {symbol}")
+        logger.info(f"{'='*60}")
         logger.info(f"Order value: ₹{order_value:,.2f}")
         logger.info(f"Margin required: ₹{margin_required:,.2f}")
         logger.info(f"Margin available: ₹{available_margin:,.2f}")
         
-        if available_margin >= margin_required:
+        if is_valid:
             logger.info(f"✓ Sufficient funds for order: {symbol}")
-            return {
-                'valid': True,
-                'reason': 'Sufficient funds available',
-                'balance_info': balance_info,
-                'shortfall': 0
-            }
         else:
-            shortfall = margin_required - available_margin
             logger.warning(f"✗ Insufficient funds for order: {symbol}")
             logger.warning(f"   Shortfall: ₹{shortfall:,.2f}")
-            
-            return {
-                'valid': False,
-                'reason': 'Insufficient margin available',
-                'balance_info': balance_info,
-                'shortfall': shortfall
-            }
+        
+        logger.info(f"{'='*60}\n")
+        
+        return {
+            'valid': is_valid,
+            'reason': 'Sufficient funds' if is_valid else 'Insufficient margin available',
+            'balance_info': balance_info,
+            'shortfall': shortfall,
+            'order_value': order_value
+        }
+    
     except Exception as e:
         logger.error(f"Order validation error: {e}", exc_info=True)
+        # On error, allow order to proceed - let Angel One handle it
         return {
-            'valid': False,
-            'reason': f'Validation error: {str(e)}',
+            'valid': True,
+            'reason': f'Validation error (proceeding anyway): {str(e)}',
             'balance_info': None,
             'shortfall': 0
         }
