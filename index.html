@@ -4783,11 +4783,12 @@
             const confirmParam = urlParams.get('confirm');  // Deep link from Telegram
 
             setupEventListeners();
-            loadData();
+            loadData().then(() => {
+                // START live price updates AFTER data is loaded
+                console.log('📊 Data loaded, starting live price updates...');
+                startLivePriceUpdates();
+            });
             fetchIndexData();
-            
-            // Start live price updates every 10 seconds
-            startLivePriceUpdates();
             
             // Start index price updates every 15 seconds
             startIndexUpdates();
