@@ -1,0 +1,32 @@
+QUICK FIX FOR EC2 - Run these commands on EC2
+
+1. SSH to EC2:
+   ssh ubuntu@32.194.58.75
+
+2. Stop the service:
+   sudo systemctl stop angel-api
+
+3. Copy the updated handler from your local machine to EC2:
+   (From your PC, open angel_order_handler.py and copy all content)
+   
+   On EC2, create new file:
+   nano /home/ubuntu/angel_order_handler.py
+   
+   Paste the ENTIRE contents of the updated angel_order_handler.py file
+   (The one WITHOUT token verification)
+   
+   Save: Ctrl+X, Y, Enter
+
+4. Restart service:
+   sudo systemctl restart angel-api
+
+5. Check it's running:
+   sudo systemctl status angel-api
+
+6. Check logs:
+   sudo journalctl -u angel-api -n 20
+
+7. Test from your PC:
+   python test_order_placement.py
+
+That's it! Orders should now work.

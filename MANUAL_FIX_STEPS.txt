@@ -1,0 +1,180 @@
+==============================================================================
+MANUAL FIX FOR ANGEL ONE ORDER PLACEMENT ON EC2
+==============================================================================
+
+The orders are being logged but NOT placed in Angel One because the service
+is likely failing silently. This guide will fix it with better error logging.
+
+STEP 1: SSH INTO EC2
+==============================================================================
+ssh -i /path/to/stock-yard-key.pem ubuntu@32.194.58.75
+
+
+STEP 2: BACKUP THE OLD FILE
+==============================================================================
+cd /home/ubuntu
+sudo cp angel_order_handler.py angel_order_handler.py.backup
+
+
+STEP 3: CREATE NEW HANDLER WITH BETTER LOGGING
+==============================================================================
+Copy the contents of: d:\Stock Yard\angel_order_handler.py
+(The updated version with detailed logging)
+
+Then on EC2, paste it:
+cat > angel_order_handler.py << 'EOF'
+[PASTE THE ENTIRE CONTENTS OF angel_order_handler.py HERE]
+EOF
+
+Or simpler - just replace the function that's failing:
+sudo nano angel_order_handler.py
+
+Then find the get_angel_session() function and replace it with:
+
+def get_angel_session():
+    """Get authenticated SmartConnect session"""
+    credentials = load_credentials()
+    
+    if not credentials:
+        logger.error("Cannot create session: credentials not configured")
+        return None
+    
+    try:
+        logger.info("Creating SmartConnect session...")
+        smart = SmartConnect(api_key=credentials.get('ANGEL_API_KEY'))
+        logger.info("SmartConnect object created, generating TOTP...")
+        
+        totp = pyotp.TOTP(credentials.get('ANGEL_TOTP_SECRET')).now()
+        logger.info(f"TOTP generated: {totp}")
+        
+        logger.info("Calling generateSession...")
+        session = smart.generateSession(
+            credentials.get('ANGEL_CLIENT_ID'),
+            credentials.get('ANGEL_PASSWORD'),
+            totp
+        )
+        logger.info(f"Session response received: {type(session)}")
+        
+        if not isinstance(session, dict) or not session.get('status'):
+            logger.error(f"Session generation failed: {session}")
+            return None
+        
+        logger.info("Angel One session created successfully")
+        return smart
+    except Exception as e:
+        logger.error(f"Session error: {e}", exc_info=True)
+        return None
+
+
+STEP 4: RESTART THE SERVICE
+==============================================================================
+sudo systemctl restart angel-api
+
+Wait 2 seconds, then check status:
+sudo systemctl status angel-api
+
+Should show: active (running)
+
+
+STEP 5: CHECK LOGS FOR ERRORS
+==============================================================================
+sudo journalctl -u angel-api -n 50 --no-pager
+
+Look for ERROR messages. Most common issues:
+1. "Missing credentials:" - check .env or service file has all 4 credentials
+2. "Session error:" - credentials may be wrong or Angel API is down
+3. "Symbol not found:" - ticker symbol is not on NSE
+4. "Order placement failed:" - Angel One API rejected the order
+
+
+STEP 6: TEST WITH CURL
+==============================================================================
+curl http://localhost:5000/health
+
+Should return:
+{"status": "ok", "service": "angel-order-handler", "timestamp": "..."}
+
+If this fails:
+- Service may have crashed
+- Check: sudo journalctl -u angel-api -n 20
+
+
+STEP 7: TEST ORDER PLACEMENT
+==============================================================================
+From your PC, run:
+python trigger_telegram_trade.py
+
+Then SSH to EC2 and check logs:
+sudo journalctl -u angel-api -n 20 --no-pager
+
+You should see detailed logs like:
+- "Place order request: token=..."
+- "Token verified"
+- "Getting Angel One session..."
+- "Session obtained, searching for symbol..."
+- "Search result received: X results"
+- "Found trading symbol: INFY-EQ, token: 1594"
+- "Sending order to Angel One with params: {...}"
+- "Order result received: {...}"
+- "Order placed successfully: ORDER_ID"
+
+
+STEP 8: IF STILL FAILING
+==============================================================================
+Check if Angel One credentials are valid:
+On EC2, run:
+python test_angel_auth.py
+
+This should show:
+✓ Connection test PASSED - Credentials are valid
+
+If it shows FAILED:
+- Your credentials are wrong
+- Angel One API is down
+- Time sync issue on EC2 (affects TOTP)
+
+
+STEP 9: CHECK ANGEL_ORDERS.JSON
+==============================================================================
+cat /home/ubuntu/angel_orders.json
+
+This shows all orders that were sent to Angel One API.
+Check if status is "PENDING" (not in Angel account yet).
+
+If orders are here but not in your Angel One app:
+- Angel One API returned an order ID but didn't actually place it
+- Or the order ID format is wrong
+- Check Angel One app for any errors or warnings
+
+
+TROUBLESHOOTING
+==============================================================================
+
+ISSUE: Service keeps crashing
+FIX: Check systemd logs:
+  sudo journalctl -u angel-api -f
+  (This shows live logs)
+
+ISSUE: "Failed to connect to Angel One"
+FIX: 
+  1. Check credentials in /etc/systemd/system/angel-api.service
+  2. Verify time is correct: date (should show correct time)
+  3. Test locally: python test_angel_auth.py
+
+ISSUE: Orders logged but not in Angel One account
+FIX:
+  1. Check order ID returned (should be alphanumeric)
+  2. Log into Angel One app and look for the order
+  3. Check if order shows as "REJECTED" in Angel One
+  4. If rejected, see the rejection reason
+  5. Most common: insufficient balance or invalid symbol
+
+ISSUE: "Symbol not found"
+FIX:
+  - Ticker must be exact: INFY, TCS, RELIANCE, etc.
+  - Without .NS suffix
+  - On NSE (not BSE)
+
+==============================================================================
+Once fixed, orders should appear in your Angel One account immediately.
+==============================================================================
