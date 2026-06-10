@@ -230,10 +230,21 @@ jobs:
         print(f"✅ Completed: {orders_placed} NEW orders placed, {orders_rejected} rejected")
         PYEOF
     
+    - name: Sync Angel One positions to Radar
+      run: |
+        echo "Syncing open positions from Angel One..."
+        curl -s -X GET http://32.194.58.75:5000/api/sync-trades -H "Content-Type: application/json" | python3 -m json.tool || echo "Sync endpoint not available"
+        
+        echo "Waiting for sync to complete..."
+        sleep 2
+        
+        # Note: sync-trades endpoint updates radar_trades.json on the server
+        # We'll pull it in the next step
+
     - name: Commit results
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add trendline_screen.json angel_orders.json radar_trades.json 2>/dev/null || true
-        git commit -m "Auto-update: Orders placed and radar trades updated $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
+        git add trendline_screen.json angel_orders.json radar_trades.json closed_trades.json 2>/dev/null || true
+        git commit -m "Auto-update: Orders placed, trades synced, radar updated $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
         git push || true
