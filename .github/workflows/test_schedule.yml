@@ -1,0 +1,41 @@
+name: Test Schedule - Every 5 Minutes
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Test: Run every 5 minutes to verify scheduling works
+    - cron: '*/5 * * * *'
+
+jobs:
+  test-run:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Log test run
+      run: |
+        echo "======================================"
+        echo "🧪 TEST SCHEDULE RUN"
+        echo "======================================"
+        echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "Workflow: test_schedule.yml"
+        echo "Trigger: Automatic (every 5 minutes)"
+        echo ""
+        echo "If you see this message every 5 minutes,"
+        echo "then automatic scheduling is WORKING!"
+        echo "======================================"
+    
+    - name: Create test log
+      run: |
+        mkdir -p test_logs
+        echo "Run at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> test_logs/schedule_test.log
+    
+    - name: Commit test log
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add test_logs/ 2>/dev/null || true
+        git commit -m "test: schedule verification run $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
+        git push || true
