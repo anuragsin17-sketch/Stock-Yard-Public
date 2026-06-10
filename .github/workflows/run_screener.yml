@@ -3,10 +3,11 @@ name: Stock Yard Screener
 on:
   workflow_dispatch:
   schedule:
-    # Market hours: 9:15 AM - 3:30 PM IST = 3:45 UTC - 10:00 UTC
-    # Run every 30 minutes during market hours (Monday-Friday)
-    - cron: '0,30 4-9 * * 1-5'
-    - cron: '0 10 * * 1-5'
+    # IST Market Hours: 9:15 AM - 3:30 PM IST
+    # Run every 15 minutes during market hours
+    # Using UTC: 3:45 AM - 10:00 AM UTC = 9:15 AM - 3:30 PM IST
+    - cron: '0,15,30,45 4-9 * * 1-5'  # Every 15 min from 4-9 UTC
+    - cron: '0 10 * * 1-5'              # At 10 UTC (3:30 PM IST - market close)
 
 permissions:
   contents: write
