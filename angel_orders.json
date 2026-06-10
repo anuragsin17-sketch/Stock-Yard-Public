@@ -48,5 +48,25 @@
     "stop_loss": 365.97,
     "placed_at": "2026-06-10T09:09:28.186230",
     "status": "placed"
+  },
+  {
+    "symbol": "LTTS",
+    "order_id": "0610f3f509ecAO",
+    "quantity": 15,
+    "entry_price": 3328.0,
+    "target_price": 4070.74,
+    "stop_loss": 3057.21,
+    "placed_at": "2026-06-10T12:41:35.062337",
+    "status": "placed"
+  },
+  {
+    "symbol": "JUSTDIAL",
+    "order_id": "0610b8508605AO",
+    "quantity": 93,
+    "entry_price": 535.15,
+    "target_price": 653.92,
+    "stop_loss": 491.1,
+    "placed_at": "2026-06-10T12:41:39.100057",
+    "status": "placed"
   }
 ]
