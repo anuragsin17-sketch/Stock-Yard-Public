@@ -1,1 +1,52 @@
-[]
+[
+  {
+    "symbol": "SHREECEM",
+    "order_id": "260610000522677",
+    "quantity": 2,
+    "entry_price": 23995.0,
+    "target_price": 29383.63,
+    "stop_loss": 22067.71,
+    "placed_at": "2026-06-10T09:09:12.884050",
+    "status": "placed"
+  },
+  {
+    "symbol": "DCMSHRIRAM",
+    "order_id": "260610000522798",
+    "quantity": 48,
+    "entry_price": 1030.5,
+    "target_price": 1262.87,
+    "stop_loss": 948.44,
+    "placed_at": "2026-06-10T09:09:16.748919",
+    "status": "placed"
+  },
+  {
+    "symbol": "UCOBANK",
+    "order_id": "260610000522903",
+    "quantity": 1920,
+    "entry_price": 26.05,
+    "target_price": 31.89,
+    "stop_loss": 23.95,
+    "placed_at": "2026-06-10T09:09:20.477021",
+    "status": "placed"
+  },
+  {
+    "symbol": "CHALET",
+    "order_id": "260610000523029",
+    "quantity": 67,
+    "entry_price": 743.0,
+    "target_price": 909.49,
+    "stop_loss": 683.05,
+    "placed_at": "2026-06-10T09:09:24.293290",
+    "status": "placed"
+  },
+  {
+    "symbol": "TATAPOWER",
+    "order_id": "260610000523153",
+    "quantity": 125,
+    "entry_price": 398.2,
+    "target_price": 487.3,
+    "stop_loss": 365.97,
+    "placed_at": "2026-06-10T09:09:28.186230",
+    "status": "placed"
+  }
+]

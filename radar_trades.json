@@ -1,1 +1,67 @@
-[]
+[
+  {
+    "ticker": "SHREECEM",
+    "order_id": "260610000522677",
+    "entry_price": 23995.0,
+    "current_price": 23995.0,
+    "target": 29383.63,
+    "stop_loss": 22067.71,
+    "quantity": 2,
+    "status": "Open",
+    "source": "Trendline",
+    "triggered_at": "2026-06-10T09:09:12.884060",
+    "placed_at": "2026-06-10T09:09:12.884061"
+  },
+  {
+    "ticker": "DCMSHRIRAM",
+    "order_id": "260610000522798",
+    "entry_price": 1030.5,
+    "current_price": 1030.5,
+    "target": 1262.87,
+    "stop_loss": 948.44,
+    "quantity": 48,
+    "status": "Open",
+    "source": "Trendline",
+    "triggered_at": "2026-06-10T09:09:16.748931",
+    "placed_at": "2026-06-10T09:09:16.748965"
+  },
+  {
+    "ticker": "UCOBANK",
+    "order_id": "260610000522903",
+    "entry_price": 26.05,
+    "current_price": 26.05,
+    "target": 31.89,
+    "stop_loss": 23.95,
+    "quantity": 1920,
+    "status": "Open",
+    "source": "Trendline",
+    "triggered_at": "2026-06-10T09:09:20.477032",
+    "placed_at": "2026-06-10T09:09:20.477033"
+  },
+  {
+    "ticker": "CHALET",
+    "order_id": "260610000523029",
+    "entry_price": 743.0,
+    "current_price": 743.0,
+    "target": 909.49,
+    "stop_loss": 683.05,
+    "quantity": 67,
+    "status": "Open",
+    "source": "Trendline",
+    "triggered_at": "2026-06-10T09:09:24.293303",
+    "placed_at": "2026-06-10T09:09:24.293304"
+  },
+  {
+    "ticker": "TATAPOWER",
+    "order_id": "260610000523153",
+    "entry_price": 398.2,
+    "current_price": 398.2,
+    "target": 487.3,
+    "stop_loss": 365.97,
+    "quantity": 125,
+    "status": "Open",
+    "source": "Trendline",
+    "triggered_at": "2026-06-10T09:09:28.186241",
+    "placed_at": "2026-06-10T09:09:28.186242"
+  }
+]
