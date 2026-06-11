@@ -88,5 +88,15 @@
     "stop_loss": 148.0,
     "placed_at": "2026-06-11T08:51:28.159748",
     "status": "placed"
+  },
+  {
+    "symbol": "VGUARD",
+    "order_id": "0611c8af01b2AO",
+    "quantity": 170,
+    "entry_price": 293.45,
+    "target_price": 359.3,
+    "stop_loss": 269.84,
+    "placed_at": "2026-06-11T12:52:17.357229",
+    "status": "placed"
   }
 ]
