@@ -68,5 +68,25 @@
     "stop_loss": 491.1,
     "placed_at": "2026-06-10T12:41:39.100057",
     "status": "placed"
+  },
+  {
+    "symbol": "BAJAJFINSV",
+    "order_id": "260611000702222",
+    "quantity": 30,
+    "entry_price": 1648.8,
+    "target_price": 2017.43,
+    "stop_loss": 1515.13,
+    "placed_at": "2026-06-11T08:51:24.330400",
+    "status": "placed"
+  },
+  {
+    "symbol": "GSFC",
+    "order_id": "260611000702321",
+    "quantity": 310,
+    "entry_price": 161.33,
+    "target_price": 197.06,
+    "stop_loss": 148.0,
+    "placed_at": "2026-06-11T08:51:28.159748",
+    "status": "placed"
   }
 ]
