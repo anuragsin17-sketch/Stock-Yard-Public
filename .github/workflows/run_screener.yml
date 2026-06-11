@@ -234,18 +234,45 @@ jobs:
     - name: Sync Angel One positions to Radar
       run: |
         echo "Syncing open positions from Angel One..."
-        curl -s -X GET http://32.194.58.75:5000/api/sync-trades -H "Content-Type: application/json" | python3 -m json.tool || echo "Sync endpoint not available"
+        python3 << 'SYNCEOF'
+        import requests
+        import json
+        from datetime import datetime
         
-        echo "Waiting for sync to complete..."
-        sleep 2
+        EC2_API = "http://32.194.58.75:5000"
         
-        # Note: sync-trades endpoint updates radar_trades.json on the server
-        # We'll pull it in the next step
+        try:
+          print("📡 Calling /api/sync-trades...")
+          response = requests.get(f"{EC2_API}/api/sync-trades", timeout=15)
+          
+          if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+              print(f"✅ Synced: {data.get('radar_trades')} open trades")
+              print(f"✅ Closed: {data.get('closed_trades')} trades")
+              print(f"📝 Message: {data.get('message')}")
+            else:
+              print(f"⚠️  Sync failed: {data.get('error')}")
+          else:
+            print(f"⚠️  HTTP {response.status_code} - Sync endpoint may not be available")
+        except Exception as e:
+          print(f"⚠️  Sync error: {e}")
+        
+        # Initialize empty radar_trades.json if it doesn't exist
+        try:
+          with open('radar_trades.json') as f:
+            trades = json.load(f)
+            print(f"📊 Current radar trades: {len(trades)}")
+        except:
+          print("📝 Creating empty radar_trades.json...")
+          with open('radar_trades.json', 'w') as f:
+            json.dump([], f, indent=2)
+        SYNCEOF
 
     - name: Commit results
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add trendline_screen.json angel_orders.json radar_trades.json closed_trades.json 2>/dev/null || true
-        git commit -m "Auto-update: Orders placed, trades synced, radar updated $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
+        git commit -m "Auto-update: Trades synced, orders placed, radar updated $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
         git push || true
