@@ -63,3 +63,12 @@ setup_angel_credentials.py
 
 # Angel One credentials (DO NOT PUSH)
 .env
+EC2_SSH_KEY.pem.txt
+aws_config.json
+stock-yard-key.pem
+*.pem
+*.key
+.env
+*.b64
+credentials.json
+aws_credentials
