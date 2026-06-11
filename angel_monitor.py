@@ -11,7 +11,6 @@ Stock Yard Trade Monitor
 import os
 import json
 import requests
-import yfinance as yf
 from datetime import datetime
 
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -134,20 +133,27 @@ def send_telegram_with_action(ticker: str, entry_price: float, current_price: fl
 
 
 def get_live_price(ticker: str) -> float:
-    """Get current price via yfinance"""
+    """Get current price from Angel One API"""
     try:
-        symbol = ticker + '.NS' if not ticker.endswith('.NS') else ticker
-        data = yf.download(symbol, period='1d', interval='1m',
-                           progress=False, auto_adjust=True)
-        if not data.empty:
-            close_price = data['Close'].iloc[-1]
-            # Handle Series or scalar value
-            if hasattr(close_price, 'item'):
-                return float(close_price.item())
-            else:
-                return float(close_price)
+        # Call the backend endpoint to get live quote
+        symbol = ticker.replace('.NS', '')  # Remove .NS suffix for API call
+        
+        api_url = f"http://32.194.58.75:5000/api/get-quote?symbol={symbol}"
+        
+        response = requests.get(api_url, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                ltp = float(data.get('ltp', 0))
+                if ltp > 0:
+                    return ltp
+        
+        print(f"Price fetch error for {ticker}: API returned {response.status_code}")
+        
     except Exception as e:
         print(f"Price fetch error for {ticker}: {e}")
+    
     return None
 
 

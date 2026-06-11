@@ -1,27 +1,32 @@
 #!/usr/bin/env python3
 """
-Update trendline_screen.json with live prices from yfinance
+Update trendline_screen.json with live prices from Angel One API
 Run this before workflow or separately to refresh prices
 """
 
 import json
-import yfinance as yf
+import requests
 from datetime import datetime
 
 TRENDLINE_FILE = 'trendline_screen.json'
+API_BASE = 'http://32.194.58.75:5000'
 
 def get_live_price(ticker: str) -> float:
-    """Get current price via yfinance"""
+    """Get current price from Angel One API"""
     try:
-        symbol = ticker + '.NS' if not ticker.endswith('.NS') else ticker
-        data = yf.download(symbol, period='1d', interval='1m',
-                           progress=False, auto_adjust=True)
-        if not data.empty:
-            close_price = data['Close'].iloc[-1]
-            if hasattr(close_price, 'item'):
-                return float(close_price.item())
-            else:
-                return float(close_price)
+        symbol = ticker.replace('.NS', '')  # Remove .NS suffix
+        api_url = f"{API_BASE}/api/get-quote?symbol={symbol}"
+        
+        response = requests.get(api_url, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                ltp = float(data.get('ltp', 0))
+                if ltp > 0:
+                    return ltp
+        
+        print(f"Price fetch error for {ticker}: API returned {response.status_code}")
     except Exception as e:
         print(f"Price fetch error for {ticker}: {e}")
     return None
@@ -43,7 +48,7 @@ def main():
         print(f"❌ {TRENDLINE_FILE} is not a list")
         return
     
-    print(f"📊 Updating prices for {len(stocks)} stocks...\n")
+    print(f"📊 Updating prices for {len(stocks)} stocks from Angel One API...\n")
     
     updated_count = 0
     for stock in stocks:
