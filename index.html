@@ -6512,25 +6512,51 @@
         // Sync Radar with Angel One open positions
         window.syncRadarFromAngelOne = function() {
             const container = document.getElementById('resultsContainer');
-            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Syncing with Angel One...</div>';
-            fetch('http://32.194.58.75:5000/api/sync-trades', { cache: 'no-store', mode: 'cors' })
-                .then(r => r.ok ? r.json() : null)
-                .catch(() => null)
-                .then(data => {
-                    if (!data || !data.success) {
-                        alert('Could not connect to Angel One. Check EC2 at http://32.194.58.75:5000/health');
-                        displayPerformanceTracking();
-                        return;
-                    }
-                    const positions = data.open_trades || [];
+            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">🔄 Triggering sync with Angel One...</div>';
+
+            // Trigger the backend monitor_trades workflow via repository_dispatch
+            // This runs angel_monitor.py on EC2 which pulls positions and pushes radar_trades.json
+            const ghToken = localStorage.getItem('ghToken') || '';
+            if (!ghToken) {
+                // No token stored — just reload radar_trades.json directly
+                localStorage.removeItem('radarOverrides');
+                localStorage.removeItem('inRadarTickers');
+                localStorage.removeItem('radarServerTickers');
+                setTimeout(() => {
+                    displayPerformanceTracking();
+                    alert('✅ Local cache cleared. Radar reloaded from latest radar_trades.json.\n\nTo sync live Angel One positions, run the "Trade Monitor" workflow manually in GitHub Actions.');
+                }, 500);
+                return;
+            }
+
+            fetch('https://api.github.com/repos/anuragsin17-sketch/Stock-Yard/dispatches', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'token ' + ghToken,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ event_type: 'sync_radar' })
+            })
+            .then(r => {
+                if (r.status === 204) {
                     localStorage.removeItem('radarOverrides');
                     localStorage.removeItem('inRadarTickers');
                     localStorage.removeItem('radarServerTickers');
-                    const tickers = positions.map(p => (p.ticker||p.symbol||'').replace('-EQ','')).filter(Boolean);
-                    localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
-                    alert('Synced ' + positions.length + ' open positions from Angel One.');
-                    displayPerformanceTracking();
-                });
+                    alert('✅ Sync triggered! The Trade Monitor workflow is now running.\n\nRefresh the Radar tab in ~2 minutes to see updated positions from Angel One.');
+                } else {
+                    alert('⚠️ Could not trigger sync (HTTP ' + r.status + ').\n\nGo to GitHub Actions → Stock-Yard → Trade Monitor → Run workflow manually.');
+                }
+                displayPerformanceTracking();
+            })
+            .catch(() => {
+                // Fallback: just clear cache and reload
+                localStorage.removeItem('radarOverrides');
+                localStorage.removeItem('inRadarTickers');
+                localStorage.removeItem('radarServerTickers');
+                displayPerformanceTracking();
+                alert('✅ Local cache cleared. Radar reloaded.\n\nTo sync Angel One positions, run "Trade Monitor" workflow in GitHub Actions.');
+            });
         };
 
         // Save a user override for a specific trade
