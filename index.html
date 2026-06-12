@@ -4946,7 +4946,6 @@
             try {
                 console.log('🔄 Syncing trades with Angel One...');
                 
-                // Call the EC2 backend sync-trades endpoint
                 const response = await fetch('https://32.194.58.75/api/sync-trades', {
                     cache: 'no-store',
                     mode: 'cors'
@@ -4959,6 +4958,41 @@
                 
                 const result = await response.json();
                 console.log('✅ Trade sync complete:', result);
+
+                // Save Angel One positions into radarOverrides so Radar tab shows them
+                const positions = result.open_trades || [];
+                if (positions.length > 0) {
+                    // Read current overrides — preserve manually added (_custom) trades
+                    const existing = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    const manualTrades = {};
+                    Object.entries(existing).forEach(([k, v]) => {
+                        if (v._custom && v.source !== 'Angel One') manualTrades[k] = v;
+                    });
+
+                    // Rebuild Angel One positions
+                    const angelTrades = {};
+                    const tickers = [];
+                    positions.forEach(p => {
+                        const ticker = (p.ticker || p.symbol || '').replace('-EQ', '');
+                        if (!ticker) return;
+                        tickers.push(ticker);
+                        angelTrades[ticker] = {
+                            ticker,
+                            quantity: p.quantity || 0,
+                            entry_price: p.entry_price || 0,
+                            current_price: p.current_price || p.entry_price || 0,
+                            status: 'Open',
+                            source: 'Angel One',
+                            triggered_at: new Date().toISOString(),
+                            _custom: true
+                        };
+                    });
+
+                    // Merge: Angel One positions + preserved manual trades
+                    localStorage.setItem('radarOverrides', JSON.stringify({ ...angelTrades, ...manualTrades }));
+                    localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
+                    console.log('💾 Saved', positions.length, 'Angel One positions to Radar');
+                }
                 
                 // Reload Radar tab if currently viewing it
                 if (currentTab === 'performance') {
