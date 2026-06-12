@@ -5414,9 +5414,22 @@
         }
 
         // Check if ticker is already in radar
+        // Checks: inRadarTickers list + radarOverrides custom trades + radar_trades.json (via cached server trades)
         function isTickerInRadar(ticker) {
+            // 1. Check explicit inRadarTickers list (set when user takes a trade)
             const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
-            return inRadar.includes(ticker);
+            if (inRadar.includes(ticker)) return true;
+
+            // 2. Check radarOverrides (custom/manual trades added directly to radar)
+            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+            const hasCustom = Object.values(overrides).some(ov =>
+                ov.ticker === ticker && !ov._deleted && (ov.status === 'Open' || ov.status === 'Triggered')
+            );
+            if (hasCustom) return true;
+
+            // 3. Check cached server trades (radar_trades.json tickers synced from Angel One)
+            const serverTickers = JSON.parse(localStorage.getItem('radarServerTickers') || '[]');
+            return serverTickers.includes(ticker);
         }
 
         // Take Trade from Volume tab - manual only
@@ -6427,30 +6440,33 @@
         }
 
         // Global filter state for Radar tab
+        // Global filter state for Radar tab
         let radarFilterState = 'all'; // 'open', 'closed', 'all'
-        
-        // Display Radar tab - trades taken from trendline
+
+        // Display Radar tab
         function displayPerformanceTracking() {
             const container = document.getElementById('resultsContainer');
 
-            // radar_trades.json = server source of truth (trades placed via angel monitor)
-            // radarOverrides = user status changes (closed/target hit) + custom trades placed from UI
             fetch('./radar_trades.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : [])
                 .catch(() => [])
                 .then(serverTrades => {
+                    // Cache open server tickers so isTickerInRadar() works correctly
+                    const serverTickers = (serverTrades || [])
+                        .filter(t => t.status === 'Open' || t.status === 'Triggered')
+                        .map(t => t.ticker);
+                    localStorage.setItem('radarServerTickers', JSON.stringify(serverTickers));
+
                     const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
 
                     // Apply overrides to server trades
                     let trades = (serverTrades || []).map(trade => {
                         const key = trade.order_id || trade.ticker;
-                        if (overrides[key]) {
-                            return { ...trade, ...overrides[key] };
-                        }
+                        if (overrides[key]) return { ...trade, ...overrides[key] };
                         return trade;
                     });
 
-                    // Add custom trades (placed from UI, not yet in server file)
+                    // Add custom trades from UI not yet in server file
                     Object.values(overrides).forEach(ov => {
                         if (ov._custom) {
                             const alreadyIn = trades.find(t => t.ticker === ov.ticker && t.order_id === ov.order_id);
@@ -6458,43 +6474,58 @@
                         }
                     });
 
-                    // Filter out deleted trades
                     trades = trades.filter(t => !t._deleted);
-
-                    console.log('📡 Rendering', trades.length, 'trades');
+                    console.log('Rendering', trades.length, 'trades');
                     renderRadarTab(container, trades);
 
-                    // Fetch live LTP in background for open trades
+                    // Fetch live LTP from Angel One EC2 API in background
                     const openTrades = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
                     if (openTrades.length > 0) {
                         fetchLiveLTPForRadarTrades(trades).then(liveQuotes => {
                             if (liveQuotes && liveQuotes.length > 0) {
                                 const updated = updateTradesWithLiveQuotes(trades, liveQuotes);
-
-                                // Save updated LTP back to radarOverrides for custom trades
-                                // so they show live price on next render too
                                 const overridesNow = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                                let overridesDirty = false;
+                                let dirty = false;
                                 liveQuotes.forEach(q => {
                                     Object.entries(overridesNow).forEach(([key, ov]) => {
                                         if (ov.ticker === q.ticker) {
                                             overridesNow[key].current_price = q.ltp;
                                             overridesNow[key].currentPrice  = q.ltp;
-                                            overridesDirty = true;
+                                            dirty = true;
                                         }
                                     });
                                 });
-                                if (overridesDirty) {
-                                    localStorage.setItem('radarOverrides', JSON.stringify(overridesNow));
-                                }
-
+                                if (dirty) localStorage.setItem('radarOverrides', JSON.stringify(overridesNow));
                                 renderRadarTab(container, updated);
-                                console.log('✅ Live LTP updated for', liveQuotes.length, 'trades');
                             }
                         });
                     }
                 });
         }
+
+        // Sync Radar with Angel One open positions
+        window.syncRadarFromAngelOne = function() {
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Syncing with Angel One...</div>';
+            fetch('http://32.194.58.75:5000/api/sync-trades', { cache: 'no-store', mode: 'cors' })
+                .then(r => r.ok ? r.json() : null)
+                .catch(() => null)
+                .then(data => {
+                    if (!data || !data.success) {
+                        alert('Could not connect to Angel One. Check EC2 at http://32.194.58.75:5000/health');
+                        displayPerformanceTracking();
+                        return;
+                    }
+                    const positions = data.open_trades || [];
+                    localStorage.removeItem('radarOverrides');
+                    localStorage.removeItem('inRadarTickers');
+                    localStorage.removeItem('radarServerTickers');
+                    const tickers = positions.map(p => (p.ticker||p.symbol||'').replace('-EQ','')).filter(Boolean);
+                    localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
+                    alert('Synced ' + positions.length + ' open positions from Angel One.');
+                    displayPerformanceTracking();
+                });
+        };
 
         // Save a user override for a specific trade
         function saveTradeOverride(trade, changes) {
@@ -6751,6 +6782,10 @@
                     <button onclick="openAddTradeModal()" class="w-full py-2 rounded-lg text-xs font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         <span>+ Add Trade</span>
+                    </button>
+                    <button onclick="syncRadarFromAngelOne()" class="w-full py-2 rounded-lg text-xs font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span>🔄 Sync from Angel One</span>
                     </button>
                     <div class="flex space-x-2">
                         <button onclick="radarFilterState='all'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='all' ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">📊 All (${trades.length})</button>
