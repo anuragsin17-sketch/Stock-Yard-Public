@@ -4855,126 +4855,54 @@
         async function fetchLivePricesForPriorityStocks() {
             if (!screeningData) return;
             
-            console.log('🔴 Fetching live prices from Angel One API...');
-            
-            // Collect ALL stocks from all tabs
+            // Only fetch live prices for currently visible tab (max 10 stocks to avoid rate limiting)
             const allStocks = [];
             
-            // Check volume breakout stocks
-            screeningData.volume_breakout_stocks?.forEach(stock => {
-                allStocks.push({
-                    symbol: stock.symbol,
-                    type: 'volume',
-                    entryPrice: stock.radar_trigger_price,
-                    currentPrice: stock.current_price
+            if (currentTab === 'volume') {
+                screeningData.volume_breakout_stocks?.slice(0, 10).forEach(stock => {
+                    allStocks.push({ symbol: stock.symbol, type: 'volume', currentPrice: stock.current_price });
                 });
-            });
-            
-            // Check golden stocks
-            screeningData.golden_stocks?.forEach(stock => {
-                allStocks.push({
-                    symbol: stock.symbol,
-                    type: 'trendline',
-                    entryPrice: stock.trendline_price,
-                    currentPrice: stock.current_price
-                });
-            });
-            
-            // Also fetch from trendline_screen.json for trendline stocks
-            try {
-                const response = await fetch('./trendline_screen.json', { cache: 'no-store' });
-                if (response.ok) {
-                    const trendlineData = await response.json();
-                    if (Array.isArray(trendlineData)) {
-                        trendlineData.forEach(stock => {
-                            // Only add if not already in allStocks
-                            if (!allStocks.find(s => s.symbol === stock.ticker)) {
-                                allStocks.push({
-                                    symbol: stock.ticker,
-                                    type: 'trendline_json',
-                                    entryPrice: stock.triggerPrice,
-                                    currentPrice: stock.currentPrice
-                                });
-                            }
-                        });
-                    }
-                }
-            } catch (e) {
-                console.log('Note: Could not fetch trendline_screen.json for live prices');
-            }
-            
-            // Also update radar trades with current prices
-            const radarTrades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-            radarTrades.forEach(trade => {
-                if (!allStocks.find(s => s.symbol === trade.ticker)) {
-                    allStocks.push({
-                        symbol: trade.ticker,
-                        type: 'radar',
-                        radarIndex: radarTrades.indexOf(trade)
-                    });
-                }
-            });
-            
-            if (allStocks.length === 0) {
-                console.log('📊 No stocks found for live price updates');
+            } else if (currentTab === 'trendline') {
+                // Skip — trendline prices come from the JSON file updated by backend workflow
+                return;
+            } else if (currentTab === 'performance') {
+                // Radar tab — handled separately by fetchLiveLTPForRadarTrades
                 return;
             }
             
-            console.log(`🎯 Updating live prices for ${allStocks.length} stocks from Angel One...`);
+            if (allStocks.length === 0) return;
             
-            // Fetch live prices in batches to avoid rate limiting
+            console.log(`Updating live prices for ${allStocks.length} stocks...`);
+            
+            // Fetch in batches of 3 with delay to avoid rate limiting
             const batchSize = 3;
             for (let i = 0; i < allStocks.length; i += batchSize) {
                 const batch = allStocks.slice(i, i + batchSize);
-                
                 await Promise.all(batch.map(async (stock) => {
                     try {
-                        let livePrice = null;
                         const symbol = stock.symbol.replace('.NS', '').replace('-EQ', '');
-                        
-                        // Use Angel One API (backend endpoint)
-                        try {
-                            const response = await Promise.race([
-                                fetch(`https://32.194.58.75/api/get-quote?symbol=${symbol}`),
-                                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-                            ]);
-                            
-                            if (response.ok) {
-                                const data = await response.json();
-                                if (data.success && data.ltp) {
-                                    livePrice = parseFloat(data.ltp);
-                                }
+                        const response = await Promise.race([
+                            fetch(`https://32.194.58.75/api/get-quote?symbol=${symbol}`),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+                        ]);
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.ltp) {
+                                updateStockPrice(symbol, stock.type, parseFloat(data.ltp));
                             }
-                        } catch (e1) {
-                            console.log(`Angel One API failed for ${symbol}, using cached price...`);
-                            // Fallback to cached price
-                            livePrice = stock.currentPrice;
                         }
-                        
-                        // If we got a price, update it
-                        if (livePrice && livePrice > 0) {
-                            updateStockPrice(symbol, stock.type, livePrice);
-                            console.log(`✓ ${symbol}: ₹${livePrice.toFixed(2)}`);
-                        } else {
-                            console.log(`⊘ Could not fetch live price for ${symbol} - using cached price: ₹${stock.currentPrice.toFixed(2)}`);
-                        }
-                    } catch (error) {
-                        console.warn(`Error fetching price for ${stock.symbol}:`, error.message);
+                    } catch (e) {
+                        // Silently use cached price
                     }
                 }));
-                
-                // Small delay between batches to avoid rate limiting
                 if (i + batchSize < allStocks.length) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
             }
-            
-            // Update UI with new prices
             updateTabPrices();
-            console.log('✅ Live price updates completed');
         }
         
-        // Start continuous live price updates every 10 seconds
+        // Start continuous live price updates every 60 seconds (reduced to avoid yfinance rate limiting)
         function startLivePriceUpdates() {
             // Initial update
             fetchLivePricesForPriorityStocks();
@@ -4982,9 +4910,9 @@
             // Set up interval for live price updates
             livePriceUpdateTimer = setInterval(() => {
                 fetchLivePricesForPriorityStocks();
-            }, 10000);  // Update every 10 seconds
+            }, 60000);  // Update every 60 seconds to avoid yfinance rate limiting
             
-            console.log('🟢 Live price updates started (every 10 seconds)');
+            console.log('🟢 Live price updates started (every 60 seconds)');
         }
         
         // Start continuous index updates every 15 seconds
