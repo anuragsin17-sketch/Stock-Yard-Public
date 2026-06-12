@@ -4806,54 +4806,19 @@
             // Handle trade confirmation deep link from Telegram
             // URL: ?confirm=AXISBANK&price=1031&qty=48&stop=949&target=1237&source=Trendline
             if (confirmParam) {
-                const price = parseFloat(urlParams.get('price') || '0');
-                const qty = parseInt(urlParams.get('qty') || '0');
-                const stop = parseFloat(urlParams.get('stop') || '0');
+                const price  = parseFloat(urlParams.get('price')  || '0');
+                const qty    = parseInt(urlParams.get('qty')      || '0');
+                const stop   = parseFloat(urlParams.get('stop')   || '0');
                 const target = parseFloat(urlParams.get('target') || '0');
                 const source = urlParams.get('source') || 'Trendline';
 
-                // Switch to trendline tab and show confirmation after data loads
+                // Clean URL immediately
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+                // Show confirm modal after data loads
                 setTimeout(() => {
                     switchTab('trendline');
-
-                    // Show confirmation dialog - ONLY 4 PARAMETERS
-                    const confirmed = confirm(
-                        `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
-                        `Stock: ${confirmParam}\n` +
-                        `Action: BUY\n` +
-                        `Entry Price: ₹${price.toFixed(2)}\n` +
-                        `Quantity: ${qty}\n\n` +
-                        `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
-                        `Click OK to confirm.`
-                    );
-
-                    if (confirmed) {
-                        // Add to Radar
-                        const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-                        const exists = trades.find(t => t.ticker === confirmParam && t.status === 'Open');
-                        if (!exists) {
-                            trades.push({
-                                ticker: confirmParam,
-                                entryTrigger: price,
-                                targetExit: target,
-                                stopLoss: stop,
-                                positionSize: qty * price,
-                                quantity: qty,
-                                takenAt: new Date().toISOString(),
-                                status: 'Open',
-                                source: source
-                            });
-                            localStorage.setItem('radarTrades', JSON.stringify(trades));
-                        }
-
-                        // Place order via Angel One
-                        placeAngelOrder(confirmParam, 'BUY', qty, price, stop, target, source);
-                    } else {
-                        alert(`❌ Trade cancelled for ${confirmParam}`);
-                    }
-
-                    // Clean URL (remove params after handling)
-                    window.history.replaceState({}, document.title, window.location.pathname);
+                    showTradeConfirmModal(confirmParam, price, qty, stop, target, source);
                 }, 1500);
             }
         });
@@ -6756,15 +6721,21 @@
 
             if (trades.length === 0) {
                 container.innerHTML = `
-                    <button onclick="openAddTradeModal()" class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-4 flex items-center justify-center space-x-2" style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
+                    <button onclick="openAddTradeModal()" class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         <span>+ Add Trade Manually</span>
+                    </button>
+                    <button onclick="syncRadarFromAngelOne()" class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span>🔄 Reset & Sync from Server</span>
                     </button>
                     <div class="mobile-card rounded-xl p-8 text-center">
                         <div class="text-4xl mb-4">📡</div>
                         <div class="text-slate-300 font-semibold mb-2">Radar is Empty</div>
                         <div class="text-xs text-slate-500">Take a trade from Trendline or add one manually.</div>
                     </div>`;
+                return;
+            }
                 return;
             }
 
@@ -6984,6 +6955,59 @@
         window.closeAddStockModal = function() {
             document.getElementById('addStockModal').classList.add('hidden');
         };
+
+        // ─── TRADE CONFIRM MODAL (from Telegram deep link) ──────────────────────
+        function showTradeConfirmModal(ticker, price, defaultQty, stop, target, source) {
+            document.getElementById('tradeConfirmModal').classList.remove('hidden');
+            document.getElementById('tcTicker').textContent  = ticker;
+            document.getElementById('tcEntry').textContent   = '₹' + price.toLocaleString('en-IN', {maximumFractionDigits:2});
+            document.getElementById('tcTarget').textContent  = '₹' + target.toLocaleString('en-IN', {maximumFractionDigits:2});
+            document.getElementById('tcStop').textContent    = '₹' + stop.toLocaleString('en-IN', {maximumFractionDigits:2});
+            document.getElementById('tcQty').value           = defaultQty;
+            document.getElementById('tcAmount').textContent  = '₹' + (price * defaultQty).toLocaleString('en-IN', {maximumFractionDigits:0});
+
+            // Update amount when qty changes
+            document.getElementById('tcQty').oninput = function() {
+                const q = parseInt(this.value) || 0;
+                document.getElementById('tcAmount').textContent = '₹' + (price * q).toLocaleString('en-IN', {maximumFractionDigits:0});
+            };
+
+            // Confirm button
+            document.getElementById('tcConfirmBtn').onclick = function() {
+                const qty = parseInt(document.getElementById('tcQty').value) || 0;
+                if (!qty || qty <= 0) { alert('Please enter a valid quantity.'); return; }
+
+                document.getElementById('tradeConfirmModal').classList.add('hidden');
+
+                // Place order via EC2
+                placeAngelOrder(ticker, 'BUY', qty, price, stop, target, source).then(result => {
+                    if (result && result.success) {
+                        // Add to radar overrides
+                        const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                        const key = result.order_id || ('TL_' + ticker + '_' + Date.now());
+                        overrides[key] = {
+                            ticker, entry_price: price, entryTrigger: price,
+                            target, targetExit: target, stop_loss: stop, stopLoss: stop,
+                            quantity: qty, current_price: price, status: 'Open',
+                            source, order_id: key, triggered_at: new Date().toISOString(),
+                            _custom: true
+                        };
+                        localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+
+                        // Mark as in-radar so it disappears from Trendline
+                        markTickerInRadar(ticker);
+
+                        // Switch to Radar tab
+                        switchTab('performance');
+                    }
+                });
+            };
+
+            // Skip button — just close modal, stay on Trendline, no changes
+            document.getElementById('tcSkipBtn').onclick = function() {
+                document.getElementById('tradeConfirmModal').classList.add('hidden');
+            };
+        }
 
         // ─── ADD TRADE TO RADAR MODAL ────────────────────────────────────────────
         window.openAddTradeModal = function() {
@@ -7330,5 +7354,58 @@
                     📡 Add to Radar
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- ─── TRADE CONFIRM MODAL (from Telegram) ──────────────────────────────── -->
+    <div id="tradeConfirmModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.75);">
+        <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background: #141923; border-top: 2px solid rgba(16,185,129,0.4);">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-slate-100">📥 Confirm Trade — Angel One</h2>
+                <button id="tcSkipBtn" class="text-slate-400 hover:text-slate-200 text-xl">✕</button>
+            </div>
+
+            <!-- Trade Details -->
+            <div class="mobile-card rounded-xl p-4 mb-4" style="background: rgba(4,120,87,0.1); border: 1px solid rgba(4,120,87,0.3);">
+                <div class="text-2xl font-bold text-slate-100 mb-1" id="tcTicker">—</div>
+                <div class="grid grid-cols-3 gap-3 mt-3">
+                    <div>
+                        <div class="text-xs text-slate-400 mb-1">Entry</div>
+                        <div class="text-sm font-bold mono" style="color:#3B82F6;" id="tcEntry">—</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400 mb-1">Target</div>
+                        <div class="text-sm font-bold mono" style="color:#10B981;" id="tcTarget">—</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400 mb-1">Stop Loss</div>
+                        <div class="text-sm font-bold mono" style="color:#DC2626;" id="tcStop">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quantity Input -->
+            <div class="mb-4">
+                <label class="text-xs text-slate-400 mb-2 block">Quantity (shares) *</label>
+                <input id="tcQty" type="number" min="1" placeholder="Enter quantity"
+                    class="w-full px-4 py-3 rounded-xl text-lg font-bold mono outline-none"
+                    style="background: rgba(59,130,246,0.1); border: 2px solid rgba(59,130,246,0.4); color: #3B82F6;">
+                <div class="text-xs text-slate-400 mt-2">Total Amount: <span id="tcAmount" class="font-bold mono" style="color:#06B6D4;">—</span></div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="grid grid-cols-2 gap-3">
+                <button id="tcSkipBtn2" onclick="document.getElementById('tradeConfirmModal').classList.add('hidden')"
+                    class="py-3 rounded-xl text-sm font-semibold touch-btn"
+                    style="background: rgba(100,116,139,0.2); color: #94A3B8; border: 1px solid rgba(100,116,139,0.3);">
+                    ⏭️ Skip
+                </button>
+                <button id="tcConfirmBtn"
+                    class="py-3 rounded-xl text-sm font-semibold touch-btn"
+                    style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
+                    ✅ Place Order
+                </button>
+            </div>
+            <div class="text-xs text-slate-500 text-center mt-3">⚠️ This places a REAL LIMIT ORDER on Angel One</div>
         </div>
     </div>
