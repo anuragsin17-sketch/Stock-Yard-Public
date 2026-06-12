@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   monitor-trades:
-    runs-on: self-hosted  # Runs on your PC
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout
@@ -41,9 +41,8 @@ jobs:
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add radar_trades.json 2>$null
-        git commit -m "📊 Trade Monitor: Updated radar_trades.json (Trendline → Radar)" 2>$null
-        if ($LASTEXITCODE -eq 0) { git push }
+        git add radar_trades.json || true
+        git diff --staged --quiet || git commit -m "📊 Trade Monitor: Updated radar_trades.json (Trendline → Radar)"
+        git push || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      shell: pwsh
