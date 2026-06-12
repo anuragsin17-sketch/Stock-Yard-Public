@@ -6418,7 +6418,6 @@
             const container = document.getElementById('resultsContainer');
             container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">🔄 Syncing with Angel One...</div>';
 
-            // Now that EC2 has HTTPS, we can call it directly from the browser
             fetch('https://32.194.58.75/api/sync-trades', { cache: 'no-store', mode: 'cors' })
                 .then(r => r.ok ? r.json() : null)
                 .catch(err => {
@@ -6430,18 +6429,38 @@
                         const positions = data.open_trades || [];
                         console.log('Angel One positions:', positions.length);
 
-                        // Keep radarDeletedTickers so user deletes persist
+                        // Clear previous sync data but keep user-deleted tickers
                         localStorage.removeItem('radarOverrides');
                         localStorage.removeItem('inRadarTickers');
                         localStorage.removeItem('radarServerTickers');
 
-                        // Mark Angel One positions as in-radar
-                        const tickers = positions.map(p => (p.ticker || p.symbol || '').replace('-EQ', '')).filter(Boolean);
-                        localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
-
-                        console.log('Synced', positions.length, 'positions from Angel One');
+                        if (positions.length > 0) {
+                            // Save full trade objects as radarOverrides so they render in the Radar tab
+                            const overrides = {};
+                            const tickers = [];
+                            positions.forEach(p => {
+                                const ticker = (p.ticker || p.symbol || '').replace('-EQ', '');
+                                if (!ticker) return;
+                                tickers.push(ticker);
+                                overrides[ticker] = {
+                                    ticker: ticker,
+                                    quantity: p.quantity || 0,
+                                    entry_price: p.entry_price || 0,
+                                    current_price: p.current_price || p.entry_price || 0,
+                                    status: 'Open',
+                                    source: 'Angel One',
+                                    triggered_at: new Date().toISOString(),
+                                    _custom: true
+                                };
+                            });
+                            localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+                            localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
+                            console.log('✅ Synced', positions.length, 'Angel One positions to Radar');
+                        } else {
+                            console.warn('No open positions returned from Angel One');
+                        }
                     } else {
-                        // EC2 call failed — just reload from server file
+                        // EC2 call failed — clear stale data and reload from server file
                         console.warn('EC2 sync unavailable, reloading from server file');
                         localStorage.removeItem('radarOverrides');
                         localStorage.removeItem('inRadarTickers');
