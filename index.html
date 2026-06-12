@@ -5413,15 +5413,21 @@
             inRadar = inRadar.filter(t => t !== ticker);
             localStorage.setItem('inRadarTickers', JSON.stringify(inRadar));
 
-            // Also remove from radarServerTickers so it reappears in Trendline immediately
-            let serverTickers = JSON.parse(localStorage.getItem('radarServerTickers') || '[]');
-            serverTickers = serverTickers.filter(t => t !== ticker);
-            localStorage.setItem('radarServerTickers', JSON.stringify(serverTickers));
+            // Add to radarDeletedTickers — this persists across re-renders
+            // and prevents the ticker from being shown in radar even if it's still in radar_trades.json
+            let deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+            if (!deleted.includes(ticker)) {
+                deleted.push(ticker);
+                localStorage.setItem('radarDeletedTickers', JSON.stringify(deleted));
+            }
         }
 
         // Check if ticker is already in radar
-        // Checks: inRadarTickers list + radarOverrides custom trades + radar_trades.json (via cached server trades)
         function isTickerInRadar(ticker) {
+            // If user explicitly deleted this ticker from radar, it belongs in Trendline
+            const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+            if (deleted.includes(ticker)) return false;
+
             // 1. Check explicit inRadarTickers list (set when user takes a trade)
             const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
             if (inRadar.includes(ticker)) return true;
@@ -5433,7 +5439,7 @@
             );
             if (hasCustom) return true;
 
-            // 3. Check cached server trades (radar_trades.json tickers synced from Angel One)
+            // 3. Check cached server trades (radar_trades.json tickers)
             const serverTickers = JSON.parse(localStorage.getItem('radarServerTickers') || '[]');
             return serverTickers.includes(ticker);
         }
@@ -6511,52 +6517,14 @@
 
         // Sync Radar with Angel One open positions
         window.syncRadarFromAngelOne = function() {
-            const container = document.getElementById('resultsContainer');
-            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">🔄 Triggering sync with Angel One...</div>';
-
-            // Trigger the backend monitor_trades workflow via repository_dispatch
-            // This runs angel_monitor.py on EC2 which pulls positions and pushes radar_trades.json
-            const ghToken = localStorage.getItem('ghToken') || '';
-            if (!ghToken) {
-                // No token stored — just reload radar_trades.json directly
-                localStorage.removeItem('radarOverrides');
-                localStorage.removeItem('inRadarTickers');
-                localStorage.removeItem('radarServerTickers');
-                setTimeout(() => {
-                    displayPerformanceTracking();
-                    alert('✅ Local cache cleared. Radar reloaded from latest radar_trades.json.\n\nTo sync live Angel One positions, run the "Trade Monitor" workflow manually in GitHub Actions.');
-                }, 500);
-                return;
-            }
-
-            fetch('https://api.github.com/repos/anuragsin17-sketch/Stock-Yard/dispatches', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'token ' + ghToken,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ event_type: 'sync_radar' })
-            })
-            .then(r => {
-                if (r.status === 204) {
-                    localStorage.removeItem('radarOverrides');
-                    localStorage.removeItem('inRadarTickers');
-                    localStorage.removeItem('radarServerTickers');
-                    alert('✅ Sync triggered! The Trade Monitor workflow is now running.\n\nRefresh the Radar tab in ~2 minutes to see updated positions from Angel One.');
-                } else {
-                    alert('⚠️ Could not trigger sync (HTTP ' + r.status + ').\n\nGo to GitHub Actions → Stock-Yard → Trade Monitor → Run workflow manually.');
-                }
-                displayPerformanceTracking();
-            })
-            .catch(() => {
-                // Fallback: just clear cache and reload
-                localStorage.removeItem('radarOverrides');
-                localStorage.removeItem('inRadarTickers');
-                localStorage.removeItem('radarServerTickers');
-                displayPerformanceTracking();
-                alert('✅ Local cache cleared. Radar reloaded.\n\nTo sync Angel One positions, run "Trade Monitor" workflow in GitHub Actions.');
-            });
+            // Clear all local state — radar_trades.json (from backend) is the source of truth
+            localStorage.removeItem('radarOverrides');
+            localStorage.removeItem('inRadarTickers');
+            localStorage.removeItem('radarServerTickers');
+            localStorage.removeItem('radarDeletedTickers');
+            // Reload — picks up latest radar_trades.json pushed by backend workflow
+            displayPerformanceTracking();
+            console.log('✅ Radar local cache cleared and reloaded from server');
         };
 
         // Save a user override for a specific trade
@@ -6817,7 +6785,7 @@
                     </button>
                     <button onclick="syncRadarFromAngelOne()" class="w-full py-2 rounded-lg text-xs font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        <span>🔄 Sync from Angel One</span>
+                        <span>🔄 Reset & Sync from Server</span>
                     </button>
                     <div class="flex space-x-2">
                         <button onclick="radarFilterState='all'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='all' ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">📊 All (${trades.length})</button>
