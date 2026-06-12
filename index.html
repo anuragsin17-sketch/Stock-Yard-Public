@@ -5408,9 +5408,15 @@
 
         // Remove ticker from radar set (returns it to trendline)
         function unmarkTickerFromRadar(ticker) {
+            // Remove from inRadarTickers
             let inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
             inRadar = inRadar.filter(t => t !== ticker);
             localStorage.setItem('inRadarTickers', JSON.stringify(inRadar));
+
+            // Also remove from radarServerTickers so it reappears in Trendline immediately
+            let serverTickers = JSON.parse(localStorage.getItem('radarServerTickers') || '[]');
+            serverTickers = serverTickers.filter(t => t !== ticker);
+            localStorage.setItem('radarServerTickers', JSON.stringify(serverTickers));
         }
 
         // Check if ticker is already in radar
