@@ -6457,16 +6457,22 @@
                     // Add custom trades from UI not yet in server file
                     Object.values(overrides).forEach(ov => {
                         if (ov._custom) {
-                            const alreadyIn = trades.find(t => t.order_id === ov.order_id);
+                            // Match by order_id if present, otherwise by ticker (Angel One synced trades)
+                            const alreadyIn = trades.find(t =>
+                                (ov.order_id && t.order_id === ov.order_id) ||
+                                (!ov.order_id && t.ticker === ov.ticker)
+                            );
                             if (!alreadyIn) trades.push(ov);
                         }
                     });
 
                     trades = trades.filter(t => !t._deleted);
 
-                    // Also filter out any ticker the user explicitly deleted
+                    // Filter out user-deleted tickers, BUT never hide live Angel One synced positions
                     const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-                    trades = trades.filter(t => !deletedTickers.includes(t.ticker));
+                    trades = trades.filter(t =>
+                        t.source === 'Angel One' || !deletedTickers.includes(t.ticker)
+                    );
 
                     console.log('Rendering', trades.length, 'trades');
                     renderRadarTab(container, trades);
@@ -6570,6 +6576,12 @@
                         // Merge: open Angel One + closed Angel One + manual trades
                         localStorage.setItem('radarOverrides', JSON.stringify({ ...angelTrades, ...closedTrades, ...manualTrades }));
                         localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
+
+                        // Real Angel One positions override any prior "deleted" status
+                        const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+                        const cleanedDeleted = deleted.filter(d => !tickers.includes(d));
+                        localStorage.setItem('radarDeletedTickers', JSON.stringify(cleanedDeleted));
+
                         console.log('✅ Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
                     } else {
                         console.warn('EC2 sync unavailable');
