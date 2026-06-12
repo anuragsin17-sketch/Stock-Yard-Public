@@ -6452,6 +6452,11 @@
                     });
 
                     trades = trades.filter(t => !t._deleted);
+
+                    // Also filter out any ticker the user explicitly deleted
+                    const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+                    trades = trades.filter(t => !deletedTickers.includes(t.ticker));
+
                     console.log('Rendering', trades.length, 'trades');
                     renderRadarTab(container, trades);
 
@@ -6482,14 +6487,14 @@
 
         // Sync Radar with Angel One open positions
         window.syncRadarFromAngelOne = function() {
-            // Clear all local state — radar_trades.json (from backend) is the source of truth
+            // Clear API/override cache but KEEP radarDeletedTickers
+            // so trades user deleted don't come back on sync
             localStorage.removeItem('radarOverrides');
             localStorage.removeItem('inRadarTickers');
             localStorage.removeItem('radarServerTickers');
-            localStorage.removeItem('radarDeletedTickers');
-            // Reload — picks up latest radar_trades.json pushed by backend workflow
+            // DO NOT clear radarDeletedTickers — user's delete decisions must persist
             displayPerformanceTracking();
-            console.log('Radar local cache cleared and reloaded from server');
+            console.log('Radar cache cleared (deleted list preserved)');
         };
 
         // Save a user override for a specific trade
