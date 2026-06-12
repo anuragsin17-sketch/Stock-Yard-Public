@@ -4962,6 +4962,11 @@
                 // Save Angel One positions into radarOverrides so Radar tab shows them
                 const positions = result.open_trades || [];
                 {
+                    // Tickers the user explicitly deleted or purged — do NOT re-add them on sync
+                    const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+                    const purgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                    const blockedTickers = [...deletedTickers, ...purgedTickers];
+
                     // Preserve manual trades, capture previously synced Angel One trades
                     const existing = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
                     const manualTrades = {};
@@ -4974,13 +4979,13 @@
                         }
                     });
 
-                    // Build current Angel One positions
+                    // Build current Angel One positions (skip user-deleted/purged tickers)
                     const angelTrades = {};
                     const tickers = [];
                     const liveTickers = new Set();
                     positions.forEach(p => {
                         const ticker = (p.ticker || p.symbol || '').replace('-EQ', '');
-                        if (!ticker) return;
+                        if (!ticker || blockedTickers.includes(ticker)) return;
                         tickers.push(ticker);
                         liveTickers.add(ticker);
                         angelTrades[ticker] = {
@@ -5376,6 +5381,10 @@
 
         // Check if ticker is already in radar
         function isTickerInRadar(ticker) {
+            // Permanently purged tickers are hidden everywhere — treat as "in radar" so Trendline skips them
+            const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+            if (purged.includes(ticker)) return true;
+
             // If user explicitly deleted this ticker from radar, it belongs in Trendline
             const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
             if (deleted.includes(ticker)) return false;
@@ -6468,11 +6477,13 @@
 
                     trades = trades.filter(t => !t._deleted);
 
-                    // Filter out user-deleted tickers, BUT never hide live Angel One synced positions
+                    // Permanently purged tickers — hidden from Radar entirely
+                    const purgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                    trades = trades.filter(t => !purgedTickers.includes(t.ticker));
+
+                    // Filter out any ticker the user explicitly deleted (applies to all sources)
                     const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-                    trades = trades.filter(t =>
-                        t.source === 'Angel One' || !deletedTickers.includes(t.ticker)
-                    );
+                    trades = trades.filter(t => !deletedTickers.includes(t.ticker));
 
                     console.log('Rendering', trades.length, 'trades');
                     renderRadarTab(container, trades);
@@ -6521,6 +6532,11 @@
                         const positions = data.open_trades || [];
                         console.log('Angel One positions:', positions.length);
 
+                        // Tickers the user explicitly deleted or purged — do NOT re-add them on sync
+                        const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+                        const purgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                        const blockedTickers = [...deletedTickers, ...purgedTickers];
+
                         // Preserve manually added trades that are NOT from Angel One
                         const existing = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
                         const manualTrades = {};
@@ -6533,13 +6549,13 @@
                             }
                         });
 
-                        // Build current Angel One positions (still open)
+                        // Build current Angel One positions (skip user-deleted tickers)
                         const angelTrades = {};
                         const tickers = [];
                         const liveTickers = new Set();
                         positions.forEach(p => {
                             const ticker = (p.ticker || p.symbol || '').replace('-EQ', '');
-                            if (!ticker) return;
+                            if (!ticker || blockedTickers.includes(ticker)) return;
                             tickers.push(ticker);
                             liveTickers.add(ticker);
                             angelTrades[ticker] = {
@@ -6576,11 +6592,6 @@
                         // Merge: open Angel One + closed Angel One + manual trades
                         localStorage.setItem('radarOverrides', JSON.stringify({ ...angelTrades, ...closedTrades, ...manualTrades }));
                         localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
-
-                        // Real Angel One positions override any prior "deleted" status
-                        const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-                        const cleanedDeleted = deleted.filter(d => !tickers.includes(d));
-                        localStorage.setItem('radarDeletedTickers', JSON.stringify(cleanedDeleted));
 
                         console.log('✅ Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
                     } else {
@@ -6977,29 +6988,29 @@
 
         // Delete from Radar → return ticker to Trendline
         window.removeTradeByTicker = function(ticker, entryPrice) {
-            // Always unmark from radar immediately — don't wait for fetch
+            // Permanently purge this ticker from ALL tabs (Radar + Trendline). No coming back.
+            let purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+            if (!purged.includes(ticker)) {
+                purged.push(ticker);
+                localStorage.setItem('radarPurgedTickers', JSON.stringify(purged));
+            }
+
+            // Unmark from radar tracking
             unmarkTickerFromRadar(ticker);
 
-            fetch('./radar_trades.json', { cache: 'no-store' })
-                .then(r => r.ok ? r.json() : [])
-                .catch(() => [])
-                .then(serverTrades => {
-                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                    let trade = serverTrades.find(t => t.ticker === ticker && Math.abs(parseFloat(t.entry_price) - parseFloat(entryPrice)) < 0.01);
-                    if (!trade) {
-                        trade = Object.values(overrides).find(ov => ov.ticker === ticker && ov._custom);
-                    }
-                    if (trade) {
-                        saveTradeOverride(trade, { _deleted: true });
-                    } else {
-                        // Trade not found in server or overrides — just mark deleted by ticker
-                        const overridesNow = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                        overridesNow['DELETE_' + ticker] = { ticker, _deleted: true, _custom: false };
-                        localStorage.setItem('radarOverrides', JSON.stringify(overridesNow));
-                    }
-                    console.log('✓ Removed', ticker, '→ returned to Trendline');
-                    displayPerformanceTracking();
-                });
+            // Remove from radarOverrides entirely (manual + synced)
+            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+            Object.keys(overrides).forEach(key => {
+                if (overrides[key] && overrides[key].ticker === ticker) {
+                    delete overrides[key];
+                }
+            });
+            // Tombstone so it never gets re-added from server file
+            overrides['DELETE_' + ticker] = { ticker, _deleted: true, _custom: false };
+            localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+
+            console.log('🗑️ Permanently removed', ticker, 'from all tabs');
+            displayPerformanceTracking();
         };
 
         window.removeTrade = function(idx) { displayPerformanceTracking(); };
