@@ -5361,9 +5361,7 @@
 
                 const response = await fetch(EC2_API, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         symbol: symbol,
                         action: action,
@@ -5381,21 +5379,44 @@
                     
                     if (result.success || result.order_id) {
                         alert(`✅ Order placed!\n\nStock: ${symbol}\nOrder ID: ${result.order_id || 'Pending'}\n\nCheck Angel One app.`);
-                        switchTab('performance');
+                        return { success: true, order_id: result.order_id };
                     } else {
                         alert(`❌ Order failed: ${result.error || 'Unknown error'}`);
+                        return { success: false };
                     }
                 } catch (e) {
-                    // CORS error or no response - but order might still be sent
                     console.log('Response parsing error (order may still be sent):', e.message);
                     alert(`✅ Order sent to Angel One!\n\nPlease check the app in 2-3 seconds.\nYou'll get a Telegram notification when confirmed.`);
-                    switchTab('performance');
+                    return { success: true, order_id: null };
                 }
 
             } catch (error) {
                 alert(`❌ Error: ${error.message}`);
                 console.error('Order error:', error);
+                return { success: false };
             }
+        }
+
+        // Add ticker to radar set (marks it as "in radar", hides from trendline)
+        function markTickerInRadar(ticker) {
+            const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+            if (!inRadar.includes(ticker)) {
+                inRadar.push(ticker);
+                localStorage.setItem('inRadarTickers', JSON.stringify(inRadar));
+            }
+        }
+
+        // Remove ticker from radar set (returns it to trendline)
+        function unmarkTickerFromRadar(ticker) {
+            let inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+            inRadar = inRadar.filter(t => t !== ticker);
+            localStorage.setItem('inRadarTickers', JSON.stringify(inRadar));
+        }
+
+        // Check if ticker is already in radar
+        function isTickerInRadar(ticker) {
+            const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+            return inRadar.includes(ticker);
         }
 
         // Take Trade from Volume tab - manual only
@@ -5414,7 +5435,6 @@
             const stopLoss = parseFloat((entry * 0.92).toFixed(2));
             const qty = Math.floor(positionSize / entry);
 
-            // Confirmation dialog - ONLY 4 PARAMETERS
             const confirmed = confirm(
                 `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
                 `Stock: ${symbol}\n` +
@@ -5427,31 +5447,37 @@
 
             if (!confirmed) return;
 
-            // Add to Radar
-            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-            const exists = trades.find(t => t.ticker === symbol && t.status === 'Open');
-            if (!exists) {
-                trades.push({
-                    ticker: symbol,
-                    companyName: companyName,
-                    entryTrigger: entry,
-                    targetExit: target,
-                    stopLoss: stopLoss,
-                    positionSize: positionSize,
-                    quantity: qty,
-                    currentPrice: entry,  // Add LTP tracking
-                    takenAt: new Date().toISOString(),
-                    status: 'Open',
-                    source: 'Volume'
-                });
-                localStorage.setItem('radarTrades', JSON.stringify(trades));
-            }
-
-            // Trigger Angel One order via GitHub Actions
-            placeAngelOrder(symbol, 'BUY', qty, entry, stopLoss, target, 'Volume');
+            // Place order first - only add to radar on success
+            placeAngelOrder(symbol, 'BUY', qty, entry, stopLoss, target, 'Volume').then(result => {
+                if (result.success) {
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    const tradeKey = symbol;
+                    overrides[tradeKey] = {
+                        ticker: symbol,
+                        companyName: companyName,
+                        entry_price: entry,
+                        entryTrigger: entry,
+                        target: target,
+                        targetExit: target,
+                        stop_loss: stopLoss,
+                        stopLoss: stopLoss,
+                        quantity: qty,
+                        current_price: entry,
+                        status: 'Open',
+                        source: 'Volume',
+                        order_id: result.order_id || ('VOL_' + Date.now()),
+                        triggered_at: new Date().toISOString(),
+                        _custom: true  // marks this as a user-added trade not from server
+                    };
+                    localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+                    markTickerInRadar(symbol);
+                    switchTab('performance');
+                }
+            });
         };
 
         // Take Trade - saves to radar tab (Trendline source)
+        // Only moves to Radar AFTER successful Angel One order
         function takeTrade(ticker, entryTrigger, targetExit, stopLoss) {
             const savedKey = `trendline_${ticker}`;
             const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
@@ -5461,7 +5487,6 @@
             const stop = saved.stopLoss || stopLoss;
             const qty = Math.floor(positionSize / entry);
 
-            // Confirmation dialog
             const confirmed = confirm(
                 `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
                 `Stock: ${ticker}\n` +
@@ -5474,27 +5499,34 @@
 
             if (!confirmed) return;
 
-            // Add to Radar
-            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-            const exists = trades.find(t => t.ticker === ticker && t.status === 'Open');
-            if (!exists) {
-                trades.push({
-                    ticker,
-                    entryTrigger: parseFloat(entry.toFixed(2)),
-                    targetExit: parseFloat(target.toFixed(2)),
-                    stopLoss: parseFloat(stop.toFixed(2)),
-                    positionSize,
-                    quantity: qty,
-                    currentPrice: parseFloat(entry.toFixed(2)),  // Add LTP tracking
-                    takenAt: new Date().toISOString(),
-                    status: 'Open',
-                    source: 'Trendline'
-                });
-                localStorage.setItem('radarTrades', JSON.stringify(trades));
-            }
-
-            // Trigger Angel One order via GitHub Actions
-            placeAngelOrder(ticker, 'BUY', qty, parseFloat(entry), parseFloat(stop), parseFloat(target), 'Trendline');
+            // Place order first - only add to radar on success
+            placeAngelOrder(ticker, 'BUY', qty, parseFloat(entry), parseFloat(stop), parseFloat(target), 'Trendline').then(result => {
+                if (result.success) {
+                    // Add to radar overrides (new trade, not in radar_trades.json yet)
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    const tradeKey = result.order_id || ticker;
+                    overrides[tradeKey] = {
+                        ticker,
+                        entry_price: parseFloat(entry),
+                        entryTrigger: parseFloat(entry),
+                        target: parseFloat(target),
+                        targetExit: parseFloat(target),
+                        stop_loss: parseFloat(stop),
+                        stopLoss: parseFloat(stop),
+                        quantity: qty,
+                        current_price: parseFloat(entry),
+                        status: 'Open',
+                        source: 'Trendline',
+                        order_id: result.order_id || ('TL_' + Date.now()),
+                        triggered_at: new Date().toISOString(),
+                        _custom: true
+                    };
+                    localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+                    // Mark ticker as in-radar so it's hidden from trendline
+                    markTickerInRadar(ticker);
+                    switchTab('performance');
+                }
+            });
         }
 
         // Switch between tabs
@@ -5822,10 +5854,11 @@
                     </button>
                 `;
 
-                // Show manually added stocks first
+                // Show manually added stocks first (skip those already in Radar)
                 const manualStocksAll = JSON.parse(localStorage.getItem('manualStocks') || '[]');
                 manualStocksAll.forEach((ms, idx) => {
-                    const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ms.symbol}`;
+                    // Skip if already in Radar
+                    if (isTickerInRadar(ms.symbol)) return;
                     html += `
                         <div class="stock-card mb-4" style="border-left: 3px solid #6366F1;">
                             <div class="flex justify-between items-start">
@@ -5865,6 +5898,9 @@
                 const pagedTrendStocks = trendlineStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
 
                 pagedTrendStocks.forEach(stock => {
+                    // Skip if already in Radar
+                    if (isTickerInRadar(stock.ticker)) return;
+
                     // Get saved overrides from localStorage
                     const savedKey = `trendline_${stock.ticker}`;
                     const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
@@ -6397,37 +6433,56 @@
         function displayPerformanceTracking() {
             const container = document.getElementById('resultsContainer');
 
-            // Load from both localStorage (immediate) and radar_trades.json (persisted)
-            const localTrades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-
-            // Fetch radar_trades.json from server (updated by monitor workflow)
+            // radar_trades.json = server source of truth (trades placed via angel monitor)
+            // radarOverrides = user status changes (closed/target hit) + custom trades placed from UI
             fetch('./radar_trades.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : [])
                 .catch(() => [])
                 .then(serverTrades => {
-                    // Merge: server trades take priority (have latest status)
-                    const merged = mergeRadarTrades(localTrades, serverTrades);
-                    
-                    // Also fetch live data from Angel One (if available) AND sync trades endpoint
-                    return Promise.all([
-                        fetchAngelOneOrders(),
-                        syncTradesFromAngelOne(),
-                        fetchLiveLTPForRadarTrades(merged) // Fetch live LTP for all trades
-                    ]).then(([angelOrders, syncedTrades, liveQuotes]) => {
-                        // Merge synced trades with local trades
-                        let allTrades = merged;
-                        if (syncedTrades && syncedTrades.length > 0) {
-                            allTrades = mergeSyncedTrades(merged, syncedTrades);
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+
+                    // Apply overrides to server trades
+                    let trades = (serverTrades || []).map(trade => {
+                        const key = trade.order_id || trade.ticker;
+                        if (overrides[key]) {
+                            return { ...trade, ...overrides[key] };
                         }
-                        // Update with live LTP from Angel One
-                        if (liveQuotes && liveQuotes.length > 0) {
-                            allTrades = updateTradesWithLiveQuotes(allTrades, liveQuotes);
-                        }
-                        // Enrich trades with Angel One data
-                        const enriched = enrichTradesWithAngelData(allTrades, angelOrders);
-                        renderRadarTab(container, enriched);
+                        return trade;
                     });
+
+                    // Add custom trades (placed from UI, not yet in server file)
+                    Object.values(overrides).forEach(ov => {
+                        if (ov._custom) {
+                            const alreadyIn = trades.find(t => t.ticker === ov.ticker && t.order_id === ov.order_id);
+                            if (!alreadyIn) trades.push(ov);
+                        }
+                    });
+
+                    // Filter out deleted trades
+                    trades = trades.filter(t => !t._deleted);
+
+                    console.log('📡 Rendering', trades.length, 'trades');
+                    renderRadarTab(container, trades);
+
+                    // Fetch live LTP in background for open trades
+                    const openTrades = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
+                    if (openTrades.length > 0) {
+                        fetchLiveLTPForRadarTrades(trades).then(liveQuotes => {
+                            if (liveQuotes && liveQuotes.length > 0) {
+                                const updated = updateTradesWithLiveQuotes(trades, liveQuotes);
+                                renderRadarTab(container, updated);
+                            }
+                        });
+                    }
                 });
+        }
+
+        // Save a user override for a specific trade
+        function saveTradeOverride(trade, changes) {
+            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+            const key = trade.order_id || trade.ticker;
+            overrides[key] = { ...(overrides[key] || {}), ...trade, ...changes };
+            localStorage.setItem('radarOverrides', JSON.stringify(overrides));
         }
         
         // Fetch live LTP for all open radar trades from Angel One
@@ -6633,260 +6688,195 @@
         }
 
         function renderRadarTab(container, trades) {
-            if (!trades || trades.length === 0) {
+            if (!container) return;
+
+            // Normalize both snake_case and camelCase field names
+            const norm = t => ({
+                ...t,
+                entry_price:   parseFloat(t.entry_price   || t.entryTrigger || 0),
+                target:        parseFloat(t.target        || t.targetExit   || 0),
+                stop_loss:     parseFloat(t.stop_loss     || t.stopLoss     || 0),
+                current_price: parseFloat(t.current_price || t.currentPrice || t.entry_price || t.entryTrigger || 0),
+                quantity:      parseInt(t.quantity || 0),
+                status:        t.status || 'Open',
+                source:        t.source || 'Manual'
+            });
+
+            trades = (trades || []).filter(t => !t._deleted).map(norm);
+
+            if (trades.length === 0) {
                 container.innerHTML = `
+                    <button onclick="openAddTradeModal()" class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-4 flex items-center justify-center space-x-2" style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>+ Add Trade Manually</span>
+                    </button>
                     <div class="mobile-card rounded-xl p-8 text-center">
                         <div class="text-4xl mb-4">📡</div>
                         <div class="text-slate-300 font-semibold mb-2">Radar is Empty</div>
-                        <div class="text-xs text-slate-500 mb-4">Go to Trendline tab and click "📥 Take Trade" on any stock to add it here.</div>
-                        <button onclick="switchTab('trendline')" class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
-                            Go to Trendline →
-                        </button>
-                    </div>
-                `;
+                        <div class="text-xs text-slate-500">Take a trade from Trendline or add one manually.</div>
+                    </div>`;
                 return;
             }
 
-            const open = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
+            const open   = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
             const closed = trades.filter(t => t.status !== 'Open' && t.status !== 'Triggered');
-            
-            // Apply filter
-            let displayTrades = trades;
-            if (radarFilterState === 'open') {
-                displayTrades = open;
-            } else if (radarFilterState === 'closed') {
-                displayTrades = closed;
-            }
+            const displayTrades = radarFilterState === 'open' ? open : radarFilterState === 'closed' ? closed : trades;
 
-            // Calculate totals for all OPEN trades only
-            let totalAmountUsed = 0;
-            let totalCurrentValue = 0;
-            let totalPnL = 0;
-            let totalGain = 0;
-            let totalLoss = 0;
-            let totalClosedPnL = 0;
-
-            open.forEach(trade => {
-                const entryPrice = trade.entryTrigger || trade.entry_price || 0;
-                const currentPrice = trade.currentPrice || trade.current_price || 0;
-                const quantity = trade.quantity || 0;
-                
-                const amountUsed = entryPrice * quantity;
-                const currentValue = currentPrice * quantity;
-                const pnl = currentValue - amountUsed;
-                
-                totalAmountUsed += amountUsed;
-                totalCurrentValue += currentValue;
-                totalPnL += pnl;
-                
-                if (pnl >= 0) totalGain += pnl;
-                else totalLoss += Math.abs(pnl);
-            });
-            
-            // Calculate P&L for closed trades
-            closed.forEach(trade => {
-                const entryPrice = trade.entryTrigger || trade.entry_price || 0;
-                const exitPrice = trade.exitPrice || trade.current_price || entryPrice;
-                const quantity = trade.quantity || 0;
-                const pnl = (exitPrice - entryPrice) * quantity;
-                totalClosedPnL += pnl;
-            });
-
-            const totalPnLPercent = totalAmountUsed > 0 ? ((totalPnL / totalAmountUsed) * 100) : 0;
+            let totalAmt = 0, totalCur = 0;
+            open.forEach(t => { totalAmt += t.entry_price * t.quantity; totalCur += t.current_price * t.quantity; });
+            const totalPnL = totalCur - totalAmt;
             const pnlColor = totalPnL >= 0 ? '#10B981' : '#DC2626';
 
             let html = `
-                <!-- FILTER BUTTONS -->
                 <div class="mobile-card rounded-xl p-3 mb-4">
-                    <div class="flex space-x-2 overflow-x-auto">
-                        <button onclick="radarFilterState='all'; displayPerformanceTracking()" class="position-filter-btn ${radarFilterState === 'all' ? 'active' : ''} px-4 py-2 rounded-lg text-xs font-semibold touch-btn flex-shrink-0">
-                            📊 All (${trades.length})
-                        </button>
-                        <button onclick="radarFilterState='open'; displayPerformanceTracking()" class="position-filter-btn ${radarFilterState === 'open' ? 'active' : ''} px-4 py-2 rounded-lg text-xs font-semibold touch-btn flex-shrink-0" style="color: #D97706;">
-                            🔵 Open (${open.length})
-                        </button>
-                        <button onclick="radarFilterState='closed'; displayPerformanceTracking()" class="position-filter-btn ${radarFilterState === 'closed' ? 'active' : ''} px-4 py-2 rounded-lg text-xs font-semibold touch-btn flex-shrink-0" style="color: #047857;">
-                            ✅ Closed (${closed.length})
-                        </button>
+                    <button onclick="openAddTradeModal()" class="w-full py-2 rounded-lg text-xs font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>+ Add Trade</span>
+                    </button>
+                    <div class="flex space-x-2">
+                        <button onclick="radarFilterState='all'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='all' ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">📊 All (${trades.length})</button>
+                        <button onclick="radarFilterState='open'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='open' ? 'background:rgba(217,119,6,0.3);color:#D97706;border:1px solid rgba(217,119,6,0.4);' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">🔵 Open (${open.length})</button>
+                        <button onclick="radarFilterState='closed'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='closed' ? 'background:rgba(4,120,87,0.3);color:#10B981;border:1px solid rgba(4,120,87,0.4);' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">✅ Closed (${closed.length})</button>
                     </div>
                 </div>
-            
-                <!-- PORTFOLIO SUMMARY -->
-                <div class="mobile-card rounded-xl p-4 mb-4" style="background: linear-gradient(135deg, rgba(4,120,87,0.15), rgba(6,182,212,0.1));">
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <!-- Amount Used -->
+                <div class="mobile-card rounded-xl p-4 mb-4">
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Amount Used (Capital)</div>
-                            <div class="text-2xl font-bold mono" style="color: #3B82F6;">₹${totalAmountUsed.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
-                            <div class="text-xs text-slate-500 mt-1">${open.length} open trade${open.length !== 1 ? 's' : ''}</div>
-                        </div>
-                        
-                        <!-- Current Value -->
-                        <div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Current Value</div>
-                            <div class="text-2xl font-bold mono" style="color: #06B6D4;">₹${totalCurrentValue.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
-                            <div class="text-xs" style="color: ${pnlColor}; margin-top: 4px;">
-                                ${totalPnL >= 0 ? '+' : ''}₹${totalPnL.toLocaleString('en-IN', {maximumFractionDigits: 0})} (${totalPnLPercent >= 0 ? '+' : ''}${totalPnLPercent.toFixed(2)}%)
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- P&L Breakdown -->
-                    <div class="grid grid-cols-${closed.length > 0 ? '4' : '3'} gap-3 text-center" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
-                        <div>
-                            <div class="text-2xl font-bold mono" style="color: #D97706;">${open.length}</div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider">Open</div>
+                            <div class="text-xs text-slate-400 mb-1">Amount Used</div>
+                            <div class="text-xl font-bold mono" style="color:#3B82F6;">₹${totalAmt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+                            <div class="text-xs text-slate-500">${open.length} open trade${open.length!==1?'s':''}</div>
                         </div>
                         <div>
-                            <div class="text-2xl font-bold mono" style="color: #10B981;">+₹${totalGain.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider">Winning</div>
+                            <div class="text-xs text-slate-400 mb-1">Current Value</div>
+                            <div class="text-xl font-bold mono" style="color:#06B6D4;">₹${totalCur.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+                            <div class="text-xs" style="color:${pnlColor};">${totalPnL>=0?'+':''}₹${totalPnL.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
                         </div>
-                        <div>
-                            <div class="text-2xl font-bold mono" style="color: #DC2626;">-₹${totalLoss.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider">Losing</div>
-                        </div>
-                        ${closed.length > 0 ? `
-                        <div>
-                            <div class="text-2xl font-bold mono" style="color: ${totalClosedPnL >= 0 ? '#10B981' : '#DC2626'};">${totalClosedPnL >= 0 ? '+' : ''}₹${totalClosedPnL.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider">Closed</div>
-                        </div>
-                        ` : ''}
                     </div>
                 </div>
             `;
 
-            displayTrades.forEach((trade, idx) => {
-                // Normalize field names (handle both camelCase and snake_case)
-                const ticker = trade.ticker || '';
-                const currentPrice = trade.currentPrice || trade.current_price || 0;
-                const entryPrice = trade.entryTrigger || trade.entry_price || 0;
-                const target = trade.targetExit || trade.target || 0;
-                const stopLoss = trade.stopLoss || trade.stop_loss || 0;
-                const quantity = trade.quantity || 0;
-                const status = trade.status || 'Open';
-                const source = trade.source || 'Manual';
-                const takenAt = trade.takenAt || trade.triggered_at || new Date().toISOString();
-                
-                // Calculate trade metrics
-                const amountUsed = entryPrice * quantity;
-                const currentValue = currentPrice * quantity;
-                const pnl = currentValue - amountUsed;
-                const pnlPercent = entryPrice > 0 ? ((pnl / amountUsed) * 100) : 0;
-                
-                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ticker}`;
-                const takenDate = new Date(takenAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
-                const borderColor = status === 'Open' || status === 'Triggered' ? '#D97706' : status === 'Target Hit' ? '#047857' : '#DC2626';
-                const statusColor = borderColor;
-                const pnlColor = pnl >= 0 ? '#10B981' : '#DC2626';
-                
-                html += `
-                    <div class="stock-card mb-4" style="border-left: 3px solid ${borderColor};">
-                        <div class="flex justify-between items-start mb-3">
-                            <div>
-                                <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${ticker}</a>
-                                <div class="text-xs text-slate-500 mt-1">${takenDate} | ${source}</div>
-                                ${status === 'Open' || status === 'Triggered' ? `
-                                    <div class="text-xs mt-1" style="color: #06B6D4;">
-                                        ${trade.is_angel_synced ? '✅ Synced with Angel One' : (trade.is_synced ? '🔄 Manual Angel One Trade' : '⏳ Pending sync')}
-                                    </div>
-                                ` : ''}
-                            </div>
-                            <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background: ${borderColor}20; color: ${statusColor};">${status}</span>
+            displayTrades.forEach(trade => {
+                const { ticker, entry_price: ep, current_price: cp, target: tgt, stop_loss: sl, quantity: qty, status, source } = trade;
+                const amt = ep * qty, cur = cp * qty, pnl = cur - amt;
+                const pnlPct = ep > 0 ? (pnl / amt) * 100 : 0;
+                const isEditable = status === 'Open' || status === 'Triggered';
+                const borderCol = isEditable ? '#D97706' : (status === 'Target Hit' ? '#047857' : '#DC2626');
+                const pnlCol = pnl >= 0 ? '#10B981' : '#DC2626';
+                const t = ticker || 'N/A';
+
+                html += `<div class="stock-card mb-4" style="border-left:3px solid ${borderCol};">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <a href="https://in.tradingview.com/chart/?symbol=NSE:${t}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${t}</a>
+                            <div class="text-xs text-slate-500 mt-1">${source}</div>
                         </div>
-                        
-                        <!-- Trade Prices with LTP Update -->
-                        <div class="grid grid-cols-4 gap-2 mb-3">
-                            <div>
-                                <div class="text-xs text-slate-500 mb-1">LTP</div>
-                                <div class="text-sm font-bold mono" style="color: #06B6D4; border-bottom: 2px solid rgba(6,182,212,0.3); padding-bottom: 2px;">
-                                    ${currentPrice ? '₹' + currentPrice.toLocaleString('en-IN', {maximumFractionDigits: 2}) : '⟳'}
-                                </div>
-                                <div class="text-xs text-slate-600 mt-1" style="color: #10B981; font-weight: 500;">
-                                    ${(status === 'Open' || status === 'Triggered') ? '🔴 LIVE' : '—'}
-                                </div>
-                            </div>
-                            <div>
-                                <div class="text-xs text-slate-500 mb-1">Entry</div>
-                                <div class="text-sm font-bold mono" style="color: #3B82F6;">₹${entryPrice.toLocaleString('en-IN', {maximumFractionDigits: 2})}</div>
-                            </div>
-                            <div>
-                                <div class="text-xs text-slate-500 mb-1">Target</div>
-                                <div class="text-sm font-bold mono" style="color: #10B981;">₹${target.toLocaleString('en-IN', {maximumFractionDigits: 2})}</div>
-                            </div>
-                            <div>
-                                <div class="text-xs text-slate-500 mb-1">Stop</div>
-                                <div class="text-sm font-bold mono" style="color: #DC2626;">₹${stopLoss.toLocaleString('en-IN', {maximumFractionDigits: 2})}</div>
-                            </div>
+                        <span class="px-3 py-1 text-xs rounded-full font-semibold" style="background:${borderCol}20;color:${borderCol};">${status}</span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 mb-3">
+                        <div>
+                            <div class="text-xs text-slate-500 mb-1">LTP</div>
+                            <div class="text-sm font-bold mono" style="color:#06B6D4;">${cp > 0 ? '₹'+cp.toLocaleString('en-IN',{maximumFractionDigits:2}) : '⟳'}</div>
+                            ${isEditable ? '<div class="text-xs" style="color:#10B981;">🔴 LIVE</div>' : ''}
                         </div>
-                        
-                        <!-- Trade Amounts -->
-                        <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
-                            <div style="background: rgba(30,40,50,0.4); padding: 8px; border-radius: 6px;">
-                                <div class="text-slate-500 mb-1">Amount Used</div>
-                                <div class="font-bold mono" style="color: #3B82F6;">₹${amountUsed.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
-                                <div class="text-slate-600 text-xs">${quantity} @ ₹${entryPrice.toFixed(2)}</div>
-                            </div>
-                            <div style="background: rgba(30,40,50,0.4); padding: 8px; border-radius: 6px;">
-                                <div class="text-slate-500 mb-1">Current Value</div>
-                                <div class="font-bold mono" style="color: #06B6D4;">₹${currentValue.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
-                                <div class="text-slate-600 text-xs">${quantity} @ ₹${currentPrice.toFixed(2)}</div>
-                            </div>
-                            <div style="background: rgba(30,40,50,0.4); padding: 8px; border-radius: 6px;">
-                                <div class="text-slate-500 mb-1">P&L</div>
-                                <div class="font-bold mono" style="color: ${pnlColor};">${pnl >= 0 ? '+' : ''}₹${pnl.toLocaleString('en-IN', {maximumFractionDigits: 0})}</div>
-                                <div class="text-slate-600 text-xs" style="color: ${pnlColor};">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</div>
-                            </div>
+                        <div>
+                            <div class="text-xs text-slate-500 mb-1">Entry</div>
+                            ${isEditable ? '<input type="number" value="'+ep.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'entry_price\',this.value)" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#3B82F6;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);">' : '<div class="text-sm font-bold mono" style="color:#3B82F6;">₹'+ep.toFixed(2)+'</div>'}
                         </div>
-                        
-                        <!-- Action Buttons -->
-                        <div class="flex space-x-2">
-                            ${(status === 'Open' || status === 'Triggered') ? `
-                            <button onclick="updateTradeStatus(${idx}, 'Target Hit')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(4,120,87,0.2); color: #10B981;">✅ Target Hit</button>
-                            <button onclick="updateTradeStatus(${idx}, 'Stop Loss')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background: rgba(220,38,38,0.2); color: #DC2626;">🛑 Stop Loss</button>
-                            ` : ''}
-                            <button onclick="removeTrade(${idx})" class="py-2 px-3 rounded-lg text-xs touch-btn" style="background: rgba(100,116,139,0.2); color: #94A3B8;">🗑️</button>
+                        <div>
+                            <div class="text-xs text-slate-500 mb-1">Target</div>
+                            ${isEditable ? '<input type="number" value="'+tgt.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'target\',this.value)" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);">' : '<div class="text-sm font-bold mono" style="color:#10B981;">₹'+tgt.toFixed(2)+'</div>'}
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500 mb-1">Stop</div>
+                            ${isEditable ? '<input type="number" value="'+sl.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'stop_loss\',this.value)" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#DC2626;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);">' : '<div class="text-sm font-bold mono" style="color:#DC2626;">₹'+sl.toFixed(2)+'</div>'}
                         </div>
                     </div>
-                `;
+                    <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
+                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">Amount</div><div class="font-bold mono" style="color:#3B82F6;">₹${amt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">${qty} @ ₹${ep.toFixed(2)}</div></div>
+                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">Value</div><div class="font-bold mono" style="color:#06B6D4;">₹${cur.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">${qty} @ ₹${cp.toFixed(2)}</div></div>
+                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">P&L</div><div class="font-bold mono" style="color:${pnlCol};">${pnl>=0?'+':''}₹${pnl.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div style="color:${pnlCol};">${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%</div></div>
+                    </div>
+                    <div class="flex space-x-2">
+                        ${isEditable ? '<button onclick="updateTradeStatusByTicker(\''+t+'\',\''+ep+'\',\'Target Hit\')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background:rgba(4,120,87,0.2);color:#10B981;">✅ Target Hit</button><button onclick="updateTradeStatusByTicker(\''+t+'\',\''+ep+'\',\'Stop Loss\')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background:rgba(220,38,38,0.2);color:#DC2626;">🛑 Stop Loss</button>' : ''}
+                        <button onclick="removeTradeByTicker('${t}','${ep}')" class="py-2 px-3 rounded-lg text-xs touch-btn" style="background:rgba(100,116,139,0.2);color:#94A3B8;">🗑️</button>
+                    </div>
+                </div>`;
             });
-            
-            // Closed trades summary if any closed trades exist
-            if (closed.length > 0 && radarFilterState !== 'open') {
-                html += `
-                    <div class="mobile-card rounded-xl p-4 mt-6" style="border-top: 2px solid rgba(4,120,87,0.3);">
-                        <div class="text-xs text-slate-400 uppercase tracking-wider mb-3" style="color: #10B981;">📋 Closed Trades (${closed.length})</div>
-                        <div class="text-xs text-slate-500">Total P&L: <span style="color: ${totalClosedPnL >= 0 ? '#10B981' : '#DC2626'}; font-weight: bold;">${totalClosedPnL >= 0 ? '+' : ''}₹${totalClosedPnL.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span></div>
-                    </div>
-                `;
-            }
-            
+
             container.innerHTML = html;
-            
-            // Auto-refresh LTP every 10 seconds (not 30)
-            if (!window.ltpRefreshInterval) {
-                window.ltpRefreshInterval = setInterval(() => {
-                    if (currentTab === 'performance') {
-                        console.log('🔄 Auto-refreshing Radar trades with live LTP...');
-                        displayPerformanceTracking();
-                    }
-                }, 10000);  // Every 10 seconds for live LTP updates
-            }
         }
+
         window.updateTradeStatus = function(idx, status) {
-            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-            trades[idx].status = status;
-            trades[idx].closedAt = new Date().toISOString();
-            localStorage.setItem('radarTrades', JSON.stringify(trades));
+            // Legacy - not used in new flow
             displayPerformanceTracking();
         };
 
-        // Remove trade from radar
-        window.removeTrade = function(idx) {
-            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-            trades.splice(idx, 1);
-            localStorage.setItem('radarTrades', JSON.stringify(trades));
-            displayPerformanceTracking();
+        // Update trade status by ticker + entry price
+        window.updateTradeStatusByTicker = function(ticker, entryPrice, newStatus) {
+            fetch('./radar_trades.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : [])
+                .catch(() => [])
+                .then(serverTrades => {
+                    // Find in server trades or custom overrides
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    let trade = serverTrades.find(t => t.ticker === ticker && Math.abs(parseFloat(t.entry_price) - parseFloat(entryPrice)) < 0.01);
+                    if (!trade) {
+                        // Check custom trades
+                        trade = Object.values(overrides).find(ov => ov.ticker === ticker && ov._custom);
+                    }
+                    if (trade) {
+                        saveTradeOverride(trade, { status: newStatus, closedAt: new Date().toISOString() });
+                        console.log('✓ Closed', ticker, 'as', newStatus);
+                        displayPerformanceTracking();
+                    }
+                });
         };
+
+        // Update trade field by ticker
+        window.updateTradeFieldByTicker = function(ticker, entryPrice, field, value) {
+            fetch('./radar_trades.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : [])
+                .catch(() => [])
+                .then(serverTrades => {
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    let trade = serverTrades.find(t => t.ticker === ticker && Math.abs(parseFloat(t.entry_price) - parseFloat(entryPrice)) < 0.01);
+                    if (!trade) {
+                        trade = Object.values(overrides).find(ov => ov.ticker === ticker && ov._custom);
+                    }
+                    if (trade) {
+                        const numValue = parseFloat(value) || 0;
+                        const changes = { [field]: numValue };
+                        if (field === 'entry_price') changes.entryTrigger = numValue;
+                        else if (field === 'target') changes.targetExit = numValue;
+                        else if (field === 'stop_loss') changes.stopLoss = numValue;
+                        saveTradeOverride(trade, changes);
+                        displayPerformanceTracking();
+                    }
+                });
+        };
+
+        // Delete from Radar → return ticker to Trendline
+        window.removeTradeByTicker = function(ticker, entryPrice) {
+            fetch('./radar_trades.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : [])
+                .catch(() => [])
+                .then(serverTrades => {
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    let trade = serverTrades.find(t => t.ticker === ticker && Math.abs(parseFloat(t.entry_price) - parseFloat(entryPrice)) < 0.01);
+                    if (!trade) {
+                        trade = Object.values(overrides).find(ov => ov.ticker === ticker && ov._custom);
+                    }
+                    if (trade) {
+                        saveTradeOverride(trade, { _deleted: true });
+                        // Remove from inRadar → stock reappears in Trendline
+                        unmarkTickerFromRadar(ticker);
+                        console.log('✓ Removed', ticker, '→ returned to Trendline');
+                        displayPerformanceTracking();
+                    }
+                });
+        };
+
+        window.removeTrade = function(idx) { displayPerformanceTracking(); };
 
         // ─── NIFTY 500 STOCK LIST (symbol + company name) ───────────────────────
         const NIFTY500_STOCKS = [];
@@ -6939,6 +6929,94 @@
 
         window.closeAddStockModal = function() {
             document.getElementById('addStockModal').classList.add('hidden');
+        };
+
+        // ─── ADD TRADE TO RADAR MODAL ────────────────────────────────────────────
+        window.openAddTradeModal = function() {
+            document.getElementById('addTradeModal').classList.remove('hidden');
+            // Reset all fields
+            document.getElementById('atSymbol').value = '';
+            document.getElementById('atSymbol').dataset.selected = '';
+            document.getElementById('atEntry').value = '';
+            document.getElementById('atTarget').value = '';
+            document.getElementById('atSL').value = '';
+            document.getElementById('atQty').value = '';
+            document.getElementById('atSource').value = 'Manual';
+            document.getElementById('atSymbolDropdown').innerHTML = '';
+            document.getElementById('atSymbolDropdown').classList.add('hidden');
+            document.getElementById('atSymbolSelected').classList.add('hidden');
+            setTimeout(() => document.getElementById('atSymbol').focus(), 100);
+
+            // Wire up symbol search (3+ chars autocomplete from NIFTY500)
+            document.getElementById('atSymbol').oninput = function() {
+                const q = this.value.trim().toUpperCase();
+                const dd = document.getElementById('atSymbolDropdown');
+                document.getElementById('atSymbolSelected').classList.add('hidden');
+                this.dataset.selected = '';
+
+                if (q.length < 3) { dd.innerHTML = ''; dd.classList.add('hidden'); return; }
+
+                const matches = NIFTY500_STOCKS.filter(s =>
+                    s.symbol.startsWith(q) || s.symbol.includes(q) || s.companyName.toUpperCase().includes(q)
+                ).slice(0, 12);
+
+                if (matches.length === 0) {
+                    dd.innerHTML = '<div class="px-3 py-2 text-xs text-slate-400">No matches found</div>';
+                    dd.classList.remove('hidden');
+                    return;
+                }
+                dd.innerHTML = matches.map(s => `
+                    <div class="px-3 py-2 cursor-pointer border-b border-slate-700 last:border-0"
+                         style="transition:background 0.15s;"
+                         onmouseover="this.style.background='rgba(255,255,255,0.06)'"
+                         onmouseout="this.style.background=''"
+                         onclick="selectAddTradeSymbol('${s.symbol}','${s.companyName.replace(/'/g,"\\'")}')">
+                        <div class="text-sm font-bold mono" style="color:#e2e8f0;">${s.symbol}</div>
+                        <div class="text-xs text-slate-400">${s.companyName}</div>
+                    </div>`).join('');
+                dd.classList.remove('hidden');
+            };
+        };
+
+        window.selectAddTradeSymbol = function(symbol, companyName) {
+            document.getElementById('atSymbol').value = symbol;
+            document.getElementById('atSymbol').dataset.selected = symbol;
+            document.getElementById('atSymbolDropdown').classList.add('hidden');
+            document.getElementById('atSymbolName').textContent = companyName;
+            document.getElementById('atSymbolSelected').classList.remove('hidden');
+            document.getElementById('atEntry').focus();
+        };
+
+        window.closeAddTradeModal = function() {
+            document.getElementById('addTradeModal').classList.add('hidden');
+        };
+
+        window.saveManualRadarTrade = function() {
+            const ticker = (document.getElementById('atSymbol').dataset.selected || document.getElementById('atSymbol').value).trim().toUpperCase();
+            const ep     = parseFloat(document.getElementById('atEntry').value);
+            const tgt    = parseFloat(document.getElementById('atTarget').value) || 0;
+            const sl     = parseFloat(document.getElementById('atSL').value) || 0;
+            const qty    = parseInt(document.getElementById('atQty').value);
+            const source = document.getElementById('atSource').value || 'Manual';
+
+            if (!ticker || isNaN(ep) || ep <= 0 || isNaN(qty) || qty <= 0) {
+                alert('Symbol, Entry Price and Quantity are required.');
+                return;
+            }
+
+            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+            const key = 'MANUAL_' + ticker + '_' + Date.now();
+            overrides[key] = {
+                ticker, entry_price: ep, entryTrigger: ep,
+                target: tgt, targetExit: tgt, stop_loss: sl, stopLoss: sl,
+                quantity: qty, current_price: ep, status: 'Open', source,
+                order_id: key, triggered_at: new Date().toISOString(), _custom: true
+            };
+            localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+            markTickerInRadar(ticker);
+            closeAddTradeModal();
+            displayPerformanceTracking();
+            console.log('✓ Added manual radar trade:', ticker);
         };
 
         // Search input handler — match from 3rd character
@@ -7030,23 +7108,44 @@
             const ms = manualStocks[idx];
             if (!ms) return;
             const qty = Math.floor(ms.positionSize / ms.entryTrigger);
-            const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-            const exists = trades.find(t => t.ticker === ms.symbol && t.status === 'Open');
-            if (!exists) {
-                trades.push({
-                    ticker: ms.symbol,
-                    entryTrigger: ms.entryTrigger,
-                    targetExit: ms.targetExit,
-                    stopLoss: ms.stopLoss,
-                    positionSize: ms.positionSize,
-                    quantity: qty,
-                    takenAt: new Date().toISOString(),
-                    status: 'Open',
-                    source: 'Manual'
-                });
-                localStorage.setItem('radarTrades', JSON.stringify(trades));
-            }
-            placeAngelOrder(ms.symbol, 'BUY', qty, ms.entryTrigger, ms.stopLoss, ms.targetExit, 'Manual');
+
+            const confirmed = confirm(
+                `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
+                `Stock: ${ms.symbol}\n` +
+                `Action: BUY\n` +
+                `Entry Price: ₹${parseFloat(ms.entryTrigger).toFixed(2)}\n` +
+                `Quantity: ${qty}\n\n` +
+                `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
+                `Click OK to confirm.`
+            );
+            if (!confirmed) return;
+
+            // Place order first - only move to Radar on success
+            placeAngelOrder(ms.symbol, 'BUY', qty, ms.entryTrigger, ms.stopLoss, ms.targetExit, 'Manual').then(result => {
+                if (result.success) {
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    const key = result.order_id || ms.symbol;
+                    overrides[key] = {
+                        ticker: ms.symbol,
+                        entry_price: ms.entryTrigger,
+                        entryTrigger: ms.entryTrigger,
+                        target: ms.targetExit,
+                        targetExit: ms.targetExit,
+                        stop_loss: ms.stopLoss,
+                        stopLoss: ms.stopLoss,
+                        quantity: qty,
+                        current_price: ms.entryTrigger,
+                        status: 'Open',
+                        source: 'Manual',
+                        order_id: result.order_id || ('MAN_' + Date.now()),
+                        triggered_at: new Date().toISOString(),
+                        _custom: true
+                    };
+                    localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+                    markTickerInRadar(ms.symbol);
+                    switchTab('performance');
+                }
+            });
         };
         
         // Cleanup on page unload
@@ -7119,6 +7218,62 @@
                     class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mt-2"
                     style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
                     💾 Save to Trendline
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ─── ADD TRADE TO RADAR MODAL ─────────────────────────────────────────── -->
+    <div id="addTradeModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.7);">
+        <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background: #141923; border-top: 1px solid rgba(255,255,255,0.08); max-height: 90vh; overflow-y: auto;">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="text-base font-bold text-slate-100">📡 Add Trade to Radar</h2>
+                <button onclick="closeAddTradeModal()" class="text-slate-400 hover:text-slate-200 text-xl">✕</button>
+            </div>
+            <div class="space-y-3">
+                <!-- Symbol with autocomplete -->
+                <div>
+                    <label class="text-xs text-slate-400 mb-1 block">Symbol *</label>
+                    <input id="atSymbol" type="text" placeholder="Type 3+ chars to search (e.g. HDF)" autocomplete="off"
+                        class="w-full px-3 py-2 rounded-lg text-sm mono font-semibold"
+                        style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0;">
+                    <div id="atSymbolDropdown" class="hidden rounded-lg mt-1 overflow-y-auto" style="background: #1e2530; border: 1px solid rgba(255,255,255,0.1); max-height: 180px;"></div>
+                    <div id="atSymbolSelected" class="hidden mt-1 text-xs px-2 py-1 rounded" style="color: #10B981; background: rgba(16,185,129,0.1);">✓ <span id="atSymbolName"></span></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block">Entry Price *</label>
+                        <input id="atEntry" type="number" placeholder="0.00" class="w-full px-3 py-2 rounded-lg text-sm mono" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #3B82F6;">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block">Quantity *</label>
+                        <input id="atQty" type="number" placeholder="0" class="w-full px-3 py-2 rounded-lg text-sm mono" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0;">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block">Target</label>
+                        <input id="atTarget" type="number" placeholder="0.00" class="w-full px-3 py-2 rounded-lg text-sm mono" style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #10B981;">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block">Stop Loss</label>
+                        <input id="atSL" type="number" placeholder="0.00" class="w-full px-3 py-2 rounded-lg text-sm mono" style="background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.3); color: #DC2626;">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 mb-1 block">Source</label>
+                    <select id="atSource" class="w-full px-3 py-2 rounded-lg text-sm" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0;">
+                        <option value="Manual">Manual</option>
+                        <option value="Angel One">Angel One</option>
+                        <option value="Zerodha">Zerodha</option>
+                        <option value="Groww">Groww</option>
+                        <option value="Upstox">Upstox</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <button onclick="saveManualRadarTrade()" class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mt-2" style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
+                    📡 Add to Radar
                 </button>
             </div>
         </div>
