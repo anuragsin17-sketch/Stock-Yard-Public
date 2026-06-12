@@ -6374,7 +6374,7 @@
                     // Add custom trades from UI not yet in server file
                     Object.values(overrides).forEach(ov => {
                         if (ov._custom) {
-                            const alreadyIn = trades.find(t => t.ticker === ov.ticker && t.order_id === ov.order_id);
+                            const alreadyIn = trades.find(t => t.order_id === ov.order_id);
                             if (!alreadyIn) trades.push(ov);
                         }
                     });
