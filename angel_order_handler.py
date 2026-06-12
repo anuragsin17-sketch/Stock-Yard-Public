@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ï»¿#!/usr/bin/env python3
 """
 Angel One Order Handler API
 Receives order confirmation from dashboard and places on Angel One
@@ -291,7 +291,7 @@ def place_order():
             telegram_msg = f"? *ORDER REJECTED*\n\n?? *Symbol:* {symbol}\n?? *Quantity:* {quantity}\n?? *Entry Price:* ?{entry_price}\n?? *Order Value:* ?{order_value:,.0f}\n\n?? *Reason:* {validation['reason']}{shortfall_msg}"
             
             if validation['balance_info']:
-                telegram_msg += f"\n\n?? *Account Status:*\n• Margin Available: ?{validation['balance_info']['margin_available']:,.0f}\n• Margin Required: ?{order_value:,.0f}"
+                telegram_msg += f"\n\n?? *Account Status:*\nï¿½ Margin Available: ?{validation['balance_info']['margin_available']:,.0f}\nï¿½ Margin Required: ?{order_value:,.0f}"
             
             send_telegram_notification(telegram_msg)
             
@@ -469,6 +469,29 @@ def get_quote():
         smart = get_angel_session()
         if not smart:
             logger.error(f"Quote fetch failed for {symbol}: Could not connect to Angel One")
+            # Fallback to yfinance when Angel One session unavailable
+            try:
+                import yfinance as yf
+                yf_symbol = symbol.replace('-EQ', '') + '.NS'
+                ticker_obj = yf.Ticker(yf_symbol)
+                hist = ticker_obj.history(period='1d', interval='1m')
+                if not hist.empty:
+                    ltp = float(hist['Close'].iloc[-1])
+                    logger.info(f"yfinance fallback (no session) for {symbol}: LTP={ltp}")
+                    return jsonify({
+                        'success': True,
+                        'symbol': symbol,
+                        'ltp': ltp,
+                        'open': float(hist['Open'].iloc[0]),
+                        'high': float(hist['High'].max()),
+                        'low': float(hist['Low'].min()),
+                        'close': ltp,
+                        'volume': 0,
+                        'timestamp': datetime.now().isoformat(),
+                        'source': 'yfinance'
+                    }), 200
+            except Exception as yf_e:
+                logger.warning(f"yfinance fallback also failed for {symbol}: {yf_e}")
             return jsonify({'success': False, 'error': 'Failed to connect to Angel One'}), 401
         
         # Add .NS suffix if not present
@@ -513,6 +536,29 @@ def get_quote():
         
         except Exception as e:
             logger.error(f"getQuote API failed for {symbol}: {e}", exc_info=True)
+            # Fallback to yfinance if Angel One fails
+            try:
+                import yfinance as yf
+                yf_symbol = symbol.replace('-EQ', '') + '.NS'
+                ticker_obj = yf.Ticker(yf_symbol)
+                hist = ticker_obj.history(period='1d', interval='1m')
+                if not hist.empty:
+                    ltp = float(hist['Close'].iloc[-1])
+                    logger.info(f"yfinance fallback for {symbol}: LTP={ltp}")
+                    return jsonify({
+                        'success': True,
+                        'symbol': symbol,
+                        'ltp': ltp,
+                        'open': float(hist['Open'].iloc[0]) if not hist.empty else 0,
+                        'high': float(hist['High'].max()) if not hist.empty else 0,
+                        'low': float(hist['Low'].min()) if not hist.empty else 0,
+                        'close': ltp,
+                        'volume': 0,
+                        'timestamp': datetime.now().isoformat(),
+                        'source': 'yfinance'
+                    }), 200
+            except Exception as yf_e:
+                logger.warning(f"yfinance fallback also failed for {symbol}: {yf_e}")
             return jsonify({'success': False, 'error': f'Quote fetch failed: {e}'}), 500
     
     except Exception as e:
@@ -587,6 +633,7 @@ def sync_trades():
         for trade in radar_trades:
             ticker = trade.get('ticker', '')
             order_id = trade.get('order_id', '')
+            quantity = trade.get('quantity', 1)
             
             # Find if this order exists in Angel One and has been exited
             order_found = False
@@ -600,11 +647,18 @@ def sync_trades():
                     logger.info(f"Order {order_id} ({ticker}) still open in Angel One")
                     break
             
-            # Check if position still held
+            # Check if position still held - NORMALIZE SYMBOL FORMAT
+            # Angel One returns "INFY-EQ" but radar_trades has "INFY"
+            normalized_ticker = ticker.rstrip('-EQ')  # Remove -EQ suffix for comparison
             for position in angel_positions:
-                if ticker in position.get('tradingsymbol', ''):
+                position_symbol = position.get('tradingsymbol', '').rstrip('-EQ')
+                quantity_held = int(position.get('quantity', 0))
+                
+                if normalized_ticker.upper() == position_symbol.upper():
                     position_found = True
-                    logger.info(f"Position {ticker} still held in Angel One")
+                    quantity = quantity_held  # Update quantity from Angel One
+                    trade['quantity'] = quantity  # Save updated quantity back to trade record
+                    logger.info(f"Position {ticker} ({quantity} shares) still held in Angel One")
                     break
             
             # If order not found and position not held -> Trade exited
@@ -629,7 +683,7 @@ def sync_trades():
                     trade['pnl_percent'] = pnl_percent
                 
                 newly_closed.append(trade)
-                logger.info(f"Closed trade: {ticker} - P&L: ?{trade.get('pnl', 0):,.2f}")
+                logger.info(f"Closed trade: {ticker} - P&L: â‚¹{trade.get('pnl', 0):,.2f}")
             else:
                 # Trade still open
                 updated_radar.append(trade)
