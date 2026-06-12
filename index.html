@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260524030439 -->
+    <!-- BUILD: 20260613120000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Stock Yard - Institutional Screening Platform</title>
@@ -6470,7 +6470,26 @@
                         fetchLiveLTPForRadarTrades(trades).then(liveQuotes => {
                             if (liveQuotes && liveQuotes.length > 0) {
                                 const updated = updateTradesWithLiveQuotes(trades, liveQuotes);
+
+                                // Save updated LTP back to radarOverrides for custom trades
+                                // so they show live price on next render too
+                                const overridesNow = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                                let overridesDirty = false;
+                                liveQuotes.forEach(q => {
+                                    Object.entries(overridesNow).forEach(([key, ov]) => {
+                                        if (ov.ticker === q.ticker) {
+                                            overridesNow[key].current_price = q.ltp;
+                                            overridesNow[key].currentPrice  = q.ltp;
+                                            overridesDirty = true;
+                                        }
+                                    });
+                                });
+                                if (overridesDirty) {
+                                    localStorage.setItem('radarOverrides', JSON.stringify(overridesNow));
+                                }
+
                                 renderRadarTab(container, updated);
+                                console.log('✅ Live LTP updated for', liveQuotes.length, 'trades');
                             }
                         });
                     }
