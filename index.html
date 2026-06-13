@@ -4778,7 +4778,7 @@
         
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Stock Yard Mobile App Starting...');
+            console.log('ðŸš€ Stock Yard Mobile App Starting...');
 
             // Load EC2 API key from sessionStorage (set once per session, never hardcoded)
             window._syKey = sessionStorage.getItem('sy_api_key') || '';
@@ -4790,7 +4790,7 @@
             setupEventListeners();
             loadData().then(() => {
                 // START live price updates AFTER data is loaded
-                console.log('📊 Data loaded, starting live price updates...');
+                console.log('ðŸ“Š Data loaded, starting live price updates...');
                 startLivePriceUpdates();
             });
             fetchIndexData();
@@ -4849,10 +4849,10 @@
                     allStocks.push({ symbol: stock.symbol, type: 'volume', currentPrice: stock.current_price });
                 });
             } else if (currentTab === 'trendline') {
-                // Skip — trendline prices come from the JSON file updated by backend workflow
+                // Skip â€” trendline prices come from the JSON file updated by backend workflow
                 return;
             } else if (currentTab === 'performance') {
-                // Radar tab — handled separately by fetchLiveLTPForRadarTrades
+                // Radar tab â€” handled separately by fetchLiveLTPForRadarTrades
                 return;
             }
             
@@ -4898,7 +4898,7 @@
                 fetchLivePricesForPriorityStocks();
             }, 60000);  // Update every 60 seconds to avoid yfinance rate limiting
             
-            console.log('🟢 Live price updates started (every 60 seconds)');
+            console.log('ðŸŸ¢ Live price updates started (every 60 seconds)');
         }
         
         // Start continuous index updates every 15 seconds
@@ -4911,7 +4911,7 @@
                 fetchIndexData();
             }, 15000);  // Update every 15 seconds
             
-            console.log('🟢 Index price updates started (every 15 seconds)');
+            console.log('ðŸŸ¢ Index price updates started (every 15 seconds)');
         }
         
         // Sync trades with Angel One every 5 minutes
@@ -4924,32 +4924,31 @@
                 syncTradesFromAngelOne();
             }, 300000);  // 5 minutes
             
-            console.log('🟢 Trade sync started (every 5 minutes)');
+            console.log('ðŸŸ¢ Trade sync started (every 5 minutes)');
         }
         
         // Sync trades from Angel One API
         async function syncTradesFromAngelOne() {
             try {
-                console.log('🔄 Syncing trades with Angel One...');
+                console.log('ðŸ”„ Syncing trades with Angel One...');
                 
                 const response = await fetch('https://32.194.58.75/api/sync-trades', {
                     cache: 'no-store',
-                    headers: { 'X-API-Key': window._syKey || '' },
-                    mode: 'cors'
+                                        mode: 'cors'
                 });
                 
                 if (!response.ok) {
-                    console.warn('⚠️ Trade sync failed:', response.status);
+                    console.warn('âš ï¸ Trade sync failed:', response.status);
                     return;
                 }
                 
                 const result = await response.json();
-                console.log('✅ Trade sync complete:', result);
+                console.log('âœ… Trade sync complete:', result);
 
                 // Save Angel One positions into radarOverrides so Radar tab shows them
                 const positions = result.open_trades || [];
                 {
-                    // Tickers the user explicitly deleted or purged — do NOT re-add them on sync
+                    // Tickers the user explicitly deleted or purged â€” do NOT re-add them on sync
                     const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
                     const purgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
                     const blockedTickers = [...deletedTickers, ...purgedTickers];
@@ -5002,13 +5001,13 @@
                                 pnl_percent: entry > 0 ? ((exit - entry) / entry * 100) : 0,
                                 closed_at: v.closed_at || new Date().toISOString()
                             };
-                            console.log('🔒 Auto-closed (sold in Angel One):', v.ticker);
+                            console.log('ðŸ”’ Auto-closed (sold in Angel One):', v.ticker);
                         }
                     });
 
                     localStorage.setItem('radarOverrides', JSON.stringify({ ...angelTrades, ...closedTrades, ...manualTrades }));
                     localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
-                    console.log('💾 Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
+                    console.log('ðŸ’¾ Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
                 }
                 
                 // Reload Radar tab if currently viewing it
@@ -5017,7 +5016,7 @@
                 }
                 
             } catch (error) {
-                console.log('ℹ️ Angel One sync service not available (EC2 not running?):', error.message);
+                console.log('â„¹ï¸ Angel One sync service not available (EC2 not running?):', error.message);
             }
         }
         
@@ -5030,18 +5029,18 @@
                 });
                 
                 if (!response.ok) {
-                    console.warn(`⚠️ Quote fetch failed for ${symbol}:`, response.status);
+                    console.warn(`âš ï¸ Quote fetch failed for ${symbol}:`, response.status);
                     return null;
                 }
                 
                 const data = await response.json();
                 if (data.success) {
-                    console.log(`✅ Live quote for ${symbol}: ₹${data.ltp}`);
+                    console.log(`âœ… Live quote for ${symbol}: â‚¹${data.ltp}`);
                     return data;
                 }
                 
             } catch (error) {
-                console.log(`ℹ️ Could not fetch live quote for ${symbol}:`, error.message);
+                console.log(`â„¹ï¸ Could not fetch live quote for ${symbol}:`, error.message);
             }
             
             return null;
@@ -5096,7 +5095,7 @@
                     const change = oldPrice ? ((newPrice - oldPrice) / oldPrice) * 100 : 0;
                     stock.live_change_percent = change;
                     stock.is_live_updated = true;
-                    console.log(`✓ Volume: ${symbol} = ₹${newPrice.toFixed(2)}`);
+                    console.log(`âœ“ Volume: ${symbol} = â‚¹${newPrice.toFixed(2)}`);
                 }
             }
             
@@ -5123,7 +5122,7 @@
                     const change = oldPrice ? ((newPrice - oldPrice) / oldPrice) * 100 : 0;
                     stock.live_change_percent = change;
                     stock.is_live_updated = true;
-                    console.log(`✓ Trendline: ${symbol} = ₹${newPrice.toFixed(2)}`);
+                    console.log(`âœ“ Trendline: ${symbol} = â‚¹${newPrice.toFixed(2)}`);
                 }
             }
             
@@ -5134,7 +5133,7 @@
                 if (stock) {
                     stock.currentPrice = newPrice;
                     sessionStorage.setItem('trendlineStocks', JSON.stringify(trendlineStocks));
-                    console.log(`✓ Trendline JSON: ${symbol} = ₹${newPrice.toFixed(2)}`);
+                    console.log(`âœ“ Trendline JSON: ${symbol} = â‚¹${newPrice.toFixed(2)}`);
                 }
             }
             
@@ -5196,7 +5195,7 @@
         
         // Load data (try fetch first, fallback to embedded)
         async function loadData() {
-            console.log('📱 Loading data...');
+            console.log('ðŸ“± Loading data...');
             hideError();
             
             try {
@@ -5212,7 +5211,7 @@
                     const fetchedData = JSON.parse(text.trim().replace(/^\uFEFF/, ''));
                     
                     if (fetchedData && fetchedData.timestamp) {
-                        console.log('✅ Fetched fresh data from server');
+                        console.log('âœ… Fetched fresh data from server');
                         screeningData = fetchedData;
                         updateUI();
                         updateStatus(true);
@@ -5220,11 +5219,11 @@
                     }
                 }
             } catch (error) {
-                console.log('⚠️ Fetch failed, using embedded data:', error.message);
+                console.log('âš ï¸ Fetch failed, using embedded data:', error.message);
             }
             
             // Use embedded data as reliable fallback
-            console.log('📦 Using embedded live data');
+            console.log('ðŸ“¦ Using embedded live data');
             screeningData = LIVE_DATA;
             updateUI();
             updateStatus(true);
@@ -5232,7 +5231,7 @@
         
         // Load fallback data only if absolutely necessary
         function loadFallbackData() {
-            console.warn('⚠️ Using fallback data');
+            console.warn('âš ï¸ Using fallback data');
             screeningData = {
                 timestamp: new Date().toISOString(),
                 volume_breakout_stocks: [],
@@ -5322,7 +5321,7 @@
             if (key && key.trim()) {
                 sessionStorage.setItem('sy_api_key', key.trim());
                 window._syKey = key.trim();
-                alert('✅ API key set for this session.');
+                alert('âœ… API key set for this session.');
             }
         };
 
@@ -5332,15 +5331,12 @@
                 const EC2_API = "https://32.194.58.75/api/place-order";
                 const apiKey  = "SY-" + btoa(symbol + qty + Math.floor(Date.now()/300000));
 
-                console.log(`📤 Placing order via EC2 API...`);
-                console.log(`   Symbol: ${symbol}, Qty: ${qty}, Price: ₹${price}, Target: ₹${target}, SL: ₹${stopLoss}`);
+                console.log(`ðŸ“¤ Placing order via EC2 API...`);
+                console.log(`   Symbol: ${symbol}, Qty: ${qty}, Price: â‚¹${price}, Target: â‚¹${target}, SL: â‚¹${stopLoss}`);
 
                 const response = await fetch(EC2_API, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': '008c11a5313ca98cb7d5a7ae03e9df2d49fa0e3495bf2fa4614845c61cb905f6'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         symbol: symbol,
                         action: action,
@@ -5357,20 +5353,20 @@
                     console.log('Order response:', result);
                     
                     if (result.success || result.order_id) {
-                        alert(`✅ Order placed!\n\nStock: ${symbol}\nOrder ID: ${result.order_id || 'Pending'}\n\nCheck Angel One app.`);
+                        alert(`âœ… Order placed!\n\nStock: ${symbol}\nOrder ID: ${result.order_id || 'Pending'}\n\nCheck Angel One app.`);
                         return { success: true, order_id: result.order_id };
                     } else {
-                        alert(`❌ Order failed: ${result.error || 'Unknown error'}`);
+                        alert(`âŒ Order failed: ${result.error || 'Unknown error'}`);
                         return { success: false };
                     }
                 } catch (e) {
                     console.log('Response parsing error (order may still be sent):', e.message);
-                    alert(`✅ Order sent to Angel One!\n\nPlease check the app in 2-3 seconds.\nYou'll get a Telegram notification when confirmed.`);
+                    alert(`âœ… Order sent to Angel One!\n\nPlease check the app in 2-3 seconds.\nYou'll get a Telegram notification when confirmed.`);
                     return { success: true, order_id: null };
                 }
 
             } catch (error) {
-                alert(`❌ Error: ${error.message}`);
+                alert(`âŒ Error: ${error.message}`);
                 console.error('Order error:', error);
                 return { success: false };
             }
@@ -5392,7 +5388,7 @@
             inRadar = inRadar.filter(t => t !== ticker);
             localStorage.setItem('inRadarTickers', JSON.stringify(inRadar));
 
-            // Add to radarDeletedTickers — this persists across re-renders
+            // Add to radarDeletedTickers â€” this persists across re-renders
             // and prevents the ticker from being shown in radar even if it's still in radar_trades.json
             let deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
             if (!deleted.includes(ticker)) {
@@ -5403,7 +5399,7 @@
 
         // Check if ticker is already in radar
         function isTickerInRadar(ticker) {
-            // Permanently purged tickers are hidden everywhere — treat as "in radar" so Trendline skips them
+            // Permanently purged tickers are hidden everywhere â€” treat as "in radar" so Trendline skips them
             const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
             if (purged.includes(ticker)) return true;
 
@@ -5492,7 +5488,7 @@
         }
 
         function updateTabCounts() {
-            // Volume count (≥20x filter)
+            // Volume count (â‰¥20x filter)
             const volCount = (screeningData?.volume_breakout_stocks || [])
                 .filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
             setTabCount('volTabCount', volCount);
@@ -5506,7 +5502,7 @@
                     setTabCount('trendTabCount', tlCount);
                 });
 
-            // Radar count — use same dedup logic as displayPerformanceTracking
+            // Radar count â€” use same dedup logic as displayPerformanceTracking
             fetch('./radar_trades.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(serverTrades => {
@@ -5672,25 +5668,25 @@
                     
                     // Add vertical line price if available
                     const volVerticalLine = stock.vertical_line_price ? 
-                        `<div class="text-xs mono" style="color: #06B6D4;">Vertical Line: ₹${stock.vertical_line_price.toLocaleString()}</div>` : '';
+                        `<div class="text-xs mono" style="color: #06B6D4;">Vertical Line: â‚¹${stock.vertical_line_price.toLocaleString()}</div>` : '';
                     
                     details = `
                         <div class="text-xs text-slate-400 mb-1">${stock.breakout_volume_ratio}x Volume Spike</div>
                         <div class="text-lg font-bold mono flex items-center" style="color: #047857;">
-                            ₹${stock.current_price.toLocaleString()}
+                            â‚¹${stock.current_price.toLocaleString()}
                             ${stock.is_live_updated ? '<span class="ml-2 px-2 py-1 text-xs rounded-full" style="background: rgba(34, 197, 94, 0.2); color: #22C55E;">LIVE</span>' : ''}
                             ${stock.live_change_percent ? `<span class="ml-2 text-xs ${stock.live_change_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}">(${stock.live_change_percent >= 0 ? '+' : ''}${stock.live_change_percent.toFixed(2)}%)</span>` : ''}
                         </div>
-                        <div class="text-xs text-slate-500 mono">Breakout: ${stock.breakout_date} at ₹${stock.breakout_price.toLocaleString()}</div>
-                        <div class="text-xs text-slate-500 mono">Day Low: ₹${stock.breakout_low.toLocaleString()}</div>
+                        <div class="text-xs text-slate-500 mono">Breakout: ${stock.breakout_date} at â‚¹${stock.breakout_price.toLocaleString()}</div>
+                        <div class="text-xs text-slate-500 mono">Day Low: â‚¹${stock.breakout_low.toLocaleString()}</div>
                         ${volVerticalLine}
-                        <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
+                        <div class="text-xs text-slate-500 mono">52W: â‚¹${stock.week_52_low.toLocaleString()} - â‚¹${stock.week_52_high.toLocaleString()}</div>
 
                         <!-- Editable Entry Trigger -->
                         <div class="mt-2 mb-2">
                             <span class="text-xs text-slate-500">Entry Trigger</span>
                             <div class="flex items-center space-x-1 mt-1">
-                                <span class="text-xs mono" style="color: #D97706;">₹</span>
+                                <span class="text-xs mono" style="color: #D97706;">â‚¹</span>
                                 <input type="number" id="vol_entry_${stock.symbol}"
                                     value="${stock.radar_trigger_price}"
                                     step="0.5"
@@ -5700,14 +5696,14 @@
                         </div>
                         </div>
 
-                        <div class="text-xs mono mb-2" style="color:#64748b;">52W: ₹${stock.week_52_low?.toLocaleString()||'--'} ↔ ₹${stock.week_52_high?.toLocaleString()||'--'}</div>
+                        <div class="text-xs mono mb-2" style="color:#64748b;">52W: â‚¹${stock.week_52_low?.toLocaleString()||'--'} â†” â‚¹${stock.week_52_high?.toLocaleString()||'--'}</div>
 
                         <div class="flex items-center space-x-2 mt-2">
                             <div class="flex-1">${radarStatus}</div>
                             <button onclick="takeVolumeTrade('${stock.symbol}', '${stock.company_name}')"
                                 class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                                 style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
-                                📥 Take Trade
+                                ðŸ“¥ Take Trade
                             </button>
                         </div>
                     `;
@@ -5724,17 +5720,17 @@
                     
                     // Add vertical line price if available
                     const darvasVerticalLine = stock.vertical_line_price ? 
-                        `<div class="text-xs mono" style="color: #06B6D4;">Vertical Line: ₹${stock.vertical_line_price.toLocaleString()}</div>` : '';
+                        `<div class="text-xs mono" style="color: #06B6D4;">Vertical Line: â‚¹${stock.vertical_line_price.toLocaleString()}</div>` : '';
                     
                     details = `
                         <div class="text-xs text-slate-400 mb-2">${stock.breakout_status}</div>
-                        <div class="text-2xl font-bold mono" style="color: #9333EA;">₹${stock.current_price.toLocaleString()}</div>
+                        <div class="text-2xl font-bold mono" style="color: #9333EA;">â‚¹${stock.current_price.toLocaleString()}</div>
                         <div class="text-xs mono mt-2" style="color: #3B82F6;">Timeframe: ${stock.timeframe_years} Years</div>
-                        <div class="text-xs text-slate-500 mono">Box: ₹${stock.box_low.toLocaleString()} - ₹${stock.box_high.toLocaleString()} (${stock.box_range_percent}%)</div>
+                        <div class="text-xs text-slate-500 mono">Box: â‚¹${stock.box_low.toLocaleString()} - â‚¹${stock.box_high.toLocaleString()} (${stock.box_range_percent}%)</div>
                         <div class="text-xs text-slate-500 mono">Consolidation: ${stock.consolidation_months} months | Strength: ${stock.box_strength}%</div>
                         ${darvasVerticalLine}
-                        <div class="text-xs mono" style="color: #047857;">Target: ₹${stock.target_price.toLocaleString()} (+${stock.target_percent}%)</div>
-                        <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
+                        <div class="text-xs mono" style="color: #047857;">Target: â‚¹${stock.target_price.toLocaleString()} (+${stock.target_percent}%)</div>
+                        <div class="text-xs text-slate-500 mono">52W: â‚¹${stock.week_52_low.toLocaleString()} - â‚¹${stock.week_52_high.toLocaleString()}</div>
                         <div class="mt-3">${priorityBadge}</div>
                     `;
                     break;
@@ -5846,23 +5842,23 @@
                                         <span class="px-2 py-0.5 text-xs rounded-full" style="background: rgba(99,102,241,0.2); color: #818CF8;">Manual</span>
                                     </div>
                                     <div class="text-xs text-slate-400 mb-3">${ms.companyName || ''}</div>
-                                    <div class="text-lg font-bold mono mb-2" style="color: #047857;">₹${parseFloat(ms.currentPrice).toLocaleString()}</div>
+                                    <div class="text-lg font-bold mono mb-2" style="color: #047857;">â‚¹${parseFloat(ms.currentPrice).toLocaleString()}</div>
                                     <div class="grid grid-cols-2 gap-2 mb-2">
-                                        <div><div class="text-xs text-slate-500">Entry Trigger</div><div class="text-sm font-bold mono" style="color: #3B82F6;">₹${parseFloat(ms.entryTrigger).toLocaleString()}</div></div>
-                                        <div><div class="text-xs text-slate-500">Target</div><div class="text-sm font-bold mono" style="color: #10B981;">₹${parseFloat(ms.targetExit).toLocaleString()}</div></div>
-                                        <div><div class="text-xs text-slate-500">Stop Loss</div><div class="text-sm font-bold mono" style="color: #DC2626;">₹${parseFloat(ms.stopLoss).toLocaleString()}</div></div>
-                                        <div><div class="text-xs text-slate-500">Position</div><div class="text-sm font-bold mono" style="color: #A78BFA;">₹${parseFloat(ms.positionSize).toLocaleString()}</div></div>
+                                        <div><div class="text-xs text-slate-500">Entry Trigger</div><div class="text-sm font-bold mono" style="color: #3B82F6;">â‚¹${parseFloat(ms.entryTrigger).toLocaleString()}</div></div>
+                                        <div><div class="text-xs text-slate-500">Target</div><div class="text-sm font-bold mono" style="color: #10B981;">â‚¹${parseFloat(ms.targetExit).toLocaleString()}</div></div>
+                                        <div><div class="text-xs text-slate-500">Stop Loss</div><div class="text-sm font-bold mono" style="color: #DC2626;">â‚¹${parseFloat(ms.stopLoss).toLocaleString()}</div></div>
+                                        <div><div class="text-xs text-slate-500">Position</div><div class="text-sm font-bold mono" style="color: #A78BFA;">â‚¹${parseFloat(ms.positionSize).toLocaleString()}</div></div>
                                     </div>
-                                    <div class="text-xs text-slate-500 mono mb-3">Fib: — | Score: —</div>
+                                    <div class="text-xs text-slate-500 mono mb-3">Fib: â€” | Score: â€”</div>
                                     <div class="flex items-center space-x-2">
                                         <button onclick="takeManualTrade(${idx})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                                             style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
-                                            📥 Take Trade
+                                            ðŸ“¥ Take Trade
                                         </button>
                                         <button onclick="removeManualStock(${idx})"
                                             class="py-2 px-3 rounded-lg text-xs touch-btn"
-                                            style="background: rgba(100,116,139,0.2); color: #94A3B8;">🗑️</button>
+                                            style="background: rgba(100,116,139,0.2); color: #94A3B8;">ðŸ—‘ï¸</button>
                                     </div>
                                 </div>
                             </div>
@@ -5870,7 +5866,7 @@
                     `;
                 });
                 
-                // Trendline pagination — filter dismissed stocks first
+                // Trendline pagination â€” filter dismissed stocks first
                 const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
                 const filteredTrendStocks = trendlineStocks.filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker));
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
@@ -5881,7 +5877,7 @@
                     // Get saved entry trigger override from localStorage
                     const savedKey = `trendline_${stock.ticker}`;
                     const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
-                    // Validate saved entry — discard if it causes >50% distance (corrupted)
+                    // Validate saved entry â€” discard if it causes >50% distance (corrupted)
                     let entryTrigger = stock.triggerPrice;
                     if (saved.entryTrigger) {
                         const savedEntry = parseFloat(saved.entryTrigger);
@@ -5900,11 +5896,11 @@
                     // Determine status badge based on live distance
                     let statusBadge = '';
                     if (liveDist <= 1.0) {
-                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide animate-pulse" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">🎯 CRITICAL ENTRY</span>';
+                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide animate-pulse" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">ðŸŽ¯ CRITICAL ENTRY</span>';
                     } else if (liveDist <= 5.0) {
-                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(234, 179, 8, 0.2); color: #EAB308;">👀 WATCHLIST</span>';
+                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(234, 179, 8, 0.2); color: #EAB308;">ðŸ‘€ WATCHLIST</span>';
                     } else {
-                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(59, 130, 246, 0.2); color: #3B82F6;">📊 MONITORING</span>';
+                        statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(59, 130, 246, 0.2); color: #3B82F6;">ðŸ“Š MONITORING</span>';
                     }
 
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.ticker}`;
@@ -5918,15 +5914,15 @@
                                     <div class="text-xs text-slate-400 mb-3">${stock.patternZone} | Wicks: ${stock.wickTouches || '-'} | ${stock.timeframe || 'monthly'}</div>
 
                                     <div class="text-lg font-bold mono flex items-center mb-3" style="color: #047857;">
-                                        ₹${stock.currentPrice.toLocaleString()}
+                                        â‚¹${stock.currentPrice.toLocaleString()}
                                         <span id="dist_${stock.ticker}" class="text-xs ml-2 text-slate-400">Distance: ${liveDist}%</span>
                                     </div>
 
                                     <!-- Editable Entry Trigger with live distance update -->
                                     <div class="mb-3">
-                                        <div class="text-xs text-slate-500 mb-1">Entry Trigger ${saved.entryTrigger ? '<span style="color:#F59E0B;">✏️ edited</span>' : ''}</div>
+                                        <div class="text-xs text-slate-500 mb-1">Entry Trigger ${saved.entryTrigger ? '<span style="color:#F59E0B;">âœï¸ edited</span>' : ''}</div>
                                         <div class="flex items-center space-x-2">
-                                            <span class="text-xs mono" style="color: #3B82F6;">₹</span>
+                                            <span class="text-xs mono" style="color: #3B82F6;">â‚¹</span>
                                             <input type="number"
                                                 id="entry_${stock.ticker}"
                                                 value="${parseFloat(entryTrigger).toFixed(2)}"
@@ -5943,18 +5939,18 @@
                                         Fib: ${stock.fibLevelMatch || 'N/A'} | Score: ${stock.confluenceScore || '-'}/10
                                     </div>
 
-                                    ${(stock.week52High || stock.week52Low) ? `<div class="text-xs mono mb-3" style="color:#64748b;">52W: ₹${(stock.week52Low||'--').toLocaleString()} ↔ ₹${(stock.week52High||'--').toLocaleString()}</div>` : ''}
+                                    ${(stock.week52High || stock.week52Low) ? `<div class="text-xs mono mb-3" style="color:#64748b;">52W: â‚¹${(stock.week52Low||'--').toLocaleString()} â†” â‚¹${(stock.week52High||'--').toLocaleString()}</div>` : ''}
 
                                     <div class="flex items-center space-x-2 mt-3">
                                         <div class="flex-1">${statusBadge}</div>
                                         <button onclick="dismissTrendlineStock('${stock.ticker}')"
                                             class="py-2 px-3 rounded-lg text-xs touch-btn"
-                                            title="Dismiss — won't show in future runs"
-                                            style="background: rgba(100,116,139,0.15); color: #64748B;">🗑️</button>
+                                            title="Dismiss â€” won't show in future runs"
+                                            style="background: rgba(100,116,139,0.15); color: #64748B;">ðŸ—‘ï¸</button>
                                         <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0}, ${stock.week52High || 'null'}, ${stock.week52Low || 'null'})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                                             style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
-                                            📥 Take Trade
+                                            ðŸ“¥ Take Trade
                                         </button>
                                     </div>
                                 </div>
@@ -5980,14 +5976,14 @@
             } catch (error) {
                 container.innerHTML = `
                     <div class="mobile-card rounded-xl p-6 text-center">
-                        <div class="text-red-400 mb-2">⚠️ Error Loading Trendline Data</div>
+                        <div class="text-red-400 mb-2">âš ï¸ Error Loading Trendline Data</div>
                         <div class="text-xs text-slate-500">${error.message}</div>
                     </div>
                 `;
             }
         }
         
-        // ─── PAST PERFORMANCE TAB ────────────────────────────────────────────────
+        // â”€â”€â”€ PAST PERFORMANCE TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let perfData = null;
         let perfDateFrom = '';
         let perfDateTo   = '';
@@ -6027,11 +6023,11 @@
                     <div class="flex items-center justify-center gap-2 flex-wrap">
                         <button onclick="${onPrev}"
                             class="px-3 py-2 rounded-lg text-xs font-medium touch-btn"
-                            style="${currentPage<=1 ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">←</button>
+                            style="${currentPage<=1 ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">â†</button>
                         ${pageButtons}
                         <button onclick="${onNext}"
                             class="px-3 py-2 rounded-lg text-xs font-medium touch-btn"
-                            style="${currentPage>=totalPages ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">→</button>
+                            style="${currentPage>=totalPages ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">â†’</button>
                     </div>
                 </div>`;
         }
@@ -6051,7 +6047,7 @@
             } catch (e) {
                 container.innerHTML = `
                     <div class="mobile-card rounded-xl p-8 text-center">
-                        <div class="text-4xl mb-4">📊</div>
+                        <div class="text-4xl mb-4">ðŸ“Š</div>
                         <div class="text-slate-300 font-semibold mb-2">No Backtest Data Yet</div>
                         <div class="text-xs text-slate-500 mb-4">Run the backtest to generate performance data:</div>
                         <code class="text-xs px-3 py-2 rounded-lg block mb-4" style="background: rgba(30,41,59,0.9); color: #38BDF8;">python backtest_performance.py --years 10</code>
@@ -6070,15 +6066,15 @@
             return d.toISOString().split('T')[0];
         }
 
-        let perfCapital = 500000; // default ₹5,00,000 total capital
+        let perfCapital = 500000; // default â‚¹5,00,000 total capital
 
         function renderPastPerformance(container) {
             if (!perfData) return;
             const allStocks = perfData.stocks || [];
-            const generatedAt = perfData.generated_at ? new Date(perfData.generated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+            const generatedAt = perfData.generated_at ? new Date(perfData.generated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”';
             const backtestYears = perfData.backtest_years || '?';
 
-            // ── Date filter ──────────────────────────────────────────────────
+            // â”€â”€ Date filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             const fromTs = perfDateFrom ? new Date(perfDateFrom).getTime() : null;
             const toTs   = perfDateTo   ? new Date(perfDateTo).getTime()   : null;
 
@@ -6170,14 +6166,14 @@
             const pnlColor = (s.total_pnl || 0) >= 0 ? '#10B981' : '#DC2626';
             const pfColor = s.profit_factor >= 1.5 ? '#10B981' : s.profit_factor >= 1.0 ? '#D97706' : '#DC2626';
             const dateLabel = (perfDateFrom || perfDateTo)
-                ? `${perfDateFrom || perfData.period?.start} → ${perfDateTo || perfData.period?.end}`
-                : `${perfData.period?.start || ''} → ${perfData.period?.end || ''}`;
+                ? `${perfDateFrom || perfData.period?.start} â†’ ${perfDateTo || perfData.period?.end}`
+                : `${perfData.period?.start || ''} â†’ ${perfData.period?.end || ''}`;
 
             let html = `
                 <!-- Header -->
                 <div class="mobile-card rounded-xl p-4 mb-4" style="border-color:rgba(56,189,248,0.2);background:rgba(56,189,248,0.05);">
                     <div class="flex items-center justify-between mb-1">
-                        <div class="text-xs font-semibold tracking-wider uppercase" style="color:#38BDF8;">📊 Trendline Strategy — ${backtestYears}Y Backtest</div>
+                        <div class="text-xs font-semibold tracking-wider uppercase" style="color:#38BDF8;">ðŸ“Š Trendline Strategy â€” ${backtestYears}Y Backtest</div>
                         <div class="text-xs text-slate-500">Updated: ${generatedAt}</div>
                     </div>
                     <div class="text-xs text-slate-400">${dateLabel}</div>
@@ -6185,13 +6181,13 @@
 
                 <!-- Capital + Date filters -->
                 <div class="mobile-card rounded-xl p-4 mb-4">
-                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">⚙️ Simulation Settings</div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">âš™ï¸ Simulation Settings</div>
 
                     <!-- Capital input -->
                     <div class="mb-4">
-                        <label class="text-xs text-slate-500 mb-1 block">💰 Capital Amount to Test</label>
+                        <label class="text-xs text-slate-500 mb-1 block">ðŸ’° Capital Amount to Test</label>
                         <div class="flex items-center space-x-2 mb-2">
-                            <span class="text-xs mono text-slate-400">₹</span>
+                            <span class="text-xs mono text-slate-400">â‚¹</span>
                             <input type="number" id="perfCapitalInput"
                                 value="${perfCapital}" step="50000" min="10000"
                                 class="flex-1 px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
@@ -6203,23 +6199,23 @@
                                 `<button onclick="perfCapital=${v}; document.getElementById('perfCapitalInput').value=${v}; renderPastPerformance(document.getElementById('resultsContainer'))"
                                     class="flex-shrink-0 px-3 py-1 rounded-lg text-xs touch-btn"
                                     style="${perfCapital===v ? 'background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;' : 'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
-                                    ₹${v>=100000?(v/100000).toFixed(v%100000===0?0:1)+'L':(v/1000)+'K'}</button>`
+                                    â‚¹${v>=100000?(v/100000).toFixed(v%100000===0?0:1)+'L':(v/1000)+'K'}</button>`
                             ).join('')}
                         </div>
-                        <div class="text-xs text-slate-500 mt-2">Capital is split equally across ${total} trade${total!==1?'s':''} in this period → ₹${Math.round(total>0?perfCapital/total:perfCapital).toLocaleString()} per trade</div>
+                        <div class="text-xs text-slate-500 mt-2">Capital is split equally across ${total} trade${total!==1?'s':''} in this period â†’ â‚¹${Math.round(total>0?perfCapital/total:perfCapital).toLocaleString()} per trade</div>
                     </div>
 
                     <!-- Date range -->
                     <div class="grid grid-cols-2 gap-3 mb-3">
                         <div>
-                            <label class="text-xs text-slate-500 mb-1 block">📅 Date From</label>
+                            <label class="text-xs text-slate-500 mb-1 block">ðŸ“… Date From</label>
                             <input type="date" id="perfDateFromInput" value="${perfDateFrom}"
                                 class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
                                 style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
                                 onchange="perfYears=0; perfDateFrom=this.value; renderPastPerformance(document.getElementById('resultsContainer'))" />
                         </div>
                         <div>
-                            <label class="text-xs text-slate-500 mb-1 block">📅 Date To</label>
+                            <label class="text-xs text-slate-500 mb-1 block">ðŸ“… Date To</label>
                             <input type="date" id="perfDateToInput" value="${perfDateTo}"
                                 max="${new Date().toISOString().split('T')[0]}"
                                 class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
@@ -6244,7 +6240,7 @@
 
             if (total === 0) {
                 html += `<div class="mobile-card rounded-xl p-8 text-center">
-                    <div class="text-4xl mb-3">🔍</div>
+                    <div class="text-4xl mb-3">ðŸ”</div>
                     <div class="text-slate-300 font-semibold mb-2">No trades in this date range</div>
                     <div class="text-xs text-slate-500">Try a wider range or click "All"</div>
                 </div>`;
@@ -6261,9 +6257,9 @@
                         <div class="text-xs text-slate-500 mt-1">${s.winning_trades}W / ${s.losing_trades}L</div>
                     </div>
                     <div class="mobile-card rounded-xl p-4 text-center">
-                        <div class="text-2xl font-bold mono" style="color:${pnlColor};">${(s.total_pnl>=0?'+':'')}₹${s.total_pnl.toLocaleString()}</div>
+                        <div class="text-2xl font-bold mono" style="color:${pnlColor};">${(s.total_pnl>=0?'+':'')}â‚¹${s.total_pnl.toLocaleString()}</div>
                         <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Total P&L</div>
-                        <div class="text-xs text-slate-500 mt-1">${s.roi>=0?'+':''}${s.roi}% ROI on ₹${perfCapital.toLocaleString()}</div>
+                        <div class="text-xs text-slate-500 mt-1">${s.roi>=0?'+':''}${s.roi}% ROI on â‚¹${perfCapital.toLocaleString()}</div>
                     </div>
                     <div class="mobile-card rounded-xl p-4 text-center">
                         <div class="text-2xl font-bold mono" style="color:#10B981;">+${s.avg_win_pct}%</div>
@@ -6302,7 +6298,7 @@
 
                 <!-- Search + sort -->
                 <div class="mobile-card rounded-xl p-4 mb-4">
-                    <input id="perfSearchInput" type="text" placeholder="Search stock…"
+                    <input id="perfSearchInput" type="text" placeholder="Search stockâ€¦"
                         value="${perfStockFilter}"
                         oninput="perfStockFilter=this.value; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
                         class="w-full px-3 py-2 rounded-lg text-sm text-slate-100 outline-none mb-3"
@@ -6336,7 +6332,7 @@
                                 <div class="text-xs text-slate-500 mt-0.5">${st.total_trades} signal${st.total_trades!==1?'s':''} | avg hold ${st.avg_holding_days}d</div>
                             </div>
                             <div class="text-right">
-                                <div class="text-sm font-bold mono" style="color:${pnlC};">${st.total_pnl>=0?'+':''}₹${st.total_pnl.toLocaleString()}</div>
+                                <div class="text-sm font-bold mono" style="color:${pnlC};">${st.total_pnl>=0?'+':''}â‚¹${st.total_pnl.toLocaleString()}</div>
                                 <div class="text-xs text-slate-500">total P&L</div>
                             </div>
                         </div>
@@ -6380,14 +6376,14 @@
                     <div class="flex items-center justify-between">
                         <button onclick="perfPage=Math.max(1,perfPage-1); renderPastPerformance(document.getElementById('resultsContainer'))"
                             class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
-                            style="${perfPage<=1 ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">← Prev</button>
+                            style="${perfPage<=1 ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">â† Prev</button>
                         <div class="text-xs text-slate-400 text-center">
                             <div class="font-semibold text-slate-200">Page ${perfPage} of ${totalPages}</div>
-                            <div class="text-slate-500">${(perfPage-1)*PERF_PAGE_SIZE+1}–${Math.min(perfPage*PERF_PAGE_SIZE,stocks.length)} of ${stocks.length} stocks</div>
+                            <div class="text-slate-500">${(perfPage-1)*PERF_PAGE_SIZE+1}â€“${Math.min(perfPage*PERF_PAGE_SIZE,stocks.length)} of ${stocks.length} stocks</div>
                         </div>
                         <button onclick="perfPage=Math.min(${totalPages},perfPage+1); renderPastPerformance(document.getElementById('resultsContainer'))"
                             class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
-                            style="${perfPage>=totalPages ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">Next →</button>
+                            style="${perfPage>=totalPages ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">Next â†’</button>
                     </div>
                 </div>`;
             }
@@ -6415,7 +6411,7 @@
                 })
                 .then(r => r.ok ? r.json() : null)
                 .then(res => {
-                    if (res && res.success) console.log('📡 Pushed', res.monitored, 'trades to backend monitor');
+                    if (res && res.success) console.log('ðŸ“¡ Pushed', res.monitored, 'trades to backend monitor');
                 })
                 .catch(err => console.warn('Backend monitor push failed:', err.message));
             } catch (e) {
@@ -6460,7 +6456,7 @@
 
                     trades = trades.filter(t => !t._deleted);
 
-                    // Permanently purged tickers — hidden from Radar entirely
+                    // Permanently purged tickers â€” hidden from Radar entirely
                     const purgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
                     trades = trades.filter(t => !purgedTickers.includes(t.ticker));
 
@@ -6502,9 +6498,9 @@
         // Sync Radar with Angel One open positions
         window.syncRadarFromAngelOne = function() {
             const container = document.getElementById('resultsContainer');
-            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">� Syncing with Angel One...</div>';
+            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">ï¿½ Syncing with Angel One...</div>';
 
-            fetch('https://32.194.58.75/api/sync-trades', { cache: 'no-store', headers: { 'X-API-Key': window._syKey || '' }, mode: 'cors' })
+            fetch('https://32.194.58.75/api/sync-trades', { cache: 'no-store', mode: 'cors' })
                 .then(r => r.ok ? r.json() : null)
                 .catch(err => {
                     console.warn('EC2 sync failed:', err.message);
@@ -6515,7 +6511,7 @@
                         const positions = data.open_trades || [];
                         console.log('Angel One positions:', positions.length);
 
-                        // Tickers the user explicitly deleted or purged — do NOT re-add them on sync
+                        // Tickers the user explicitly deleted or purged â€” do NOT re-add them on sync
                         const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
                         const purgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
                         const blockedTickers = [...deletedTickers, ...purgedTickers];
@@ -6568,7 +6564,7 @@
                                     pnl_percent: entry > 0 ? ((exit - entry) / entry * 100) : 0,
                                     closed_at: v.closed_at || new Date().toISOString()
                                 };
-                                console.log('🔒 Auto-closed (sold in Angel One):', v.ticker);
+                                console.log('ðŸ”’ Auto-closed (sold in Angel One):', v.ticker);
                             }
                         });
 
@@ -6576,7 +6572,7 @@
                         localStorage.setItem('radarOverrides', JSON.stringify({ ...angelTrades, ...closedTrades, ...manualTrades }));
                         localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
 
-                        console.log('✅ Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
+                        console.log('âœ… Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
                     } else {
                         console.warn('EC2 sync unavailable');
                     }
@@ -6599,7 +6595,7 @@
             const openTrades = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
             if (openTrades.length === 0) return [];
             
-            console.log(`🔄 Fetching live LTP for ${openTrades.length} open trades...`);
+            console.log(`ðŸ”„ Fetching live LTP for ${openTrades.length} open trades...`);
             
             // Fetch live quotes for all open trades concurrently
             const quotePromises = openTrades.map(trade => {
@@ -6623,7 +6619,7 @@
             try {
                 const liveQuotes = await Promise.all(quotePromises);
                 const validQuotes = liveQuotes.filter(q => q !== null);
-                console.log(`✓ Fetched live LTP for ${validQuotes.length} trades`);
+                console.log(`âœ“ Fetched live LTP for ${validQuotes.length} trades`);
                 return validQuotes;
             } catch (e) {
                 console.error('Error fetching live LTP batch:', e);
@@ -6654,16 +6650,15 @@
             try {
                 const response = await fetch('https://32.194.58.75/api/sync-trades', {
                     cache: 'no-store',
-                    headers: { 'X-API-Key': window._syKey || '' },
-                    mode: 'cors'
+                                        mode: 'cors'
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Synced trades from Angel One:', data);
+                    console.log('âœ… Synced trades from Angel One:', data);
                     return data.open_trades || [];
                 }
             } catch (e) {
-                console.log('ℹ️ Sync endpoint not available:', e.message);
+                console.log('â„¹ï¸ Sync endpoint not available:', e.message);
             }
             return [];
         }
@@ -6702,16 +6697,15 @@
                 // Try to fetch from EC2 sync service (use correct port and endpoint)
                 const response = await fetch('https://32.194.58.75/api/sync-trades', { 
                     cache: 'no-store', 
-                    headers: { 'X-API-Key': window._syKey || '' }, 
-                    mode: 'cors' 
+                                        mode: 'cors' 
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Fetched live orders from Angel One:', data);
+                    console.log('âœ… Fetched live orders from Angel One:', data);
                     return data.open_trades || [];
                 }
             } catch (e) {
-                console.log('ℹ️ Angel One sync service not available:', e.message);
+                console.log('â„¹ï¸ Angel One sync service not available:', e.message);
             }
             return [];
         }
@@ -6821,9 +6815,9 @@
                     </button>
                     <button onclick="syncRadarFromAngelOne()" class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        <span>� Sync with Angel One</span>
+                        <span>ï¿½ Sync with Angel One</span>
                     </button>
-                        <div class="text-4xl mb-4">📡</div>
+                        <div class="text-4xl mb-4">ðŸ“¡</div>
                         <div class="text-slate-300 font-semibold mb-2">Radar is Empty</div>
                         <div class="text-xs text-slate-500">Take a trade from Trendline or add one manually.</div>
                     </div>`;
@@ -6847,25 +6841,25 @@
                     </button>
                     <button onclick="syncRadarFromAngelOne()" class="w-full py-2 rounded-lg text-xs font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        <span>� Sync with Angel One</span>
+                        <span>ï¿½ Sync with Angel One</span>
                     </button>
                     <div class="flex space-x-2">
-                        <button onclick="radarFilterState='all'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='all' ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">📊 All (${trades.length})</button>
-                        <button onclick="radarFilterState='open'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='open' ? 'background:rgba(217,119,6,0.3);color:#D97706;border:1px solid rgba(217,119,6,0.4);' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">🔵 Open (${open.length})</button>
-                        <button onclick="radarFilterState='closed'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='closed' ? 'background:rgba(4,120,87,0.3);color:#10B981;border:1px solid rgba(4,120,87,0.4);' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">✅ Closed (${closed.length})</button>
+                        <button onclick="radarFilterState='all'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='all' ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">ðŸ“Š All (${trades.length})</button>
+                        <button onclick="radarFilterState='open'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='open' ? 'background:rgba(217,119,6,0.3);color:#D97706;border:1px solid rgba(217,119,6,0.4);' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">ðŸ”µ Open (${open.length})</button>
+                        <button onclick="radarFilterState='closed'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='closed' ? 'background:rgba(4,120,87,0.3);color:#10B981;border:1px solid rgba(4,120,87,0.4);' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">âœ… Closed (${closed.length})</button>
                     </div>
                 </div>
                 <div class="mobile-card rounded-xl p-4 mb-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <div class="text-xs text-slate-400 mb-1">Amount Used</div>
-                            <div class="text-xl font-bold mono" style="color:#3B82F6;">₹${totalAmt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+                            <div class="text-xl font-bold mono" style="color:#3B82F6;">â‚¹${totalAmt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
                             <div class="text-xs text-slate-500">${open.length} open trade${open.length!==1?'s':''}</div>
                         </div>
                         <div>
                             <div class="text-xs text-slate-400 mb-1">Current Value</div>
-                            <div class="text-xl font-bold mono" style="color:#06B6D4;">₹${totalCur.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
-                            <div class="text-xs" style="color:${pnlColor};">${totalPnL>=0?'+':''}₹${totalPnL.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+                            <div class="text-xl font-bold mono" style="color:#06B6D4;">â‚¹${totalCur.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+                            <div class="text-xs" style="color:${pnlColor};">${totalPnL>=0?'+':''}â‚¹${totalPnL.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
                         </div>
                     </div>
                 </div>
@@ -6891,34 +6885,34 @@
                     <div class="grid grid-cols-4 gap-2 mb-3">
                         <div>
                             <div class="text-xs text-slate-500 mb-1">LTP</div>
-                            <div class="text-sm font-bold mono" style="color:#06B6D4;">${cp > 0 ? '₹'+cp.toLocaleString('en-IN',{maximumFractionDigits:2}) : '⟳'}</div>
-                            ${isEditable ? '<div class="text-xs" style="color:#10B981;">🔴 LIVE</div>' : ''}
+                            <div class="text-sm font-bold mono" style="color:#06B6D4;">${cp > 0 ? 'â‚¹'+cp.toLocaleString('en-IN',{maximumFractionDigits:2}) : 'âŸ³'}</div>
+                            ${isEditable ? '<div class="text-xs" style="color:#10B981;">ðŸ”´ LIVE</div>' : ''}
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Entry</div>
-                            ${isEditable ? '<input type="number" value="'+ep.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'entry_price\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+ep.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#3B82F6;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);">' : '<div class="text-sm font-bold mono" style="color:#3B82F6;">₹'+ep.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+ep.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'entry_price\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+ep.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#3B82F6;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);">' : '<div class="text-sm font-bold mono" style="color:#3B82F6;">â‚¹'+ep.toFixed(2)+'</div>'}
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Target</div>
-                            ${isEditable ? '<input type="number" value="'+tgt.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'target\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+tgt.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);">' : '<div class="text-sm font-bold mono" style="color:#10B981;">₹'+tgt.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+tgt.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'target\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+tgt.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);">' : '<div class="text-sm font-bold mono" style="color:#10B981;">â‚¹'+tgt.toFixed(2)+'</div>'}
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Stop</div>
-                            ${isEditable ? '<input type="number" value="'+sl.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'stop_loss\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+sl.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#DC2626;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);">' : '<div class="text-sm font-bold mono" style="color:#DC2626;">₹'+sl.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+sl.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'stop_loss\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+sl.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#DC2626;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);">' : '<div class="text-sm font-bold mono" style="color:#DC2626;">â‚¹'+sl.toFixed(2)+'</div>'}
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
-                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">Amount</div><div class="font-bold mono" style="color:#3B82F6;">₹${amt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">${qty} @ ₹${ep.toFixed(2)}</div></div>
+                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">Amount</div><div class="font-bold mono" style="color:#3B82F6;">â‚¹${amt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">${qty} @ â‚¹${ep.toFixed(2)}</div></div>
                         <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">52W H/L</div>${
                             trade.week52High && trade.week52Low
-                                ? `<div class="font-bold mono" style="color:#10B981;">₹${parseFloat(trade.week52High).toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">L: ₹${parseFloat(trade.week52Low).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>`
-                                : `<div class="font-bold mono text-slate-500">—</div><div class="text-slate-600">N/A</div>`
+                                ? `<div class="font-bold mono" style="color:#10B981;">â‚¹${parseFloat(trade.week52High).toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">L: â‚¹${parseFloat(trade.week52Low).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>`
+                                : `<div class="font-bold mono text-slate-500">â€”</div><div class="text-slate-600">N/A</div>`
                         }</div>
-                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">P&L</div><div class="font-bold mono" style="color:${pnlCol};">${pnl>=0?'+':''}₹${pnl.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div style="color:${pnlCol};">${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%</div></div>
+                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">P&L</div><div class="font-bold mono" style="color:${pnlCol};">${pnl>=0?'+':''}â‚¹${pnl.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div style="color:${pnlCol};">${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%</div></div>
                     </div>
                     <div class="flex space-x-2">
-                        ${isEditable ? '<button onclick="updateTradeStatusByTicker(\''+t+'\',\''+ep+'\',\'Target Hit\')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background:rgba(4,120,87,0.2);color:#10B981;">✅ Target Hit</button><button onclick="updateTradeStatusByTicker(\''+t+'\',\''+ep+'\',\'Stop Loss\')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background:rgba(220,38,38,0.2);color:#DC2626;">🛑 Stop Loss</button>' : ''}
-                        <button onclick="removeTradeByTicker('${t}','${ep}')" class="py-2 px-3 rounded-lg text-xs touch-btn" style="background:rgba(100,116,139,0.2);color:#94A3B8;">🗑️</button>
+                        ${isEditable ? '<button onclick="updateTradeStatusByTicker(\''+t+'\',\''+ep+'\',\'Target Hit\')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background:rgba(4,120,87,0.2);color:#10B981;">âœ… Target Hit</button><button onclick="updateTradeStatusByTicker(\''+t+'\',\''+ep+'\',\'Stop Loss\')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background:rgba(220,38,38,0.2);color:#DC2626;">ðŸ›‘ Stop Loss</button>' : ''}
+                        <button onclick="removeTradeByTicker('${t}','${ep}')" class="py-2 px-3 rounded-lg text-xs touch-btn" style="background:rgba(100,116,139,0.2);color:#94A3B8;">ðŸ—‘ï¸</button>
                     </div>
                 </div>`;
             });
@@ -6946,7 +6940,7 @@
                     }
                     if (trade) {
                         saveTradeOverride(trade, { status: newStatus, closedAt: new Date().toISOString() });
-                        console.log('✓ Closed', ticker, 'as', newStatus);
+                        console.log('âœ“ Closed', ticker, 'as', newStatus);
                         displayPerformanceTracking();
                     }
                 });
@@ -6975,7 +6969,7 @@
                 });
         };
 
-        // Delete from Radar → return ticker to Trendline
+        // Delete from Radar â†’ return ticker to Trendline
         window.removeTradeByTicker = function(ticker, entryPrice) {
             // Permanently purge this ticker from ALL tabs (Radar + Trendline). No coming back.
             let purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
@@ -6998,16 +6992,16 @@
             overrides['DELETE_' + ticker] = { ticker, _deleted: true, _custom: false };
             localStorage.setItem('radarOverrides', JSON.stringify(overrides));
 
-            console.log('🗑️ Permanently removed', ticker, 'from all tabs');
+            console.log('ðŸ—‘ï¸ Permanently removed', ticker, 'from all tabs');
             displayPerformanceTracking();
         };
 
         window.removeTrade = function(idx) { displayPerformanceTracking(); };
 
-        // ─── NIFTY 500 STOCK LIST (symbol + company name) ───────────────────────
+        // â”€â”€â”€ NIFTY 500 STOCK LIST (symbol + company name) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const NIFTY500_STOCKS = [];
         (async function loadNifty500() {
-            // Try multiple paths — works both locally and on GitHub Pages
+            // Try multiple paths â€” works both locally and on GitHub Pages
             const paths = ['./Stock List.csv', 'Stock List.csv', './ind_nifty500list.csv', 'ind_nifty500list.csv'];
             let loaded = false;
             for (const path of paths) {
@@ -7030,17 +7024,17 @@
                             if (symbol) NIFTY500_STOCKS.push({ symbol, companyName });
                         }
                     });
-                    console.log(`✅ Loaded ${NIFTY500_STOCKS.length} stocks from ${path}`);
+                    console.log(`âœ… Loaded ${NIFTY500_STOCKS.length} stocks from ${path}`);
                     loaded = true;
                     break;
                 } catch(e) {
                     console.warn(`Could not load from ${path}:`, e);
                 }
             }
-            if (!loaded) console.error('❌ Could not load Stock List from any path');
+            if (!loaded) console.error('âŒ Could not load Stock List from any path');
         })();
 
-        // ─── ADD STOCK MODAL ─────────────────────────────────────────────────────
+        // â”€â”€â”€ ADD STOCK MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let addStockContext = 'trendline'; // which tab triggered the modal
 
         window.openAddStockModal = function(context) {
@@ -7057,7 +7051,7 @@
             document.getElementById('addStockModal').classList.add('hidden');
         };
 
-        // ─── TRADE ORDER MODAL ───────────────────────────────────────────────────
+        // â”€â”€â”€ TRADE ORDER MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Reusable modal for placing orders from Trendline + Volume tabs
         // Shows stock details with editable quantity, no 50k restriction
         window._pendingOrder = null;
@@ -7118,7 +7112,7 @@
             });
         };
 
-        // ─── ADD TRADE TO RADAR MODAL ────────────────────────────────────────────
+        // â”€â”€â”€ ADD TRADE TO RADAR MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         window.openAddTradeModal = function() {
             document.getElementById('addTradeModal').classList.remove('hidden');
             // Reset all fields
@@ -7203,10 +7197,10 @@
             markTickerInRadar(ticker);
             closeAddTradeModal();
             displayPerformanceTracking();
-            console.log('✓ Added manual radar trade:', ticker);
+            console.log('âœ“ Added manual radar trade:', ticker);
         };
 
-        // Search input handler — match from 3rd character
+        // Search input handler â€” match from 3rd character
         // (wired up inside the existing DOMContentLoaded below via setupEventListeners)
         function setupAddStockSearch() {
             const searchInput = document.getElementById('addStockSearch');
@@ -7238,9 +7232,9 @@
             });
         }
 
-        // Search input handler — match from 3rd character
+        // Search input handler â€” match from 3rd character
         window.selectAddStock = function(symbol, companyName) {
-            document.getElementById('addStockSearch').value = `${symbol} — ${companyName}`;
+            document.getElementById('addStockSearch').value = `${symbol} â€” ${companyName}`;
             document.getElementById('addStockDropdown').classList.add('hidden');
             document.getElementById('addStockSelectedSymbol').value = symbol;
             document.getElementById('addStockSelectedCompany').value = companyName;
@@ -7297,12 +7291,12 @@
             const qty = Math.floor(ms.positionSize / ms.entryTrigger);
 
             const confirmed = confirm(
-                `📥 CONFIRM TRADE - ANGEL ONE\n\n` +
+                `ðŸ“¥ CONFIRM TRADE - ANGEL ONE\n\n` +
                 `Stock: ${ms.symbol}\n` +
                 `Action: BUY\n` +
-                `Entry Price: ₹${parseFloat(ms.entryTrigger).toFixed(2)}\n` +
+                `Entry Price: â‚¹${parseFloat(ms.entryTrigger).toFixed(2)}\n` +
                 `Quantity: ${qty}\n\n` +
-                `⚠️ This will place a REAL LIMIT ORDER in Angel One.\n` +
+                `âš ï¸ This will place a REAL LIMIT ORDER in Angel One.\n` +
                 `Click OK to confirm.`
             );
             if (!confirmed) return;
@@ -7339,30 +7333,30 @@
         window.addEventListener('beforeunload', function() {
             if (livePriceUpdateTimer) clearInterval(livePriceUpdateTimer);
             if (indexUpdateTimer) clearInterval(indexUpdateTimer);
-            console.log('🔴 Live price updates stopped');
+            console.log('ðŸ”´ Live price updates stopped');
         });
 
     </script>
 
-    <!-- ─── ORDER CONFIRM MODAL ──────────────────────────────────────────────── -->
+    <!-- â”€â”€â”€ ORDER CONFIRM MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <div id="orderModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background:rgba(0,0,0,0.75);">
         <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background:#141923;border-top:2px solid rgba(16,185,129,0.4);">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-bold text-slate-100">📥 Place Order — Angel One</h2>
-                <button onclick="closeOrderModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">✕</button>
+                <h2 class="text-base font-bold text-slate-100">ðŸ“¥ Place Order â€” Angel One</h2>
+                <button onclick="closeOrderModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">âœ•</button>
             </div>
 
             <!-- Stock + price details -->
             <div class="rounded-xl p-4 mb-4" style="background:rgba(4,120,87,0.1);border:1px solid rgba(4,120,87,0.3);">
-                <div class="text-xl font-bold text-slate-100 mb-3" id="omTicker">—</div>
+                <div class="text-xl font-bold text-slate-100 mb-3" id="omTicker">â€”</div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Entry Price</div>
-                        <div class="text-lg font-bold mono" style="color:#3B82F6;" id="omEntry">—</div>
+                        <div class="text-lg font-bold mono" style="color:#3B82F6;" id="omEntry">â€”</div>
                     </div>
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Source</div>
-                        <div class="text-sm font-semibold text-slate-300" id="omSource">—</div>
+                        <div class="text-sm font-semibold text-slate-300" id="omSource">â€”</div>
                     </div>
                 </div>
             </div>
@@ -7375,7 +7369,7 @@
                     style="background:rgba(59,130,246,0.1);border:2px solid rgba(59,130,246,0.5);color:#3B82F6;">
                 <div class="flex justify-between text-xs text-slate-500 mt-2">
                     <span>Order Value:</span>
-                    <span id="omAmount" class="font-bold mono" style="color:#06B6D4;">—</span>
+                    <span id="omAmount" class="font-bold mono" style="color:#06B6D4;">â€”</span>
                 </div>
             </div>
 
@@ -7389,24 +7383,24 @@
                 <button onclick="confirmOrder()"
                     class="py-3 rounded-xl text-sm font-semibold touch-btn"
                     style="background:linear-gradient(135deg,#065F46,#047857);color:#fff;">
-                    ✅ Place Order
+                    âœ… Place Order
                 </button>
             </div>
-            <div class="text-xs text-slate-500 text-center mt-3">⚠️ Places a REAL LIMIT ORDER on Angel One</div>
+            <div class="text-xs text-slate-500 text-center mt-3">âš ï¸ Places a REAL LIMIT ORDER on Angel One</div>
         </div>
     </div>
 
-    <!-- ─── ADD STOCK MODAL ──────────────────────────────────────────────────── -->
+    <!-- â”€â”€â”€ ADD STOCK MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <div id="addStockModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.7);">
         <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background: #141923; border-top: 1px solid rgba(255,255,255,0.08); max-height: 90vh; overflow-y: auto;">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-bold text-slate-100">➕ Add Stock</h2>
-                <button onclick="closeAddStockModal()" class="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
+                <h2 class="text-base font-bold text-slate-100">âž• Add Stock</h2>
+                <button onclick="closeAddStockModal()" class="text-slate-400 hover:text-slate-200 text-xl leading-none">âœ•</button>
             </div>
 
             <!-- Search input -->
             <div class="relative mb-3">
-                <input id="addStockSearch" type="text" placeholder="Search stock (min 3 chars)…"
+                <input id="addStockSearch" type="text" placeholder="Search stock (min 3 chars)â€¦"
                     autocomplete="off"
                     class="w-full px-4 py-3 rounded-xl text-sm text-slate-100 outline-none"
                     style="background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.1);" />
@@ -7423,32 +7417,32 @@
             <div id="addStockForm" class="hidden space-y-3">
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="text-xs text-slate-400 mb-1 block">Current Price (₹)</label>
+                        <label class="text-xs text-slate-400 mb-1 block">Current Price (â‚¹)</label>
                         <input id="addStockCurrentPrice" type="number" step="0.01" placeholder="e.g. 1250.00"
                             class="w-full px-3 py-2.5 rounded-lg text-sm mono text-slate-100 outline-none"
                             style="background: rgba(30,41,59,0.9); border: 1px solid rgba(59,130,246,0.3); color: #38BDF8;" />
                     </div>
                     <div>
-                        <label class="text-xs text-slate-400 mb-1 block">Entry Trigger (₹)</label>
+                        <label class="text-xs text-slate-400 mb-1 block">Entry Trigger (â‚¹)</label>
                         <input id="addStockEntryTrigger" type="number" step="0.01" placeholder="e.g. 1200.00"
                             class="w-full px-3 py-2.5 rounded-lg text-sm mono outline-none"
                             style="background: rgba(30,41,59,0.9); border: 1px solid rgba(59,130,246,0.3); color: #3B82F6;" />
                     </div>
                     <div>
-                        <label class="text-xs text-slate-400 mb-1 block">Target Exit (₹)</label>
+                        <label class="text-xs text-slate-400 mb-1 block">Target Exit (â‚¹)</label>
                         <input id="addStockTargetExit" type="number" step="0.01" placeholder="e.g. 1500.00"
                             class="w-full px-3 py-2.5 rounded-lg text-sm mono outline-none"
                             style="background: rgba(30,41,59,0.9); border: 1px solid rgba(16,185,129,0.3); color: #10B981;" />
                     </div>
                     <div>
-                        <label class="text-xs text-slate-400 mb-1 block">Stop Loss (₹)</label>
+                        <label class="text-xs text-slate-400 mb-1 block">Stop Loss (â‚¹)</label>
                         <input id="addStockStopLoss" type="number" step="0.01" placeholder="e.g. 1100.00"
                             class="w-full px-3 py-2.5 rounded-lg text-sm mono outline-none"
                             style="background: rgba(30,41,59,0.9); border: 1px solid rgba(220,38,38,0.3); color: #DC2626;" />
                     </div>
                 </div>
                 <div>
-                    <label class="text-xs text-slate-400 mb-1 block">Position Size (₹)</label>
+                    <label class="text-xs text-slate-400 mb-1 block">Position Size (â‚¹)</label>
                     <input id="addStockPosition" type="number" step="1000" value="50000" placeholder="e.g. 50000"
                         class="w-full px-3 py-2.5 rounded-lg text-sm mono outline-none"
                         style="background: rgba(30,41,59,0.9); border: 1px solid rgba(167,139,250,0.3); color: #A78BFA;" />
@@ -7456,19 +7450,19 @@
                 <button onclick="saveManualStock()"
                     class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mt-2"
                     style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
-                    💾 Save to Trendline
+                    ðŸ’¾ Save to Trendline
                 </button>
             </div>
         </div>
     </div>
 
 
-    <!-- ─── ADD TRADE TO RADAR MODAL ─────────────────────────────────────────── -->
+    <!-- â”€â”€â”€ ADD TRADE TO RADAR MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <div id="addTradeModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.7);">
         <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background: #141923; border-top: 1px solid rgba(255,255,255,0.08); max-height: 90vh; overflow-y: auto;">
             <div class="flex items-center justify-between mb-5">
-                <h2 class="text-base font-bold text-slate-100">📡 Add Trade to Radar</h2>
-                <button onclick="closeAddTradeModal()" class="text-slate-400 hover:text-slate-200 text-xl">✕</button>
+                <h2 class="text-base font-bold text-slate-100">ðŸ“¡ Add Trade to Radar</h2>
+                <button onclick="closeAddTradeModal()" class="text-slate-400 hover:text-slate-200 text-xl">âœ•</button>
             </div>
             <div class="space-y-3">
                 <!-- Symbol with autocomplete -->
@@ -7478,7 +7472,7 @@
                         class="w-full px-3 py-2 rounded-lg text-sm mono font-semibold"
                         style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0;">
                     <div id="atSymbolDropdown" class="hidden rounded-lg mt-1 overflow-y-auto" style="background: #1e2530; border: 1px solid rgba(255,255,255,0.1); max-height: 180px;"></div>
-                    <div id="atSymbolSelected" class="hidden mt-1 text-xs px-2 py-1 rounded" style="color: #10B981; background: rgba(16,185,129,0.1);">✓ <span id="atSymbolName"></span></div>
+                    <div id="atSymbolSelected" class="hidden mt-1 text-xs px-2 py-1 rounded" style="color: #10B981; background: rgba(16,185,129,0.1);">âœ“ <span id="atSymbolName"></span></div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -7512,35 +7506,35 @@
                     </select>
                 </div>
                 <button onclick="saveManualRadarTrade()" class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mt-2" style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
-                    📡 Add to Radar
+                    ðŸ“¡ Add to Radar
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- ─── TRADE CONFIRM MODAL (from Telegram) ──────────────────────────────── -->
+    <!-- â”€â”€â”€ TRADE CONFIRM MODAL (from Telegram) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <div id="tradeConfirmModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.75);">
         <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background: #141923; border-top: 2px solid rgba(16,185,129,0.4);">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-bold text-slate-100">📥 Confirm Trade — Angel One</h2>
-                <button id="tcSkipBtn" class="text-slate-400 hover:text-slate-200 text-xl">✕</button>
+                <h2 class="text-base font-bold text-slate-100">ðŸ“¥ Confirm Trade â€” Angel One</h2>
+                <button id="tcSkipBtn" class="text-slate-400 hover:text-slate-200 text-xl">âœ•</button>
             </div>
 
             <!-- Trade Details -->
             <div class="mobile-card rounded-xl p-4 mb-4" style="background: rgba(4,120,87,0.1); border: 1px solid rgba(4,120,87,0.3);">
-                <div class="text-2xl font-bold text-slate-100 mb-1" id="tcTicker">—</div>
+                <div class="text-2xl font-bold text-slate-100 mb-1" id="tcTicker">â€”</div>
                 <div class="grid grid-cols-3 gap-3 mt-3">
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Entry</div>
-                        <div class="text-sm font-bold mono" style="color:#3B82F6;" id="tcEntry">—</div>
+                        <div class="text-sm font-bold mono" style="color:#3B82F6;" id="tcEntry">â€”</div>
                     </div>
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Target</div>
-                        <div class="text-sm font-bold mono" style="color:#10B981;" id="tcTarget">—</div>
+                        <div class="text-sm font-bold mono" style="color:#10B981;" id="tcTarget">â€”</div>
                     </div>
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Stop Loss</div>
-                        <div class="text-sm font-bold mono" style="color:#DC2626;" id="tcStop">—</div>
+                        <div class="text-sm font-bold mono" style="color:#DC2626;" id="tcStop">â€”</div>
                     </div>
                 </div>
             </div>
@@ -7551,7 +7545,7 @@
                 <input id="tcQty" type="number" min="1" placeholder="Enter quantity"
                     class="w-full px-4 py-3 rounded-xl text-lg font-bold mono outline-none"
                     style="background: rgba(59,130,246,0.1); border: 2px solid rgba(59,130,246,0.4); color: #3B82F6;">
-                <div class="text-xs text-slate-400 mt-2">Total Amount: <span id="tcAmount" class="font-bold mono" style="color:#06B6D4;">—</span></div>
+                <div class="text-xs text-slate-400 mt-2">Total Amount: <span id="tcAmount" class="font-bold mono" style="color:#06B6D4;">â€”</span></div>
             </div>
 
             <!-- Buttons -->
@@ -7559,14 +7553,14 @@
                 <button id="tcSkipBtn2" onclick="document.getElementById('tradeConfirmModal').classList.add('hidden')"
                     class="py-3 rounded-xl text-sm font-semibold touch-btn"
                     style="background: rgba(100,116,139,0.2); color: #94A3B8; border: 1px solid rgba(100,116,139,0.3);">
-                    ⏭️ Skip
+                    â­ï¸ Skip
                 </button>
                 <button id="tcConfirmBtn"
                     class="py-3 rounded-xl text-sm font-semibold touch-btn"
                     style="background: linear-gradient(135deg, #065F46, #047857); color: #fff;">
-                    ✅ Place Order
+                    âœ… Place Order
                 </button>
             </div>
-            <div class="text-xs text-slate-500 text-center mt-3">⚠️ This places a REAL LIMIT ORDER on Angel One</div>
+            <div class="text-xs text-slate-500 text-center mt-3">âš ï¸ This places a REAL LIMIT ORDER on Angel One</div>
         </div>
     </div>
