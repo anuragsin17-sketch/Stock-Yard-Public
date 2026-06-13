@@ -5319,6 +5319,14 @@
             displayTrendlineScreen();
         };
 
+        window.updateTrendlineDist = function(ticker, currentPrice, entryVal) {
+            const entry = parseFloat(entryVal);
+            if (!entry || entry <= 0) return;
+            const dist = Math.abs((currentPrice - entry) / entry * 100).toFixed(2);
+            const distEl = document.getElementById('dist_' + ticker);
+            if (distEl) distEl.textContent = 'Distance: ' + dist + '%';
+        };
+
         // Place order via GitHub Actions (credentials stay in GitHub Secrets)
         async function placeAngelOrder(symbol, action, qty, price, stopLoss, target, source) {
             try {
@@ -5699,7 +5707,7 @@
                         <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
 
                         <!-- Editable Entry Trigger -->
-                        <div class="mt-2 mb-1">
+                        <div class="mt-2 mb-2">
                             <span class="text-xs text-slate-500">Entry Trigger</span>
                             <div class="flex items-center space-x-1 mt-1">
                                 <span class="text-xs mono" style="color: #D97706;">₹</span>
@@ -5708,19 +5716,6 @@
                                     step="0.5"
                                     class="mono text-sm font-semibold bg-transparent border-b outline-none w-24"
                                     style="color: #D97706; border-color: rgba(217,119,6,0.3);"/>
-                            </div>
-                        </div>
-
-                        <!-- Editable Position Size -->
-                        <div class="mb-2">
-                            <span class="text-xs text-slate-500">Position Size (₹)</span>
-                            <div class="flex items-center space-x-1 mt-1">
-                                <span class="text-xs mono text-slate-400">₹</span>
-                                <input type="number" id="vol_pos_${stock.symbol}"
-                                    value="50000"
-                                    step="1000"
-                                    class="mono text-sm font-semibold bg-transparent border-b outline-none w-24"
-                                    style="color: #A78BFA; border-color: rgba(167,139,250,0.3);"/>
                             </div>
                         </div>
 
@@ -5900,18 +5895,18 @@
                 const pagedTrendStocks = filteredTrendStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
 
                 pagedTrendStocks.forEach(stock => {
-                    // Get saved overrides from localStorage
+                    // Get saved entry trigger override from localStorage
                     const savedKey = `trendline_${stock.ticker}`;
                     const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
                     const entryTrigger = saved.entryTrigger || stock.triggerPrice;
-                    const targetExit = saved.targetExit || stock.positionSizing.pivotTargetExit;
-                    const stopLoss = saved.stopLoss || stock.positionSizing.strictStopLoss;
+                    // Compute live distance from saved/default entry
+                    const liveDist = Math.abs((stock.currentPrice - entryTrigger) / entryTrigger * 100).toFixed(2);
 
-                    // Determine status badge
+                    // Determine status badge based on live distance
                     let statusBadge = '';
-                    if (stock.notificationTrigger || stock.distanceRemaining <= 1.0) {
+                    if (liveDist <= 1.0) {
                         statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide animate-pulse" style="background: rgba(220, 38, 38, 0.2); color: #DC2626;">🎯 CRITICAL ENTRY</span>';
-                    } else if (stock.distanceRemaining <= 5.0) {
+                    } else if (liveDist <= 5.0) {
                         statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(234, 179, 8, 0.2); color: #EAB308;">👀 WATCHLIST</span>';
                     } else {
                         statusBadge = '<span class="px-3 py-1.5 text-xs rounded-full mono tracking-wide" style="background: rgba(59, 130, 246, 0.2); color: #3B82F6;">📊 MONITORING</span>';
@@ -5929,74 +5924,27 @@
 
                                     <div class="text-lg font-bold mono flex items-center mb-3" style="color: #047857;">
                                         ₹${stock.currentPrice.toLocaleString()}
-                                        <span class="text-xs ml-2 text-slate-400">Distance: ${stock.distanceRemaining.toFixed(2)}%</span>
+                                        <span id="dist_${stock.ticker}" class="text-xs ml-2 text-slate-400">Distance: ${liveDist}%</span>
                                     </div>
 
-                                    <!-- Editable Entry Trigger -->
-                                    <div class="mb-2">
-                                        <div class="text-xs text-slate-500 mb-1">Entry Trigger</div>
+                                    <!-- Editable Entry Trigger with live distance update -->
+                                    <div class="mb-3">
+                                        <div class="text-xs text-slate-500 mb-1">Entry Trigger ${saved.entryTrigger ? '<span style="color:#F59E0B;">✏️ edited</span>' : ''}</div>
                                         <div class="flex items-center space-x-2">
                                             <span class="text-xs mono" style="color: #3B82F6;">₹</span>
                                             <input type="number"
                                                 id="entry_${stock.ticker}"
                                                 value="${parseFloat(entryTrigger).toFixed(2)}"
                                                 step="0.01"
-                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
+                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-32"
                                                 style="color: #3B82F6; border-color: rgba(59,130,246,0.3);"
-                                                onchange="saveTrendlineOverride('${stock.ticker}', 'entryTrigger', this.value)"/>
-                                            ${saved.entryTrigger ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
+                                                oninput="updateTrendlineDist('${stock.ticker}', ${stock.currentPrice}, this.value)"
+                                                onchange="saveTrendlineOverride('${stock.ticker}', 'entryTrigger', this.value); updateTrendlineDist('${stock.ticker}', ${stock.currentPrice}, this.value)"/>
                                         </div>
                                     </div>
 
-                                    <!-- Editable Target Exit -->
-                                    <div class="mb-2">
-                                        <div class="text-xs text-slate-500 mb-1">Target Exit</div>
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-xs mono" style="color: #10B981;">₹</span>
-                                            <input type="number"
-                                                id="target_${stock.ticker}"
-                                                value="${parseFloat(targetExit).toFixed(2)}"
-                                                step="0.01"
-                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
-                                                style="color: #10B981; border-color: rgba(16,185,129,0.3);"
-                                                onchange="saveTrendlineOverride('${stock.ticker}', 'targetExit', this.value)"/>
-                                            ${saved.targetExit ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
-                                        </div>
-                                    </div>
-
-                                    <!-- Editable Stop Loss -->
-                                    <div class="mb-3">
-                                        <div class="text-xs text-slate-500 mb-1">Stop Loss <span class="text-slate-600">(Monthly Close)</span></div>
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-xs mono" style="color: #DC2626;">₹</span>
-                                            <input type="number"
-                                                id="stop_${stock.ticker}"
-                                                value="${parseFloat(stopLoss).toFixed(2)}"
-                                                step="0.01"
-                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
-                                                style="color: #DC2626; border-color: rgba(220,38,38,0.3);"
-                                                onchange="saveTrendlineOverride('${stock.ticker}', 'stopLoss', this.value)"/>
-                                            ${saved.stopLoss ? '<span class="text-xs" style="color:#F59E0B;">✏️</span>' : ''}
-                                        </div>
-                                    </div>
-
-                                    <div class="text-xs text-slate-500 mono mb-2">
-                                        Fib: ${stock.fibLevelMatch} | Score: ${stock.confluenceScore || '-'}/10
-                                    </div>
-
-                                    <!-- Editable Position Size -->
-                                    <div class="mb-3">
-                                        <div class="text-xs text-slate-500 mb-1">Position Size (₹)</div>
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-xs mono text-slate-400">₹</span>
-                                            <input type="number"
-                                                id="pos_${stock.ticker}"
-                                                value="${saved.positionSize || 50000}"
-                                                step="1000"
-                                                class="mono text-sm font-semibold bg-transparent border-b outline-none w-28"
-                                                style="color: #A78BFA; border-color: rgba(167,139,250,0.3);"
-                                                onchange="saveTrendlineOverride('${stock.ticker}', 'positionSize', this.value)"/>
-                                        </div>
+                                    <div class="text-xs text-slate-500 mono mb-3">
+                                        Fib: ${stock.fibLevelMatch || 'N/A'} | Score: ${stock.confluenceScore || '-'}/10
                                     </div>
 
                                     <div class="flex items-center space-x-2 mt-3">
@@ -6005,7 +5953,7 @@
                                             class="py-2 px-3 rounded-lg text-xs touch-btn"
                                             title="Dismiss — won't show in future runs"
                                             style="background: rgba(100,116,139,0.15); color: #64748B;">🗑️</button>
-                                        <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${targetExit}, ${stopLoss})"
+                                        <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                                             style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
                                             📥 Take Trade
