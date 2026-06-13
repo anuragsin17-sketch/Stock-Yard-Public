@@ -6536,6 +6536,10 @@
                     const ticker = (p.ticker || p.symbol || '').replace('-EQ', '');
                     if (!ticker || blockedTickers.includes(ticker)) return;
                     liveTickers.add(ticker);
+                    // Look up 52W data from screener dataset
+                    const screenerStock = (typeof screeningData !== 'undefined' && screeningData)
+                        ? screeningData.find(s => s.ticker === ticker || s.symbol === ticker)
+                        : null;
                     allBrokerTrades[ticker] = {
                         ticker,
                         quantity:      p.quantity      || 0,
@@ -6544,6 +6548,8 @@
                         status:        'Open',
                         source:        p.source || 'Sync',
                         triggered_at:  existing[ticker] ? existing[ticker].triggered_at : new Date().toISOString(),
+                        week52High:    screenerStock ? (screenerStock.week_52_high || screenerStock.week52High || existing[ticker]?.week52High || null) : (existing[ticker]?.week52High || null),
+                        week52Low:     screenerStock ? (screenerStock.week_52_low  || screenerStock.week52Low  || existing[ticker]?.week52Low  || null) : (existing[ticker]?.week52Low  || null),
                         _custom:       true
                     };
                 });
