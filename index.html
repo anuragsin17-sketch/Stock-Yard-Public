@@ -166,18 +166,21 @@
                     <div class="flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                         <span>Volume</span>
+                        <span id="volTabCount" class="px-1.5 py-0.5 rounded-full text-xs font-bold" style="background:rgba(255,255,255,0.12);color:#94a3b8;min-width:18px;text-align:center;display:none;"></span>
                     </div>
                 </button>
                 <button id="trendlineTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
                     <div class="flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                         <span>Trendline</span>
+                        <span id="trendTabCount" class="px-1.5 py-0.5 rounded-full text-xs font-bold" style="background:rgba(255,255,255,0.12);color:#94a3b8;min-width:18px;text-align:center;display:none;"></span>
                     </div>
                 </button>
                 <button id="performanceTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
                     <div class="flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                         <span>Radar</span>
+                        <span id="radarTabCount" class="px-1.5 py-0.5 rounded-full text-xs font-bold" style="background:rgba(255,255,255,0.12);color:#94a3b8;min-width:18px;text-align:center;display:none;"></span>
                     </div>
                 </button>
                 <button id="pastPerfTab" class="pill-tab flex-shrink-0 text-xs font-medium transition-all touch-btn text-slate-400">
@@ -5298,6 +5301,8 @@
             
             // Update current tab
             switchTab(currentTab);
+            // Update tab count badges
+            updateTabCounts();
         }
         
         // Save trendline field overrides to localStorage
@@ -5559,6 +5564,48 @@
             // Update results
             displayResults(tab);
         }
+
+        function setTabCount(elId, count) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            if (count > 0) {
+                el.textContent = count;
+                el.style.display = 'inline-block';
+                el.style.background = 'rgba(255,255,255,0.18)';
+                el.style.color = '#e2e8f0';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+
+        function updateTabCounts() {
+            // Volume count (≥20x filter)
+            const volCount = (screeningData?.volume_breakout_stocks || [])
+                .filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
+            setTabCount('volTabCount', volCount);
+
+            // Trendline count (dismissed excluded)
+            fetch('./trendline_screen.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : []).catch(() => [])
+                .then(tl => {
+                    const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+                    const tlCount = Array.isArray(tl) ? tl.filter(s => !dismissed.includes(s.ticker)).length : 0;
+                    setTabCount('trendTabCount', tlCount);
+                });
+
+            // Radar count (open trades)
+            fetch('./radar_trades.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : []).catch(() => [])
+                .then(trades => {
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    const allTrades = Array.isArray(trades) ? [...trades] : [];
+                    Object.values(overrides).forEach(ov => {
+                        if (ov && ov._custom && !ov._deleted) allTrades.push(ov);
+                    });
+                    const openCount = allTrades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
+                    setTabCount('radarTabCount', openCount);
+                });
+        }
         
         // Display results for current tab
         function displayResults(tab) {
@@ -5718,9 +5765,12 @@
                                     value="${stock.radar_trigger_price}"
                                     step="0.5"
                                     class="mono text-sm font-semibold bg-transparent border-b outline-none w-24"
-                                    style="color: #D97706; border-color: rgba(217,119,6,0.3);"/>
-                            </div>
+                                    style="color: #D97706; border-color: rgba(217,119,6,0.3);"
+                                    onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${stock.radar_trigger_price}'}"/>
                         </div>
+                        </div>
+
+                        <div class="text-xs mono mb-2" style="color:#64748b;">52W: ₹${stock.week_52_low?.toLocaleString()||'--'} ↔ ₹${stock.week_52_high?.toLocaleString()||'--'}</div>
 
                         <div class="flex items-center space-x-2 mt-2">
                             <div class="flex-1">${radarStatus}</div>
@@ -5954,13 +6004,16 @@
                                                 class="mono text-sm font-semibold bg-transparent border-b outline-none w-32"
                                                 style="color: #3B82F6; border-color: rgba(59,130,246,0.3);"
                                                 oninput="updateTrendlineDist('${stock.ticker}', ${stock.currentPrice}, this.value)"
+                                                onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${parseFloat(stock.triggerPrice).toFixed(2)}';saveTrendlineOverride('${stock.ticker}','entryTrigger','${parseFloat(stock.triggerPrice).toFixed(2)}');updateTrendlineDist('${stock.ticker}',${stock.currentPrice},'${parseFloat(stock.triggerPrice).toFixed(2)}')}"
                                                 onchange="saveTrendlineOverride('${stock.ticker}', 'entryTrigger', this.value); updateTrendlineDist('${stock.ticker}', ${stock.currentPrice}, this.value)"/>
                                         </div>
                                     </div>
 
-                                    <div class="text-xs text-slate-500 mono mb-3">
+                                    <div class="text-xs text-slate-500 mono mb-2">
                                         Fib: ${stock.fibLevelMatch || 'N/A'} | Score: ${stock.confluenceScore || '-'}/10
                                     </div>
+
+                                    ${(stock.week52High || stock.week52Low) ? `<div class="text-xs mono mb-3" style="color:#64748b;">52W: ₹${(stock.week52Low||'--').toLocaleString()} ↔ ₹${(stock.week52High||'--').toLocaleString()}</div>` : ''}
 
                                     <div class="flex items-center space-x-2 mt-3">
                                         <div class="flex-1">${statusBadge}</div>
