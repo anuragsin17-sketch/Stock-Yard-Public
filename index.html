@@ -5330,14 +5330,16 @@
         async function placeAngelOrder(symbol, action, qty, price, stopLoss, target, source) {
             try {
                 const EC2_API = "https://32.194.58.75/api/place-order";
-                const apiKey  = "SY-" + btoa(symbol + qty + Math.floor(Date.now()/300000));
 
                 console.log(`📤 Placing order via EC2 API...`);
                 console.log(`   Symbol: ${symbol}, Qty: ${qty}, Price: ₹${price}, Target: ₹${target}, SL: ₹${stopLoss}`);
 
                 const response = await fetch(EC2_API, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-API-Key': window._syKey || '' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': '008c11a5313ca98cb7d5a7ae03e9df2d49fa0e3495bf2fa4614845c61cb905f6'
+                    },
                     body: JSON.stringify({
                         symbol: symbol,
                         action: action,
