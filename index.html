@@ -5425,13 +5425,13 @@
         };
 
         // Take Trade - Trendline tab
-        function takeTrade(ticker, entryTrigger, targetExit, stopLoss) {
+        function takeTrade(ticker, entryTrigger, targetExit, stopLoss, week52High, week52Low) {
             const savedKey = `trendline_${ticker}`;
             const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
             const entry  = saved.entryTrigger || entryTrigger;
             const target = saved.targetExit   || targetExit;
             const stop   = saved.stopLoss     || stopLoss;
-            showOrderModal(ticker, entry, stop, target, 'Trendline');
+            showOrderModal(ticker, entry, stop, target, 'Trendline', week52High, week52Low);
         }
 
         // Switch between tabs
@@ -5488,16 +5488,33 @@
                     setTabCount('trendTabCount', tlCount);
                 });
 
-            // Radar count (open trades)
+            // Radar count — use same dedup logic as displayPerformanceTracking
             fetch('./radar_trades.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
-                .then(trades => {
+                .then(serverTrades => {
                     const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                    const allTrades = Array.isArray(trades) ? [...trades] : [];
-                    Object.values(overrides).forEach(ov => {
-                        if (ov && ov._custom && !ov._deleted) allTrades.push(ov);
+                    const purged  = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                    const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+
+                    let trades = (serverTrades || []).map(trade => {
+                        const key = trade.order_id || trade.ticker;
+                        if (overrides[key]) return { ...trade, ...overrides[key] };
+                        return trade;
                     });
-                    const openCount = allTrades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
+                    Object.values(overrides).forEach(ov => {
+                        if (ov._custom) {
+                            const alreadyIn = trades.find(t =>
+                                (ov.order_id && t.order_id === ov.order_id) ||
+                                (!ov.order_id && t.ticker === ov.ticker)
+                            );
+                            if (!alreadyIn) trades.push(ov);
+                        }
+                    });
+                    trades = trades
+                        .filter(t => !t._deleted)
+                        .filter(t => !purged.includes(t.ticker))
+                        .filter(t => !deleted.includes(t.ticker));
+                    const openCount = trades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
                     setTabCount('radarTabCount', openCount);
                 });
         }
@@ -5916,7 +5933,7 @@
                                             class="py-2 px-3 rounded-lg text-xs touch-btn"
                                             title="Dismiss — won't show in future runs"
                                             style="background: rgba(100,116,139,0.15); color: #64748B;">🗑️</button>
-                                        <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0})"
+                                        <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0}, ${stock.week52High || 'null'}, ${stock.week52Low || 'null'})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                                             style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
                                             📥 Take Trade
@@ -6872,7 +6889,11 @@
                     </div>
                     <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
                         <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">Amount</div><div class="font-bold mono" style="color:#3B82F6;">₹${amt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">${qty} @ ₹${ep.toFixed(2)}</div></div>
-                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">Value</div><div class="font-bold mono" style="color:#06B6D4;">₹${cur.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">${qty} @ ₹${cp.toFixed(2)}</div></div>
+                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">52W H/L</div>${
+                            trade.week52High && trade.week52Low
+                                ? `<div class="font-bold mono" style="color:#10B981;">₹${parseFloat(trade.week52High).toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">L: ₹${parseFloat(trade.week52Low).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>`
+                                : `<div class="font-bold mono text-slate-500">—</div><div class="text-slate-600">N/A</div>`
+                        }</div>
                         <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">P&L</div><div class="font-bold mono" style="color:${pnlCol};">${pnl>=0?'+':''}₹${pnl.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div style="color:${pnlCol};">${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%</div></div>
                     </div>
                     <div class="flex space-x-2">
@@ -7021,12 +7042,10 @@
         // Shows stock details with editable quantity, no 50k restriction
         window._pendingOrder = null;
 
-        window.showOrderModal = function(ticker, entry, stop, target, source) {
+        window.showOrderModal = function(ticker, entry, stop, target, source, week52High, week52Low) {
             const suggestedQty = Math.max(1, Math.floor(50000 / parseFloat(entry)));
             document.getElementById('omTicker').textContent  = ticker;
             document.getElementById('omEntry').textContent   = '\u20b9' + parseFloat(entry).toLocaleString('en-IN', {maximumFractionDigits: 2});
-            document.getElementById('omTarget').textContent  = '\u20b9' + parseFloat(target).toLocaleString('en-IN', {maximumFractionDigits: 2});
-            document.getElementById('omStop').textContent    = '\u20b9' + parseFloat(stop).toLocaleString('en-IN', {maximumFractionDigits: 2});
             document.getElementById('omQty').value           = suggestedQty;
             document.getElementById('omAmount').textContent  = '\u20b9' + (parseFloat(entry) * suggestedQty).toLocaleString('en-IN', {maximumFractionDigits: 0});
             document.getElementById('omSource').textContent  = source;
@@ -7037,7 +7056,7 @@
                 document.getElementById('omAmount').textContent = '\u20b9' + (parseFloat(entry) * q).toLocaleString('en-IN', {maximumFractionDigits: 0});
             };
 
-            window._pendingOrder = { ticker, entry: parseFloat(entry), stop: parseFloat(stop), target: parseFloat(target), source };
+            window._pendingOrder = { ticker, entry: parseFloat(entry), stop: parseFloat(stop), target: parseFloat(target), source, week52High: week52High || null, week52Low: week52Low || null };
             document.getElementById('orderModal').classList.remove('hidden');
             setTimeout(() => document.getElementById('omQty').select(), 100);
         };
@@ -7052,7 +7071,7 @@
             const qty = parseInt(document.getElementById('omQty').value);
             if (!qty || qty <= 0) { alert('Enter a valid quantity.'); return; }
 
-            const { ticker, entry, stop, target, source } = window._pendingOrder;
+            const { ticker, entry, stop, target, source, week52High, week52Low } = window._pendingOrder;
             closeOrderModal();
 
             placeAngelOrder(ticker, 'BUY', qty, entry, stop, target, source).then(result => {
@@ -7067,6 +7086,8 @@
                         quantity: qty, current_price: entry,
                         status: 'Open', source,
                         order_id: key,
+                        week52High: week52High,
+                        week52Low: week52Low,
                         triggered_at: new Date().toISOString(),
                         _custom: true
                     };
@@ -7314,21 +7335,16 @@
             <!-- Stock + price details -->
             <div class="rounded-xl p-4 mb-4" style="background:rgba(4,120,87,0.1);border:1px solid rgba(4,120,87,0.3);">
                 <div class="text-xl font-bold text-slate-100 mb-3" id="omTicker">—</div>
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <div class="text-xs text-slate-400 mb-1">Entry</div>
-                        <div class="text-sm font-bold mono" style="color:#3B82F6;" id="omEntry">—</div>
+                        <div class="text-xs text-slate-400 mb-1">Entry Price</div>
+                        <div class="text-lg font-bold mono" style="color:#3B82F6;" id="omEntry">—</div>
                     </div>
                     <div>
-                        <div class="text-xs text-slate-400 mb-1">Target</div>
-                        <div class="text-sm font-bold mono" style="color:#10B981;" id="omTarget">—</div>
-                    </div>
-                    <div>
-                        <div class="text-xs text-slate-400 mb-1">Stop Loss</div>
-                        <div class="text-sm font-bold mono" style="color:#DC2626;" id="omStop">—</div>
+                        <div class="text-xs text-slate-400 mb-1">Source</div>
+                        <div class="text-sm font-semibold text-slate-300" id="omSource">—</div>
                     </div>
                 </div>
-                <div class="text-xs text-slate-500 mt-2">Source: <span id="omSource" class="text-slate-400"></span></div>
             </div>
 
             <!-- Quantity input -->
