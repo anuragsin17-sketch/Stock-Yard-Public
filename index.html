@@ -194,7 +194,24 @@
 
         <!-- Results Container -->
         <div id="resultsContainer" class="space-y-4">
-            <div class="mobile-card rounded-xl p-5 text-center text-slate-400">Loading...</div>
+            <div class="mobile-card rounded-xl p-5 space-y-3 animate-pulse">
+                <div class="h-4 rounded-lg" style="background:rgba(255,255,255,0.06);width:40%;"></div>
+                <div class="h-8 rounded-lg" style="background:rgba(255,255,255,0.04);width:60%;"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="h-10 rounded-lg" style="background:rgba(255,255,255,0.04);"></div>
+                    <div class="h-10 rounded-lg" style="background:rgba(255,255,255,0.04);"></div>
+                </div>
+                <div class="h-10 rounded-xl" style="background:rgba(4,120,87,0.12);"></div>
+            </div>
+            <div class="mobile-card rounded-xl p-5 space-y-3 animate-pulse">
+                <div class="h-4 rounded-lg" style="background:rgba(255,255,255,0.06);width:50%;"></div>
+                <div class="h-8 rounded-lg" style="background:rgba(255,255,255,0.04);width:55%;"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="h-10 rounded-lg" style="background:rgba(255,255,255,0.04);"></div>
+                    <div class="h-10 rounded-lg" style="background:rgba(255,255,255,0.04);"></div>
+                </div>
+                <div class="h-10 rounded-xl" style="background:rgba(4,120,87,0.12);"></div>
+            </div>
         </div>
 
         <!-- Error Message -->
@@ -4773,6 +4790,20 @@
         // Global variables
         let screeningData = null;
         let currentTab = 'volume';
+
+        // In-memory JSON caches for instant tab switching
+        let _trendlineCache = null;
+        let _radarCache = null;
+        let _trendlineCacheTime = 0;
+        let _radarCacheTime = 0;
+
+        // Clear all data caches (called on refresh)
+        window.clearDataCache = function() {
+            _trendlineCache = null;
+            _radarCache = null;
+            _trendlineCacheTime = 0;
+            _radarCacheTime = 0;
+        };
         let livePriceUpdateTimer = null;
         let indexUpdateTimer = null;
         
@@ -4815,6 +4846,7 @@
             document.getElementById('refreshBtn').addEventListener('click', function() {                this.disabled = true;
                 this.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span class="text-xs ml-1">Loading...</span>';
                 
+                clearDataCache();
                 loadData().then(() => {
                     // Also fetch index data and live prices for priority stocks
                     return Promise.all([
@@ -5788,6 +5820,13 @@
         async function displayTrendlineScreen() {
             const container = document.getElementById('resultsContainer');
             
+            // Use cache if less than 60 seconds old
+            const now = Date.now();
+            if (_trendlineCache && (now - _trendlineCacheTime) < 60000) {
+                renderTrendlineData(container, _trendlineCache);
+                return;
+            }
+
             container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Loading trendline data...</div>';
             
             try {
@@ -5802,6 +5841,22 @@
                 }
                 
                 const trendlineStocks = await response.json();
+                // Store in cache
+                _trendlineCache = trendlineStocks;
+                _trendlineCacheTime = Date.now();
+
+                renderTrendlineData(container, trendlineStocks);
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="mobile-card rounded-xl p-6 text-center">
+                        <div class="text-red-400 mb-2">⚠️ Error Loading Trendline Data</div>
+                        <div class="text-xs text-slate-500">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function renderTrendlineData(container, trendlineStocks) {
                 
                 if (!trendlineStocks || trendlineStocks.length === 0) {
                     container.innerHTML = `
@@ -5976,14 +6031,7 @@
                 document.getElementById('totalOpportunities').textContent = totalOppsFiltered.toLocaleString();
 
                 container.innerHTML = html;
-            } catch (error) {
-                container.innerHTML = `
-                    <div class="mobile-card rounded-xl p-6 text-center">
-                        <div class="text-red-400 mb-2">⚠️ Error Loading Trendline Data</div>
-                        <div class="text-xs text-slate-500">${error.message}</div>
-                    </div>
-                `;
-            }
+            
         }
         
         // ─── PAST PERFORMANCE TAB ────────────────────────────────────────────────
@@ -6426,10 +6474,25 @@
         function displayPerformanceTracking() {
             const container = document.getElementById('resultsContainer');
 
+            // Use cache if less than 30 seconds old
+            const now = Date.now();
+            if (_radarCache && (now - _radarCacheTime) < 30000) {
+                _applyRadarData(container, _radarCache);
+                return;
+            }
+
             fetch('./radar_trades.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : [])
                 .catch(() => [])
                 .then(serverTrades => {
+                    // Store in cache
+                    _radarCache = serverTrades;
+                    _radarCacheTime = Date.now();
+                    _applyRadarData(container, serverTrades);
+                });
+        }
+
+        function _applyRadarData(container, serverTrades) {
                     // Cache open server tickers so isTickerInRadar() works correctly
                     const serverTickers = (serverTrades || [])
                         .filter(t => t.status === 'Open' || t.status === 'Triggered')
