@@ -1,4 +1,4 @@
-﻿!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -227,7 +227,9 @@
 
     <script>
         // Embedded live data (updated by GitHub Actions)
-                const LIVE_DATA = null; // Loaded async from data.json        // Global variables
+        const LIVE_DATA = null; // Loaded async from data.json
+
+        // Global variables
         let screeningData = null;
         let currentTab = 'volume';
 
@@ -1157,7 +1159,6 @@
                         ${volVerticalLine}
                         <div class="text-xs text-slate-500 mono">52W: ₹${stock.week_52_low.toLocaleString()} - ₹${stock.week_52_high.toLocaleString()}</div>
 
-                        <!-- Editable Entry Trigger -->
                         <div class="mt-2 mb-2">
                             <span class="text-xs text-slate-500">Entry Trigger</span>
                             <div class="flex items-center space-x-1 mt-1">
@@ -1416,7 +1417,6 @@
                                         <span id="dist_${stock.ticker}" class="text-xs ml-2 text-slate-400">Distance: ${liveDist}%</span>
                                     </div>
 
-                                    <!-- Editable Entry Trigger with live distance update -->
                                     <div class="mb-3">
                                         <div class="text-xs text-slate-500 mb-1">Entry Trigger ${saved.entryTrigger ? '<span style="color:#F59E0B;">✏️ edited</span>' : ''}</div>
                                         <div class="flex items-center space-x-2">
@@ -1661,7 +1661,6 @@
                 : `${perfData.period?.start || ''} → ${perfData.period?.end || ''}`;
 
             let html = `
-                <!-- Header -->
                 <div class="mobile-card rounded-xl p-4 mb-4" style="border-color:rgba(56,189,248,0.2);background:rgba(56,189,248,0.05);">
                     <div class="flex items-center justify-between mb-1">
                         <div class="text-xs font-semibold tracking-wider uppercase" style="color:#38BDF8;">📊 Trendline Strategy — ${backtestYears}Y Backtest</div>
@@ -1670,11 +1669,9 @@
                     <div class="text-xs text-slate-400">${dateLabel}</div>
                 </div>
 
-                <!-- Capital + Date filters -->
                 <div class="mobile-card rounded-xl p-4 mb-4">
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">⚙️ Simulation Settings</div>
 
-                    <!-- Capital input -->
                     <div class="mb-4">
                         <label class="text-xs text-slate-500 mb-1 block">💰 Capital Amount to Test</label>
                         <div class="flex items-center space-x-2 mb-2">
@@ -1696,7 +1693,6 @@
                         <div class="text-xs text-slate-500 mt-2">Capital is split equally across ${total} trade${total!==1?'s':''} in this period → ₹${Math.round(total>0?perfCapital/total:perfCapital).toLocaleString()} per trade</div>
                     </div>
 
-                    <!-- Date range -->
                     <div class="grid grid-cols-2 gap-3 mb-3">
                         <div>
                             <label class="text-xs text-slate-500 mb-1 block">📅 Date From</label>
@@ -1740,7 +1736,6 @@
             }
 
             html += `
-                <!-- Summary stats -->
                 <div class="grid grid-cols-2 gap-3 mb-4">
                     <div class="mobile-card rounded-xl p-4 text-center">
                         <div class="text-2xl font-bold mono" style="color:${winRateColor};">${s.win_rate}%</div>
@@ -1771,7 +1766,6 @@
                     </div>
                 </div>
 
-                <!-- Outcome breakdown -->
                 <div class="mobile-card rounded-xl p-4 mb-4">
                     <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Outcome Breakdown</div>
                     <div class="flex flex-wrap gap-2">
@@ -1787,7 +1781,6 @@
                     </div>
                 </div>
 
-                <!-- Search + sort -->
                 <div class="mobile-card rounded-xl p-4 mb-4">
                     <input id="perfSearchInput" type="text" placeholder="Search stock…"
                         value="${perfStockFilter}"
