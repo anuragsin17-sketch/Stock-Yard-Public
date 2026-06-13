@@ -7576,13 +7576,13 @@
 
                 // Risk-Reward Timeline bar
                 const range = tgt - sl;
-                const pinPct = range > 0 ? Math.min(100, Math.max(0, ((cp - sl) / range) * 100)) : 0;
-                const rrBar = (ep > 0 && tgt > 0 && sl > 0) ? `
+                const pinPct = range > 0 ? Math.min(100, Math.max(0, ((cp - sl) / range) * 100)) : 50;
+                const rrBar = (ep > 0) ? `
                     <div style="background:rgba(8,12,20,0.6);border:1px solid rgba(31,41,55,0.5);border-radius:10px;padding:14px;margin-bottom:14px;">
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;margin-bottom:8px;">
                             <div>
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Stop Loss</div>
-                                <div style="font-size:13px;font-weight:700;color:#f43f5e;margin-top:2px;" class="mono">₹${sl.toFixed(2)}</div>
+                                <div style="font-size:13px;font-weight:700;color:#f43f5e;margin-top:2px;" class="mono">${sl > 0 ? '₹'+sl.toFixed(2) : '<span style="color:#374151">Set below ↓</span>'}</div>
                             </div>
                             <div style="text-align:center;">
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Entry</div>
@@ -7590,12 +7590,12 @@
                             </div>
                             <div style="text-align:right;">
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Target</div>
-                                <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px;" class="mono">₹${tgt.toFixed(2)}</div>
+                                <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px;" class="mono">${tgt > 0 ? '₹'+tgt.toFixed(2) : '<span style="color:#374151">Set below ↓</span>'}</div>
                             </div>
                         </div>
                         <div style="height:6px;background:#1f2937;border-radius:3px;position:relative;">
-                            <div style="position:absolute;left:0;top:0;height:100%;width:${pinPct}%;background:linear-gradient(90deg,#3b82f6,#10b981);border-radius:3px;"></div>
-                            <div style="position:absolute;left:${pinPct}%;top:-4px;transform:translateX(-50%);width:14px;height:14px;background:#fff;border:3px solid #3b82f6;border-radius:50%;"></div>
+                            ${(tgt > 0 && sl > 0) ? `<div style="position:absolute;left:0;top:0;height:100%;width:${pinPct}%;background:linear-gradient(90deg,#3b82f6,#10b981);border-radius:3px;"></div>` : '<div style="position:absolute;left:0;top:0;height:100%;width:100%;background:rgba(59,130,246,0.15);border-radius:3px;"></div>'}
+                            <div style="position:absolute;left:${(tgt>0&&sl>0)?pinPct:50}%;top:-4px;transform:translateX(-50%);width:14px;height:14px;background:#fff;border:3px solid #3b82f6;border-radius:50%;"></div>
                         </div>
                     </div>` : '';
 
@@ -7625,10 +7625,12 @@
                         </div>
                         <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:10px;border-radius:8px;">
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">52W H / L</div>
-                            ${trade.week52High && trade.week52Low
-                                ? `<div style="font-size:12px;font-weight:600;color:#10b981;" class="mono">${formatINR(trade.week52High, 0)}</div><div style="font-size:10px;color:#6b7280;margin-top:1px;">L: ${formatINR(trade.week52Low, 0)}</div>`
-                                : `<div style="font-size:12px;color:#6b7280;">—</div>`
-                            }
+                            ${(() => {
+                                const w52 = (trade.week52High && trade.week52Low) ? { high: trade.week52High, low: trade.week52Low } : get52WData(t);
+                                return w52
+                                    ? `<div style="font-size:12px;font-weight:600;color:#10b981;" class="mono">${formatINR(w52.high, 0)}</div><div style="font-size:10px;color:#6b7280;margin-top:1px;">L: ${formatINR(w52.low, 0)}</div>`
+                                    : `<div style="font-size:12px;color:#6b7280;">—</div>`;
+                            })()}
                         </div>
                         <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:10px;border-radius:8px;">
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">P&amp;L</div>
@@ -7651,10 +7653,9 @@
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop Loss</div>
                             <input type="number" value="${sl.toFixed(2)}" onchange="updateTradeFieldByTicker('${t}','${ep}','stop_loss',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${sl.toFixed(2)}'}" style="width:100%;font-size:13px;font-weight:700;color:#f43f5e;background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.3);border-radius:6px;padding:6px 8px;outline:none;font-family:'JetBrains Mono',monospace;">
                         </div>
-                    </div>` : ''}
+                    </div>
                     <!-- Action row -->
                     <div style="display:flex;gap:8px;">
-                        ${isEditable ? `
                         <button onclick="haptic(50);updateTradeStatusByTicker('${t}','${ep}','Target Hit');launchConfetti(event.clientX,event.clientY)"
                             style="flex:1;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
                             ✅ Target Hit
@@ -7662,9 +7663,12 @@
                         <button onclick="haptic([200]);updateTradeStatusByTicker('${t}','${ep}','Stop Loss')"
                             style="flex:1;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
                             🛑 Stop Loss
-                        </button>` : ''}
+                        </button>
                         <button onclick="removeTradeByTicker('${t}','${ep}')" style="padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.2);cursor:pointer;">🗑️</button>
-                    </div>
+                    </div>` : `
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button onclick="removeTradeByTicker('${t}','${ep}')" style="padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.2);cursor:pointer;">🗑️</button>
+                    </div>`}
                 </div>`;
             });
 
