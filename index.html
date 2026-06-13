@@ -6575,6 +6575,14 @@
                 localStorage.setItem('radarOverrides', JSON.stringify({ ...allBrokerTrades, ...closedTrades, ...manualTrades }));
                 localStorage.setItem('inRadarTickers', JSON.stringify([...liveTickers]));
                 console.log('Synced', Object.keys(allBrokerTrades).length, 'open,', Object.keys(closedTrades).length, 'closed');
+
+                // Update Radar tab badge count
+                const radarBadge = document.querySelector('[data-tab="radar"] .tab-badge, .radar-count');
+                const totalOpen = Object.values({...allBrokerTrades, ...manualTrades}).filter(t => t.status === 'Open').length;
+                if (radarBadge) radarBadge.textContent = totalOpen;
+                // Update nav badge if present
+                document.querySelectorAll('.nav-badge, [id*="radarCount"], [id*="radar-count"]').forEach(el => el.textContent = totalOpen);
+
                 displayPerformanceTracking();
             });
         };
