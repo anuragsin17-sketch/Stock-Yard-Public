@@ -6499,86 +6499,71 @@
         // Sync Radar with Angel One open positions
         window.syncRadarFromAngelOne = function() {
             const container = document.getElementById('resultsContainer');
-            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400"> Syncing with Angel One...</div>';
+            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Syncing with Angel One & Groww...</div>';
 
-            fetch('https://32.194.58.75/api/sync-trades', { cache: 'no-store', headers: { }, mode: 'cors' })
-                .then(r => r.ok ? r.json() : null)
-                .catch(err => {
-                    console.warn('EC2 sync failed:', err.message);
-                    return null;
-                })
-                .then(data => {
-                    if (data && data.success) {
-                        const positions = data.open_trades || [];
-                        console.log('Angel One positions:', positions.length);
+            const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+            const purgedTickers  = JSON.parse(localStorage.getItem('radarPurgedTickers')  || '[]');
+            const blockedTickers = [...deletedTickers, ...purgedTickers];
 
-                        // Tickers the user explicitly deleted or purged — do NOT re-add them on sync
-                        const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-                        const purgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                        const blockedTickers = [...deletedTickers, ...purgedTickers];
+            // Fetch Angel One + Groww in parallel
+            Promise.all([
+                fetch('https://32.194.58.75/api/sync-trades', { cache: 'no-store', mode: 'cors' })
+                    .then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch('https://32.194.58.75/api/sync-groww', { cache: 'no-store', mode: 'cors' })
+                    .then(r => r.ok ? r.json() : null).catch(() => null)
+            ]).then(([angelData, growwData]) => {
+                const angelPositions = (angelData && angelData.success) ? (angelData.open_trades || []) : [];
+                const growwPositions = (growwData  && growwData.success)  ? (growwData.open_trades  || []) : [];
+                console.log('Angel One:', angelPositions.length, '| Groww:', growwPositions.length);
 
-                        // Preserve manually added trades that are NOT from Angel One
-                        const existing = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                        const manualTrades = {};
-                        const previousAngelTrades = {};
-                        Object.entries(existing).forEach(([k, v]) => {
-                            if (v.source === 'Angel One') {
-                                previousAngelTrades[k] = v;
-                            } else if (v._custom) {
-                                manualTrades[k] = v;
-                            }
-                        });
-
-                        // Build current Angel One positions (skip user-deleted tickers)
-                        const angelTrades = {};
-                        const tickers = [];
-                        const liveTickers = new Set();
-                        positions.forEach(p => {
-                            const ticker = (p.ticker || p.symbol || '').replace('-EQ', '');
-                            if (!ticker || blockedTickers.includes(ticker)) return;
-                            tickers.push(ticker);
-                            liveTickers.add(ticker);
-                            angelTrades[ticker] = {
-                                ticker,
-                                quantity: p.quantity || 0,
-                                entry_price: p.entry_price || 0,
-                                current_price: p.current_price || p.entry_price || 0,
-                                status: 'Open',
-                                source: 'Angel One',
-                                triggered_at: angelTrades[ticker]?.triggered_at || new Date().toISOString(),
-                                _custom: true
-                            };
-                        });
-
-                        // Auto-close: any previously synced Angel One trade no longer held -> mark Closed
-                        const closedTrades = {};
-                        Object.entries(previousAngelTrades).forEach(([k, v]) => {
-                            if (!liveTickers.has(v.ticker)) {
-                                const entry = parseFloat(v.entry_price) || 0;
-                                const exit = parseFloat(v.current_price) || entry;
-                                const qty = parseInt(v.quantity) || 0;
-                                closedTrades[k] = {
-                                    ...v,
-                                    status: 'Closed',
-                                    exit_price: exit,
-                                    pnl: (exit - entry) * qty,
-                                    pnl_percent: entry > 0 ? ((exit - entry) / entry * 100) : 0,
-                                    closed_at: v.closed_at || new Date().toISOString()
-                                };
-                                console.log('🔒 Auto-closed (sold in Angel One):', v.ticker);
-                            }
-                        });
-
-                        // Merge: open Angel One + closed Angel One + manual trades
-                        localStorage.setItem('radarOverrides', JSON.stringify({ ...angelTrades, ...closedTrades, ...manualTrades }));
-                        localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
-
-                        console.log('✅ Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
-                    } else {
-                        console.warn('EC2 sync unavailable');
-                    }
-                    displayPerformanceTracking();
+                const existing     = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                const manualTrades = {};
+                const prevBrokerTrades = {};
+                Object.entries(existing).forEach(([k, v]) => {
+                    if (v.source === 'Angel One' || v.source === 'Groww') prevBrokerTrades[k] = v;
+                    else if (v._custom) manualTrades[k] = v;
                 });
+
+                const allBrokerTrades = {};
+                const liveTickers = new Set();
+                [...angelPositions, ...growwPositions].forEach(p => {
+                    const ticker = (p.ticker || p.symbol || '').replace('-EQ', '');
+                    if (!ticker || blockedTickers.includes(ticker)) return;
+                    liveTickers.add(ticker);
+                    allBrokerTrades[ticker] = {
+                        ticker,
+                        quantity:      p.quantity      || 0,
+                        entry_price:   p.entry_price   || 0,
+                        current_price: p.current_price || p.entry_price || 0,
+                        status:        'Open',
+                        source:        p.source || 'Sync',
+                        triggered_at:  existing[ticker] ? existing[ticker].triggered_at : new Date().toISOString(),
+                        _custom:       true
+                    };
+                });
+
+                // Auto-close broker trades no longer held
+                const closedTrades = {};
+                Object.entries(prevBrokerTrades).forEach(([k, v]) => {
+                    if (!liveTickers.has(v.ticker)) {
+                        const entry = parseFloat(v.entry_price) || 0;
+                        const exit  = parseFloat(v.current_price) || entry;
+                        const qty   = parseInt(v.quantity) || 0;
+                        closedTrades[k] = {
+                            ...v, status: 'Closed', exit_price: exit,
+                            pnl: (exit - entry) * qty,
+                            pnl_percent: entry > 0 ? ((exit - entry) / entry * 100) : 0,
+                            closed_at: v.closed_at || new Date().toISOString()
+                        };
+                        console.log('Auto-closed:', v.ticker, '(', v.source, ')');
+                    }
+                });
+
+                localStorage.setItem('radarOverrides', JSON.stringify({ ...allBrokerTrades, ...closedTrades, ...manualTrades }));
+                localStorage.setItem('inRadarTickers', JSON.stringify([...liveTickers]));
+                console.log('Synced', Object.keys(allBrokerTrades).length, 'open,', Object.keys(closedTrades).length, 'closed');
+                displayPerformanceTracking();
+            });
         };
 
         // Save a user override for a specific trade
@@ -6818,7 +6803,7 @@
                     </button>
                     <button onclick="syncRadarFromAngelOne()" class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        <span> Sync with Angel One</span>
+                        <span>Sync Angel One & Groww</span>
                     </button>
                         <div class="text-4xl mb-4">📡</div>
                         <div class="text-slate-300 font-semibold mb-2">Radar is Empty</div>
@@ -6844,7 +6829,7 @@
                     </button>
                     <button onclick="syncRadarFromAngelOne()" class="w-full py-2 rounded-lg text-xs font-semibold touch-btn mb-3 flex items-center justify-center space-x-2" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        <span> Sync with Angel One</span>
+                        <span>Sync Angel One & Groww</span>
                     </button>
                     <div class="flex space-x-2">
                         <button onclick="radarFilterState='all'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='all' ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">📊 All (${trades.length})</button>
