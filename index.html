@@ -6516,6 +6516,12 @@
                 const growwPositions = (growwData  && growwData.success)  ? (growwData.open_trades  || []) : [];
                 console.log('Angel One:', angelPositions.length, '| Groww:', growwPositions.length);
 
+                // Only auto-close if at least one broker API responded successfully
+                // If both failed, don't touch existing positions
+                const angelOk = angelData && angelData.success;
+                const growwOk  = growwData  && growwData.success;
+                const anySyncOk = angelOk || growwOk;
+
                 const existing     = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
                 const manualTrades = {};
                 const prevBrokerTrades = {};
@@ -6543,21 +6549,28 @@
                 });
 
                 // Auto-close broker trades no longer held
+                // Only auto-close a position if the broker that owns it responded successfully
                 const closedTrades = {};
-                Object.entries(prevBrokerTrades).forEach(([k, v]) => {
-                    if (!liveTickers.has(v.ticker)) {
-                        const entry = parseFloat(v.entry_price) || 0;
-                        const exit  = parseFloat(v.current_price) || entry;
-                        const qty   = parseInt(v.quantity) || 0;
-                        closedTrades[k] = {
-                            ...v, status: 'Closed', exit_price: exit,
-                            pnl: (exit - entry) * qty,
-                            pnl_percent: entry > 0 ? ((exit - entry) / entry * 100) : 0,
-                            closed_at: v.closed_at || new Date().toISOString()
-                        };
-                        console.log('Auto-closed:', v.ticker, '(', v.source, ')');
-                    }
-                });
+                if (anySyncOk) {
+                    Object.entries(prevBrokerTrades).forEach(([k, v]) => {
+                        const isAngelPos = v.source === 'Angel One';
+                        const isGrowwPos = v.source === 'Groww';
+                        // Only auto-close if the relevant broker API succeeded
+                        if ((isAngelPos && !angelOk) || (isGrowwPos && !growwOk)) return;
+                        if (!liveTickers.has(v.ticker)) {
+                            const entry = parseFloat(v.entry_price) || 0;
+                            const exit  = parseFloat(v.current_price) || entry;
+                            const qty   = parseInt(v.quantity) || 0;
+                            closedTrades[k] = {
+                                ...v, status: 'Closed', exit_price: exit,
+                                pnl: (exit - entry) * qty,
+                                pnl_percent: entry > 0 ? ((exit - entry) / entry * 100) : 0,
+                                closed_at: v.closed_at || new Date().toISOString()
+                            };
+                            console.log('Auto-closed:', v.ticker, '(', v.source, ')');
+                        }
+                    });
+                }
 
                 localStorage.setItem('radarOverrides', JSON.stringify({ ...allBrokerTrades, ...closedTrades, ...manualTrades }));
                 localStorage.setItem('inRadarTickers', JSON.stringify([...liveTickers]));
