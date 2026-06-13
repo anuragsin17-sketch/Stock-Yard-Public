@@ -5575,7 +5575,10 @@
             
             switch(tab) {
                 case 'volume':
-                    stocks = (screeningData.volume_breakout_stocks || []).slice().sort((a, b) => (b.breakout_volume_ratio || 0) - (a.breakout_volume_ratio || 0));
+                    stocks = (screeningData.volume_breakout_stocks || [])
+                        .filter(s => (s.breakout_volume_ratio || 0) >= 20)
+                        .slice()
+                        .sort((a, b) => (b.breakout_volume_ratio || 0) - (a.breakout_volume_ratio || 0));
                     title = '';
                     sortingInfo = '';
                     break;
@@ -5898,7 +5901,19 @@
                     // Get saved entry trigger override from localStorage
                     const savedKey = `trendline_${stock.ticker}`;
                     const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
-                    const entryTrigger = saved.entryTrigger || stock.triggerPrice;
+                    // Validate saved entry — discard if it causes >50% distance (corrupted)
+                    let entryTrigger = stock.triggerPrice;
+                    if (saved.entryTrigger) {
+                        const savedEntry = parseFloat(saved.entryTrigger);
+                        const sanityDist = Math.abs((stock.currentPrice - savedEntry) / savedEntry * 100);
+                        if (savedEntry > 0 && sanityDist < 50) {
+                            entryTrigger = savedEntry;
+                        } else {
+                            // Clear corrupted value
+                            delete saved.entryTrigger;
+                            localStorage.setItem(savedKey, JSON.stringify(saved));
+                        }
+                    }
                     // Compute live distance from saved/default entry
                     const liveDist = Math.abs((stock.currentPrice - entryTrigger) / entryTrigger * 100).toFixed(2);
 
@@ -6896,15 +6911,15 @@
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Entry</div>
-                            ${isEditable ? '<input type="number" value="'+ep.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'entry_price\',this.value)" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#3B82F6;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);">' : '<div class="text-sm font-bold mono" style="color:#3B82F6;">₹'+ep.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+ep.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'entry_price\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+ep.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#3B82F6;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);">' : '<div class="text-sm font-bold mono" style="color:#3B82F6;">₹'+ep.toFixed(2)+'</div>'}
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Target</div>
-                            ${isEditable ? '<input type="number" value="'+tgt.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'target\',this.value)" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);">' : '<div class="text-sm font-bold mono" style="color:#10B981;">₹'+tgt.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+tgt.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'target\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+tgt.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);">' : '<div class="text-sm font-bold mono" style="color:#10B981;">₹'+tgt.toFixed(2)+'</div>'}
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Stop</div>
-                            ${isEditable ? '<input type="number" value="'+sl.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'stop_loss\',this.value)" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#DC2626;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);">' : '<div class="text-sm font-bold mono" style="color:#DC2626;">₹'+sl.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+sl.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'stop_loss\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+sl.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#DC2626;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);">' : '<div class="text-sm font-bold mono" style="color:#DC2626;">₹'+sl.toFixed(2)+'</div>'}
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
