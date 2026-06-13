@@ -5308,6 +5308,17 @@
             localStorage.setItem(savedKey, JSON.stringify(saved));
         }
 
+        window.dismissTrendlineStock = function(ticker) {
+            const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+            if (!dismissed.includes(ticker)) {
+                dismissed.push(ticker);
+                localStorage.setItem('trendline_dismissed', JSON.stringify(dismissed));
+            }
+            // Refresh the trendline tab
+            trendPage = 1;
+            displayTrendlineScreen();
+        };
+
         // Place order via GitHub Actions (credentials stay in GitHub Secrets)
         async function placeAngelOrder(symbol, action, qty, price, stopLoss, target, source) {
             try {
@@ -5518,6 +5529,9 @@
         // Switch between tabs
         function switchTab(tab) {
             currentTab = tab;
+            // Reset trendline page to 1 whenever tab changes
+            trendPage = 1;
+            volPage = 1;
             
             // Update tab buttons with new pill design
             document.querySelectorAll('.pill-tab').forEach(btn => {
@@ -5878,15 +5892,14 @@
                     `;
                 });
                 
-                // Trendline pagination
-                const trendTotalPages = Math.ceil(trendlineStocks.length / TAB_PAGE_SIZE);
+                // Trendline pagination — filter dismissed stocks first
+                const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+                const filteredTrendStocks = trendlineStocks.filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker));
+                const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
                 if (trendPage > trendTotalPages) trendPage = 1;
-                const pagedTrendStocks = trendlineStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
+                const pagedTrendStocks = filteredTrendStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
 
                 pagedTrendStocks.forEach(stock => {
-                    // Skip if already in Radar
-                    if (isTickerInRadar(stock.ticker)) return;
-
                     // Get saved overrides from localStorage
                     const savedKey = `trendline_${stock.ticker}`;
                     const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
@@ -5988,6 +6001,10 @@
 
                                     <div class="flex items-center space-x-2 mt-3">
                                         <div class="flex-1">${statusBadge}</div>
+                                        <button onclick="dismissTrendlineStock('${stock.ticker}')"
+                                            class="py-2 px-3 rounded-lg text-xs touch-btn"
+                                            title="Dismiss — won't show in future runs"
+                                            style="background: rgba(100,116,139,0.15); color: #64748B;">🗑️</button>
                                         <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${targetExit}, ${stopLoss})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                                             style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
@@ -6008,6 +6025,10 @@
                         `trendPage=Math.min(${trendTotalPages},trendPage+1); displayTrendlineScreen()`
                     );
                 }
+
+                // Count badge update using filtered count
+                const totalOppsFiltered = (screeningData?.volume_breakout_stocks?.length || 0) + filteredTrendStocks.length + manualStocksAll.length;
+                document.getElementById('totalOpportunities').textContent = totalOppsFiltered.toLocaleString();
 
                 container.innerHTML = html;
             } catch (error) {
@@ -6037,18 +6058,34 @@
 
         function paginationControls(currentPage, totalPages, onPrev, onNext) {
             if (totalPages <= 1) return '';
+            // Build numbered page buttons
+            let pageButtons = '';
+            for (let p = 1; p <= totalPages; p++) {
+                const isActive = p === currentPage;
+                const onClickFn = p === currentPage ? '' : 
+                    (p === currentPage - 1 ? onPrev : 
+                     p === currentPage + 1 ? onNext :
+                     // For arbitrary page jumps derive the tab and set directly
+                     `trendPage=${p}; displayTrendlineScreen()`);
+                pageButtons += `
+                    <button onclick="${p < currentPage ? `trendPage=${p}; displayTrendlineScreen()` : p > currentPage ? `trendPage=${p}; displayTrendlineScreen()` : ''}"
+                        class="w-9 h-9 rounded-lg text-xs font-semibold touch-btn flex items-center justify-center"
+                        style="${isActive 
+                            ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;pointer-events:none' 
+                            : 'background:rgba(30,41,59,0.9);color:#94A3B8'}">
+                        ${p}
+                    </button>`;
+            }
             return `
-                <div class="mobile-card rounded-xl p-4 mt-2 mb-2">
-                    <div class="flex items-center justify-between">
+                <div class="mobile-card rounded-xl p-3 mt-2 mb-2">
+                    <div class="flex items-center justify-center gap-2 flex-wrap">
                         <button onclick="${onPrev}"
-                            class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
-                            style="${currentPage<=1 ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">← Prev</button>
-                        <div class="text-xs text-center">
-                            <div class="font-semibold text-slate-200">Page ${currentPage} of ${totalPages}</div>
-                        </div>
+                            class="px-3 py-2 rounded-lg text-xs font-medium touch-btn"
+                            style="${currentPage<=1 ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">←</button>
+                        ${pageButtons}
                         <button onclick="${onNext}"
-                            class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
-                            style="${currentPage>=totalPages ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">Next →</button>
+                            class="px-3 py-2 rounded-lg text-xs font-medium touch-btn"
+                            style="${currentPage>=totalPages ? 'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8' : 'background:rgba(30,41,59,0.9);color:#fff'}">→</button>
                     </div>
                 </div>`;
         }
