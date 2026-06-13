@@ -5398,6 +5398,38 @@
             }
         }
 
+        // Lookup 52-week High/Low from all available screener data sources
+        function get52WData(ticker) {
+            if (!ticker) return null;
+            const sym = ticker.toUpperCase();
+            // Search golden_stocks
+            const golden = (screeningData?.golden_stocks || []).find(s => (s.symbol || '').toUpperCase() === sym);
+            if (golden && golden.week_52_high && golden.week_52_low) {
+                return { high: golden.week_52_high, low: golden.week_52_low };
+            }
+            // Search volume_breakout_stocks
+            const vol = (screeningData?.volume_breakout_stocks || []).find(s => (s.symbol || '').toUpperCase() === sym);
+            if (vol && vol.week_52_high && vol.week_52_low) {
+                return { high: vol.week_52_high, low: vol.week_52_low };
+            }
+            // Search radarOverrides (trades taken from UI may have week52High/week52Low)
+            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+            const ov = Object.values(overrides).find(o => (o.ticker || '').toUpperCase() === sym && o.week52High && o.week52Low);
+            if (ov) return { high: parseFloat(ov.week52High), low: parseFloat(ov.week52Low) };
+            // Search cached 52W map (populated from radarOverrides + saved trade data)
+            const w52Cache = JSON.parse(sessionStorage.getItem('52wCache') || '{}');
+            if (w52Cache[sym]) return w52Cache[sym];
+            return null;
+        }
+
+        // Store 52W data into session cache for a ticker (called when taking a trade)
+        function cache52WData(ticker, high, low) {
+            if (!ticker || !high || !low) return;
+            const cache = JSON.parse(sessionStorage.getItem('52wCache') || '{}');
+            cache[ticker.toUpperCase()] = { high: parseFloat(high), low: parseFloat(low) };
+            sessionStorage.setItem('52wCache', JSON.stringify(cache));
+        }
+
         // Check if ticker is already in radar
         function isTickerInRadar(ticker) {
             // Permanently purged tickers are hidden everywhere — treat as "in radar" so Trendline skips them
@@ -5906,6 +5938,10 @@
 
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.ticker}`;
                     const stockNameHtml = `<a href="${chartUrl}" target="_blank" class="font-bold text-slate-100 hover:text-blue-400 transition-colors">${stock.ticker}</a>`;
+                    // Pre-compute 52W data for this stock (from screener lookup)
+                    const tl52w = get52WData(stock.ticker);
+                    const tl52wHigh = stock.week52High || (tl52w ? tl52w.high : null);
+                    const tl52wLow  = stock.week52Low  || (tl52w ? tl52w.low  : null);
 
                     html += `
                         <div class="stock-card mb-4">
@@ -5940,7 +5976,7 @@
                                         Fib: ${stock.fibLevelMatch || 'N/A'} | Score: ${stock.confluenceScore || '-'}/10
                                     </div>
 
-                                    ${(stock.week52High || stock.week52Low) ? `<div class="text-xs mono mb-3" style="color:#64748b;">52W: ₹${(stock.week52Low||'--').toLocaleString()} ↔ ₹${(stock.week52High||'--').toLocaleString()}</div>` : ''}
+                                    ${tl52wHigh && tl52wLow ? `<div class="text-xs mono mb-3" style="color:#64748b;">52W: ₹${parseFloat(tl52wLow).toLocaleString('en-IN',{maximumFractionDigits:2})} ↔ ₹${parseFloat(tl52wHigh).toLocaleString('en-IN',{maximumFractionDigits:2})}</div>` : ''}
 
                                     <div class="flex items-center space-x-2 mt-3">
                                         <div class="flex-1">${statusBadge}</div>
@@ -5948,7 +5984,7 @@
                                             class="py-2 px-3 rounded-lg text-xs touch-btn"
                                             title="Dismiss — won't show in future runs"
                                             style="background: rgba(100,116,139,0.15); color: #64748B;">🗑️</button>
-                                        <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0}, ${stock.week52High || 'null'}, ${stock.week52Low || 'null'})"
+                                        <button onclick="takeTrade('${stock.ticker}', ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0}, ${tl52wHigh || 'null'}, ${tl52wLow || 'null'})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                                             style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
                                             📥 Take Trade
@@ -6809,16 +6845,22 @@
             if (!container) return;
 
             // Normalize both snake_case and camelCase field names
-            const norm = t => ({
-                ...t,
-                entry_price:   parseFloat(t.entry_price   || t.entryTrigger || 0),
-                target:        parseFloat(t.target        || t.targetExit   || 0),
-                stop_loss:     parseFloat(t.stop_loss     || t.stopLoss     || 0),
-                current_price: parseFloat(t.current_price || t.currentPrice || t.entry_price || t.entryTrigger || 0),
-                quantity:      parseInt(t.quantity || 0),
-                status:        t.status || 'Open',
-                source:        t.source || 'Manual'
-            });
+            const norm = t => {
+                const w52 = get52WData(t.ticker || t.symbol);
+                return {
+                    ...t,
+                    entry_price:   parseFloat(t.entry_price   || t.entryTrigger || 0),
+                    target:        parseFloat(t.target        || t.targetExit   || 0),
+                    stop_loss:     parseFloat(t.stop_loss     || t.stopLoss     || 0),
+                    current_price: parseFloat(t.current_price || t.currentPrice || t.entry_price || t.entryTrigger || 0),
+                    quantity:      parseInt(t.quantity || 0),
+                    status:        t.status || 'Open',
+                    source:        t.source || 'Manual',
+                    // Enrich 52W from screener data if not present in trade
+                    week52High:    t.week52High || t.week_52_high || (w52 ? w52.high : null),
+                    week52Low:     t.week52Low  || t.week_52_low  || (w52 ? w52.low  : null)
+                };
+            };
 
             trades = (trades || []).filter(t => !t._deleted).map(norm);
 

@@ -18,7 +18,9 @@
     },
     "wickTouches": 3,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 33.64,
+    "week52Low": 21.86
   },
   {
     "ticker": "DCMSHRIRAM",
@@ -39,7 +41,9 @@
     },
     "wickTouches": 6,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 1489.48,
+    "week52Low": 945.1
   },
   {
     "ticker": "SHREECEM",
@@ -60,7 +64,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 32398.19,
+    "week52Low": 22550.0
   },
   {
     "ticker": "JUSTDIAL",
@@ -81,7 +87,9 @@
     },
     "wickTouches": 5,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 957.9,
+    "week52Low": 480.5
   },
   {
     "ticker": "LTTS",
@@ -102,7 +110,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 4673.3,
+    "week52Low": 2976.44
   },
   {
     "ticker": "TATAPOWER",
@@ -123,7 +133,9 @@
     },
     "wickTouches": 16,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 464.9,
+    "week52Low": 342.5
   },
   {
     "ticker": "TVSMOTOR",
@@ -144,7 +156,9 @@
     },
     "wickTouches": 13,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 3956.17,
+    "week52Low": 2645.85
   },
   {
     "ticker": "CHALET",
@@ -165,7 +179,9 @@
     },
     "wickTouches": 11,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 1080.8,
+    "week52Low": 691.35
   },
   {
     "ticker": "BLUESTARCO",
@@ -186,7 +202,9 @@
     },
     "wickTouches": 4,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 2040.0,
+    "week52Low": 1450.0
   },
   {
     "ticker": "GODREJCP",
@@ -207,7 +225,9 @@
     },
     "wickTouches": 8,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 1291.23,
+    "week52Low": 962.27
   },
   {
     "ticker": "VGUARD",
@@ -228,7 +248,9 @@
     },
     "wickTouches": 13,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 408.17,
+    "week52Low": 290.0
   },
   {
     "ticker": "ABBOTINDIA",
@@ -249,7 +271,9 @@
     },
     "wickTouches": 16,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 36491.76,
+    "week52Low": 25150.0
   },
   {
     "ticker": "GSFC",
@@ -270,7 +294,9 @@
     },
     "wickTouches": 4,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 215.43,
+    "week52Low": 138.83
   },
   {
     "ticker": "ORIENTCEM",
@@ -291,7 +317,9 @@
     },
     "wickTouches": 5,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 312.18,
+    "week52Low": 121.85
   },
   {
     "ticker": "ASTRAL",
@@ -312,7 +340,9 @@
     },
     "wickTouches": 7,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 1768.7,
+    "week52Low": 1260.29
   },
   {
     "ticker": "MASTEK",
@@ -333,7 +363,9 @@
     },
     "wickTouches": 6,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 2788.97,
+    "week52Low": 1334.2
   },
   {
     "ticker": "BAJAJFINSV",
@@ -354,7 +386,9 @@
     },
     "wickTouches": 18,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 2195.0,
+    "week52Low": 1597.0
   },
   {
     "ticker": "IRCTC",
@@ -375,7 +409,9 @@
     },
     "wickTouches": 5,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 787.42,
+    "week52Low": 492.65
   },
   {
     "ticker": "MRF",
@@ -396,7 +432,9 @@
     },
     "wickTouches": 13,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 163593.54,
+    "week52Low": 122000.0
   },
   {
     "ticker": "RELIANCE",
@@ -417,7 +455,9 @@
     },
     "wickTouches": 7,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 1604.38,
+    "week52Low": 1253.2
   },
   {
     "ticker": "APLLTD",
@@ -438,7 +478,9 @@
     },
     "wickTouches": 5,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 1095.72,
+    "week52Low": 635.8
   },
   {
     "ticker": "KITEX",
@@ -459,7 +501,9 @@
     },
     "wickTouches": 3,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 303.14,
+    "week52Low": 138.2
   },
   {
     "ticker": "CASTROLIND",
@@ -480,7 +524,9 @@
     },
     "wickTouches": 17,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 222.2,
+    "week52Low": 170.1
   },
   {
     "ticker": "TECHM",
@@ -501,7 +547,9 @@
     },
     "wickTouches": 8,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 1854.0,
+    "week52Low": 1304.1
   },
   {
     "ticker": "AMBUJACEM",
@@ -522,7 +570,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 621.87,
+    "week52Low": 392.06
   },
   {
     "ticker": "CYIENT",
@@ -543,7 +593,9 @@
     },
     "wickTouches": 4,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 1328.53,
+    "week52Low": 750.3
   },
   {
     "ticker": "UNITDSPR",
@@ -564,7 +616,9 @@
     },
     "wickTouches": 15,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 1498.49,
+    "week52Low": 1210.8
   },
   {
     "ticker": "NFL",
@@ -585,7 +639,9 @@
     },
     "wickTouches": 3,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 106.21,
+    "week52Low": 63.35
   },
   {
     "ticker": "IEX",
@@ -606,7 +662,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 205.98,
+    "week52Low": 112.82
   },
   {
     "ticker": "CCAVENUE",
@@ -627,7 +685,9 @@
     },
     "wickTouches": 3,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 23.54,
+    "week52Low": 12.92
   },
   {
     "ticker": "RITES",
@@ -648,7 +708,9 @@
     },
     "wickTouches": 5,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 297.41,
+    "week52Low": 175.0
   },
   {
     "ticker": "LICI",
@@ -669,7 +731,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 483.59,
+    "week52Low": 360.75
   },
   {
     "ticker": "MOIL",
@@ -690,7 +754,9 @@
     },
     "wickTouches": 5,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 398.62,
+    "week52Low": 242.35
   },
   {
     "ticker": "INDIAMART",
@@ -711,7 +777,9 @@
     },
     "wickTouches": 10,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 2799.0,
+    "week52Low": 1911.0
   },
   {
     "ticker": "AADHARHFC",
@@ -732,7 +800,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 547.8,
+    "week52Low": 411.3
   },
   {
     "ticker": "CONCOR",
@@ -753,7 +823,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 625.31,
+    "week52Low": 421.45
   },
   {
     "ticker": "EIHOTEL",
@@ -774,7 +846,9 @@
     },
     "wickTouches": 18,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 434.8,
+    "week52Low": 271.15
   },
   {
     "ticker": "MGL",
@@ -795,7 +869,9 @@
     },
     "wickTouches": 10,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 1549.34,
+    "week52Low": 900.0
   },
   {
     "ticker": "SARDAEN",
@@ -816,7 +892,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 639.75,
+    "week52Low": 419.7
   },
   {
     "ticker": "NTPC",
@@ -837,7 +915,9 @@
     },
     "wickTouches": 8,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 414.4,
+    "week52Low": 313.09
   },
   {
     "ticker": "GILLETTE",
@@ -858,7 +938,9 @@
     },
     "wickTouches": 7,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 11214.86,
+    "week52Low": 7206.0
   },
   {
     "ticker": "MPHASIS",
@@ -879,7 +961,9 @@
     },
     "wickTouches": 10,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 3037.2,
+    "week52Low": 2013.0
   },
   {
     "ticker": "CROMPTON",
@@ -900,7 +984,9 @@
     },
     "wickTouches": 4,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 358.81,
+    "week52Low": 217.4
   },
   {
     "ticker": "RCF",
@@ -921,7 +1007,9 @@
     },
     "wickTouches": 3,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 163.45,
+    "week52Low": 106.0
   },
   {
     "ticker": "PNCINFRA",
@@ -942,7 +1030,9 @@
     },
     "wickTouches": 3,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 331.15,
+    "week52Low": 158.17
   },
   {
     "ticker": "VOLTAS",
@@ -963,7 +1053,9 @@
     },
     "wickTouches": 12,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 1577.54,
+    "week52Low": 1183.08
   },
   {
     "ticker": "JKLAKSHMI",
@@ -984,7 +1076,9 @@
     },
     "wickTouches": 6,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 1021.2,
+    "week52Low": 549.95
   },
   {
     "ticker": "HDFCLIFE",
@@ -1005,7 +1099,9 @@
     },
     "wickTouches": 10,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 820.75,
+    "week52Low": 543.0
   },
   {
     "ticker": "RAMCOCEM",
@@ -1026,7 +1122,9 @@
     },
     "wickTouches": 7,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 1214.5,
+    "week52Low": 838.3
   },
   {
     "ticker": "RALLIS",
@@ -1047,7 +1145,9 @@
     },
     "wickTouches": 19,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 381.02,
+    "week52Low": 212.77
   },
   {
     "ticker": "HERITGFOOD",
@@ -1068,7 +1168,9 @@
     },
     "wickTouches": 5,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 540.0,
+    "week52Low": 292.55
   },
   {
     "ticker": "ETERNAL",
@@ -1089,7 +1191,9 @@
     },
     "wickTouches": 8,
     "timeframe": "monthly",
-    "confluenceScore": 10
+    "confluenceScore": 10,
+    "week52High": 368.45,
+    "week52Low": 212.6
   },
   {
     "ticker": "RAILTEL",
@@ -1110,7 +1214,9 @@
     },
     "wickTouches": 3,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 465.06,
+    "week52Low": 245.0
   },
   {
     "ticker": "POONAWALLA",
@@ -1131,7 +1237,9 @@
     },
     "wickTouches": 5,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 570.4,
+    "week52Low": 361.2
   },
   {
     "ticker": "BAJFINANCE",
@@ -1152,7 +1260,9 @@
     },
     "wickTouches": 12,
     "timeframe": "monthly",
-    "confluenceScore": 8
+    "confluenceScore": 8,
+    "week52High": 1102.5,
+    "week52Low": 787.9
   },
   {
     "ticker": "ICICIBANK",
@@ -1173,7 +1283,9 @@
     },
     "wickTouches": 8,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 1488.51,
+    "week52Low": 1187.6
   },
   {
     "ticker": "ESCORTS",
@@ -1194,7 +1306,9 @@
     },
     "wickTouches": 9,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 4159.02,
+    "week52Low": 2700.0
   },
   {
     "ticker": "BIKAJI",
@@ -1215,6 +1329,8 @@
     },
     "wickTouches": 10,
     "timeframe": "monthly",
-    "confluenceScore": 9
+    "confluenceScore": 9,
+    "week52High": 818.7,
+    "week52Low": 592.55
   }
 ]
