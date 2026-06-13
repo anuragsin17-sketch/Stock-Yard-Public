@@ -1,0 +1,22 @@
+{
+  "name": "Stock Yard",
+  "short_name": "SY",
+  "description": "Institutional Screening Platform",
+  "theme_color": "#047857",
+  "background_color": "#0A0E14",
+  "display": "standalone",
+  "start_url": ".",
+  "scope": ".",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

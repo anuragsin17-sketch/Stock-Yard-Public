@@ -9,6 +9,8 @@
     <!-- BUILD: 20260613120000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#047857">
+    <link rel="manifest" href="./manifest.json">
     <title>Stock Yard - Institutional Screening Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -101,9 +103,85 @@
         .position-filter-btn:hover {
             border-color: rgba(4, 120, 87, 0.3);
         }
+        /* Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        /* PIN Screen */
+        #pinScreen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #0A0E14;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease;
+        }
+        #pinScreen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        @keyframes pinShake {
+            0%, 100% { transform: translateX(0); }
+            20%       { transform: translateX(-8px); }
+            40%       { transform: translateX(8px); }
+            60%       { transform: translateX(-8px); }
+            80%       { transform: translateX(8px); }
+        }
+        .pin-shake {
+            animation: pinShake 0.4s ease;
+        }
+        /* Tab flash feedback for swipe */
+        @keyframes tabFlash {
+            0%   { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.8); }
+            100% { box-shadow: none; }
+        }
+        .tab-flash {
+            animation: tabFlash 0.4s ease;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen" style="background: #0A0E14;">
+
+    <!-- ─── PIN AUTHENTICATION SCREEN ───────────────────────────────────────── -->
+    <div id="pinScreen">
+        <div style="text-align:center; padding: 0 24px; width: 100%; max-width: 360px;">
+            <!-- Logo -->
+            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:36px;">
+                <svg style="width:40px;height:40px;color:#047857;" fill="none" stroke="#047857" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                <span style="font-size:28px;font-weight:700;color:#f1f5f9;letter-spacing:-0.5px;">Stock Yard</span>
+            </div>
+            <!-- PIN input area -->
+            <div id="pinInputWrap" style="margin-bottom:16px;">
+                <input id="pinInput" type="password" maxlength="4" inputmode="numeric" pattern="[0-9]*"
+                    placeholder="Enter PIN"
+                    autocomplete="off"
+                    style="width:100%;padding:16px;font-size:28px;letter-spacing:12px;text-align:center;background:rgba(20,25,35,0.9);border:1px solid rgba(255,255,255,0.1);border-radius:16px;color:#f1f5f9;outline:none;font-family:'JetBrains Mono',monospace;"
+                    onkeydown="if(event.key==='Enter')unlockApp()"/>
+            </div>
+            <div id="pinError" style="color:#DC2626;font-size:13px;margin-bottom:14px;min-height:18px;"></div>
+            <button onclick="unlockApp()"
+                style="width:100%;padding:16px;border-radius:16px;font-size:16px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;touch-action:manipulation;">
+                Unlock
+            </button>
+            <div style="margin-top:20px;color:rgba(148,163,184,0.5);font-size:12px;">Stock Yard v2 — Secure Access</div>
+        </div>
+    </div>
+
+    <!-- Main app wrapper — hidden until PIN unlocked -->
+    <div id="appWrapper" style="display:none;">
+
     <!-- Mobile Header -->
     <header class="backdrop-blur-xl border-b sticky top-0 z-50" style="background: rgba(10, 14, 20, 0.95); border-color: rgba(255, 255, 255, 0.05);">
         <div class="px-5 py-4">
@@ -207,6 +285,8 @@
             </div>
         </div>
     </main>
+
+    </div><!-- /#appWrapper -->
 
     <script>
         // Embedded live data (updated by GitHub Actions)
@@ -4775,7 +4855,84 @@
         let currentTab = 'volume';
         let livePriceUpdateTimer = null;
         let indexUpdateTimer = null;
-        
+
+        // ─── FORMAT HELPERS ──────────────────────────────────────────────────────
+        function formatINR(val, decimals = 2) {
+            const n = parseFloat(val);
+            if (isNaN(n)) return '—';
+            return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        }
+        function formatPct(val, decimals = 2) {
+            const n = parseFloat(val);
+            if (isNaN(n)) return '—';
+            return (n >= 0 ? '+' : '') + n.toFixed(decimals) + '%';
+        }
+
+        // ─── SKELETON LOADING ────────────────────────────────────────────────────
+        function skeletonCard(rows = 3) {
+            let rowsHtml = '';
+            for (let i = 0; i < rows; i++) {
+                rowsHtml += `<div class="skeleton mb-3" style="height:18px;width:${60 + (i % 3) * 15}%;"></div>`;
+            }
+            return `
+                <div class="mobile-card rounded-xl p-5">
+                    <div class="skeleton mb-4" style="height:22px;width:40%;"></div>
+                    ${rowsHtml}
+                    <div class="flex gap-3 mt-4">
+                        <div class="skeleton" style="height:36px;flex:1;"></div>
+                        <div class="skeleton" style="height:36px;flex:1;"></div>
+                    </div>
+                </div>`;
+        }
+        function skeletonList(count = 3) {
+            return Array.from({length: count}, () => skeletonCard()).join('');
+        }
+
+        // ─── PIN AUTHENTICATION ──────────────────────────────────────────────────
+        const CORRECT_PIN = '202006';
+
+        function unlockApp() {
+            const input = document.getElementById('pinInput');
+            const errorEl = document.getElementById('pinError');
+            const pin = input.value.trim();
+            if (pin === CORRECT_PIN) {
+                sessionStorage.setItem('sy_pin_unlocked', '1');
+                const pinScreen = document.getElementById('pinScreen');
+                pinScreen.classList.add('fade-out');
+                document.getElementById('appWrapper').style.display = '';
+                setTimeout(() => { pinScreen.style.display = 'none'; }, 450);
+            } else {
+                errorEl.textContent = 'Incorrect PIN. Try again.';
+                const wrap = document.getElementById('pinInputWrap');
+                wrap.classList.remove('pin-shake');
+                void wrap.offsetWidth; // reflow to restart animation
+                wrap.classList.add('pin-shake');
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        // Check PIN on load
+        (function() {
+            if (sessionStorage.getItem('sy_pin_unlocked') === '1') {
+                document.getElementById('pinScreen').style.display = 'none';
+                document.getElementById('appWrapper').style.display = '';
+            } else {
+                // Focus PIN input after a brief delay
+                setTimeout(() => {
+                    const pi = document.getElementById('pinInput');
+                    if (pi) pi.focus();
+                }, 100);
+            }
+        })();
+
+        // ─── SERVICE WORKER REGISTRATION ────────────────────────────────────────
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW reg failed:', err));
+            });
+        }
+
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Stock Yard Mobile App Starting...');
@@ -4792,6 +4949,9 @@
                 // START live price updates AFTER data is loaded
                 console.log('📊 Data loaded, starting live price updates...');
                 startLivePriceUpdates();
+                // Pre-load 52W data from trendline_screen.json into session cache
+                // so Radar tab can show 52W H/L for all stocks (including Angel One synced)
+                preFetch52WFromTrendline();
             });
             fetchIndexData();
             
@@ -4835,6 +4995,40 @@
 
             // Add Stock search
             setupAddStockSearch();
+
+            // ─── Swipe gesture support ────────────────────────────────────────
+            const swipeTarget = document.querySelector('main') || document.getElementById('resultsContainer');
+            const TAB_ORDER = ['volume', 'trendline', 'performance', 'pastperf'];
+            const TAB_BTN_IDS = { volume: 'volTab', trendline: 'trendlineTab', performance: 'performanceTab', pastperf: 'pastPerfTab' };
+            let swipeStartX = 0, swipeStartY = 0;
+            swipeTarget.addEventListener('touchstart', function(e) {
+                swipeStartX = e.touches[0].clientX;
+                swipeStartY = e.touches[0].clientY;
+            }, { passive: true });
+            swipeTarget.addEventListener('touchend', function(e) {
+                const dx = e.changedTouches[0].clientX - swipeStartX;
+                const dy = e.changedTouches[0].clientY - swipeStartY;
+                if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return;
+                const idx = TAB_ORDER.indexOf(currentTab);
+                let nextIdx;
+                if (dx < 0) {
+                    // swipe left → next tab
+                    nextIdx = Math.min(TAB_ORDER.length - 1, idx + 1);
+                } else {
+                    // swipe right → previous tab
+                    nextIdx = Math.max(0, idx - 1);
+                }
+                if (nextIdx !== idx) {
+                    const nextTab = TAB_ORDER[nextIdx];
+                    switchTab(nextTab);
+                    // Brief flash on new active tab button
+                    const btnEl = document.getElementById(TAB_BTN_IDS[nextTab]);
+                    if (btnEl) {
+                        btnEl.classList.add('tab-flash');
+                        setTimeout(() => btnEl.classList.remove('tab-flash'), 400);
+                    }
+                }
+            }, { passive: true });
         }
         
         // Fetch live prices for all stocks from Angel One API
@@ -5009,6 +5203,19 @@
                     localStorage.setItem('radarOverrides', JSON.stringify({ ...angelTrades, ...closedTrades, ...manualTrades }));
                     localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
                     console.log('💾 Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
+
+                    // Enrich 52W for Angel One synced trades (they don't come with 52W data)
+                    enrich52WForTrades(angelTrades).then(enriched => {
+                        const current = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                        Object.entries(enriched).forEach(([k, t]) => {
+                            if (current[k] && t.week52High && t.week52Low) {
+                                current[k].week52High = t.week52High;
+                                current[k].week52Low  = t.week52Low;
+                            }
+                        });
+                        localStorage.setItem('radarOverrides', JSON.stringify(current));
+                        if (currentTab === 'performance') displayPerformanceTracking();
+                    });
                 }
                 
                 // Reload Radar tab if currently viewing it
@@ -5412,14 +5619,38 @@
             if (vol && vol.week_52_high && vol.week_52_low) {
                 return { high: vol.week_52_high, low: vol.week_52_low };
             }
+            // Search cached trendline stocks (trendline_screen.json — patched with week52High/Low)
+            const cachedTL = JSON.parse(sessionStorage.getItem('trendline52wCache') || '{}');
+            if (cachedTL[sym]) return cachedTL[sym];
             // Search radarOverrides (trades taken from UI may have week52High/week52Low)
             const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
             const ov = Object.values(overrides).find(o => (o.ticker || '').toUpperCase() === sym && o.week52High && o.week52Low);
             if (ov) return { high: parseFloat(ov.week52High), low: parseFloat(ov.week52Low) };
-            // Search cached 52W map (populated from radarOverrides + saved trade data)
+            // Search session 52W cache
             const w52Cache = JSON.parse(sessionStorage.getItem('52wCache') || '{}');
             if (w52Cache[sym]) return w52Cache[sym];
             return null;
+        }
+
+        // Pre-fetch 52W data from trendline_screen.json on app startup
+        // Builds trendline52wCache in sessionStorage so Radar tab has 52W for all trendline stocks
+        async function preFetch52WFromTrendline() {
+            try {
+                const resp = await fetch('./trendline_screen.json', { cache: 'no-store' });
+                if (!resp.ok) return;
+                const stocks = await resp.json();
+                if (!Array.isArray(stocks)) return;
+                const map = {};
+                stocks.forEach(s => {
+                    if (s.ticker && s.week52High && s.week52Low) {
+                        map[s.ticker.toUpperCase()] = { high: s.week52High, low: s.week52Low };
+                    }
+                });
+                sessionStorage.setItem('trendline52wCache', JSON.stringify(map));
+                console.log(`✅ 52W cache built for ${Object.keys(map).length} trendline stocks`);
+            } catch (e) {
+                console.warn('preFetch52WFromTrendline failed:', e.message);
+            }
         }
 
         // Store 52W data into session cache for a ticker (called when taking a trade)
@@ -5428,6 +5659,51 @@
             const cache = JSON.parse(sessionStorage.getItem('52wCache') || '{}');
             cache[ticker.toUpperCase()] = { high: parseFloat(high), low: parseFloat(low) };
             sessionStorage.setItem('52wCache', JSON.stringify(cache));
+        }
+
+        // Enrich a trades map {key: tradeObj} with 52W data.
+        // Step 1: try all local caches (golden_stocks, volume, trendline, radarOverrides).
+        // Step 2: for anything still missing, fetch from EC2 /api/get-quote (yfinance has 52W).
+        // Persists fetched 52W into 52wCache so subsequent calls are instant.
+        async function enrich52WForTrades(tradesMap) {
+            // Step 1 — local cache lookup
+            Object.entries(tradesMap).forEach(([key, t]) => {
+                if (t.week52High && t.week52Low) return; // already have it
+                const w52 = get52WData(t.ticker);
+                if (w52) {
+                    tradesMap[key].week52High = w52.high;
+                    tradesMap[key].week52Low  = w52.low;
+                }
+            });
+
+            // Step 2 — EC2 quote API for anything still missing
+            const stillMissing = Object.entries(tradesMap)
+                .filter(([, t]) => !t.week52High || !t.week52Low);
+            if (stillMissing.length === 0) return tradesMap;
+
+            console.log(`🔍 Fetching 52W for ${stillMissing.length} stocks from EC2 quote API...`);
+            await Promise.allSettled(stillMissing.map(async ([key, t]) => {
+                try {
+                    const resp = await fetch(
+                        `https://32.194.58.75/api/get-quote?symbol=${encodeURIComponent(t.ticker)}`,
+                        { cache: 'no-store', mode: 'cors', signal: AbortSignal.timeout(7000) }
+                    );
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    const h = data.week_52_high || data.yearHigh || data.fiftyTwoWeekHigh;
+                    const l = data.week_52_low  || data.yearLow  || data.fiftyTwoWeekLow;
+                    if (h && l) {
+                        tradesMap[key].week52High = parseFloat(h);
+                        tradesMap[key].week52Low  = parseFloat(l);
+                        cache52WData(t.ticker, h, l); // persist for instant re-use
+                        console.log(`  ✓ ${t.ticker} 52W H:${h} L:${l}`);
+                    }
+                } catch (e) {
+                    console.warn(`  ⚠ 52W fetch failed for ${t.ticker}:`, e.message);
+                }
+            }));
+
+            return tradesMap;
         }
 
         // Check if ticker is already in radar
@@ -5571,7 +5847,7 @@
             const container = document.getElementById('resultsContainer');
             
             if (!screeningData) {
-                container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Loading...</div>';
+                container.innerHTML = skeletonList(3);
                 return;
             }
             
@@ -5818,7 +6094,7 @@
         async function displayTrendlineScreen() {
             const container = document.getElementById('resultsContainer');
             
-            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Loading trendline data...</div>';
+            container.innerHTML = skeletonList(4);
             
             try {
                 const response = await fetch('./trendline_screen.json', {
@@ -5832,6 +6108,18 @@
                 }
                 
                 const trendlineStocks = await response.json();
+                
+                // ─── Cache 52W data from trendline_screen.json into sessionStorage
+                // so get52WData() can find it for Radar tab (Angel One synced stocks etc.)
+                const tl52wMap = JSON.parse(sessionStorage.getItem('trendline52wCache') || '{}');
+                let cacheUpdated = false;
+                (trendlineStocks || []).forEach(s => {
+                    if (s.ticker && s.week52High && s.week52Low) {
+                        tl52wMap[s.ticker.toUpperCase()] = { high: s.week52High, low: s.week52Low };
+                        cacheUpdated = true;
+                    }
+                });
+                if (cacheUpdated) sessionStorage.setItem('trendline52wCache', JSON.stringify(tl52wMap));
                 
                 if (!trendlineStocks || trendlineStocks.length === 0) {
                     container.innerHTML = `
@@ -5951,7 +6239,7 @@
                                     <div class="text-xs text-slate-400 mb-3">${stock.patternZone} | Wicks: ${stock.wickTouches || '-'} | ${stock.timeframe || 'monthly'}</div>
 
                                     <div class="text-lg font-bold mono flex items-center mb-3" style="color: #047857;">
-                                        ₹${stock.currentPrice.toLocaleString()}
+                                        ${formatINR(stock.currentPrice)}
                                         <span id="dist_${stock.ticker}" class="text-xs ml-2 text-slate-400">Distance: ${liveDist}%</span>
                                     </div>
 
@@ -5976,7 +6264,7 @@
                                         Fib: ${stock.fibLevelMatch || 'N/A'} | Score: ${stock.confluenceScore || '-'}/10
                                     </div>
 
-                                    ${tl52wHigh && tl52wLow ? `<div class="text-xs mono mb-3" style="color:#64748b;">52W: ₹${parseFloat(tl52wLow).toLocaleString('en-IN',{maximumFractionDigits:2})} ↔ ₹${parseFloat(tl52wHigh).toLocaleString('en-IN',{maximumFractionDigits:2})}</div>` : ''}
+                                    ${tl52wHigh && tl52wLow ? `<div class="text-xs mono mb-3" style="color:#64748b;">52W: ${formatINR(tl52wLow)} ↔ ${formatINR(tl52wHigh)}</div>` : ''}
 
                                     <div class="flex items-center space-x-2 mt-3">
                                         <div class="flex-1">${statusBadge}</div>
@@ -6071,11 +6359,7 @@
 
         async function displayPastPerformance() {
             const container = document.getElementById('resultsContainer');
-            container.innerHTML = `
-                <div class="mobile-card rounded-xl p-6 text-center">
-                    <div class="text-slate-400 text-sm mb-2">Loading backtest data...</div>
-                    <div class="text-xs text-slate-500">Fetching historical performance results</div>
-                </div>`;
+            container.innerHTML = skeletonList(3);
 
             try {
                 const resp = await fetch('./backtest_performance.json', { cache: 'no-store' });
@@ -6096,7 +6380,47 @@
             renderPastPerformance(container);
         }
 
-        // Helper: returns YYYY-MM-DD for N days ago
+        // ─── TRADE HISTORY LOG (persistent localStorage) ─────────────────────
+        function renderTradeHistorySection() {
+            const history = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
+            if (history.length === 0) return `
+                <div class="mobile-card rounded-xl p-5 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm font-semibold text-slate-300">📋 Closed Trade Log</div>
+                    </div>
+                    <div class="text-xs text-slate-500 text-center py-3">No closed trades yet. Mark trades as "Target Hit" or "Stop Loss" in the Radar tab.</div>
+                </div>`;
+            const rows = history.map(h => {
+                const pnlCol = h.pnl_percent >= 0 ? '#10B981' : '#DC2626';
+                const icon = h.status === 'Target Hit' ? '✅' : '🛑';
+                const closedDate = h.closed_at ? new Date(h.closed_at).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'2-digit'}) : '—';
+                return `<div class="flex items-center justify-between py-2 border-b" style="border-color:rgba(255,255,255,0.05);">
+                    <div>
+                        <span class="text-sm font-bold mono text-slate-100">${h.ticker}</span>
+                        <span class="text-xs text-slate-500 ml-2">${icon} ${h.status}</span>
+                        <div class="text-xs text-slate-500 mt-0.5">${formatINR(h.entry_price)} → ${formatINR(h.exit_price)} · ${closedDate}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm font-bold mono" style="color:${pnlCol};">${formatPct(h.pnl_percent)}</div>
+                        <div class="text-xs" style="color:${pnlCol};">${h.pnl >= 0 ? '+' : ''}${formatINR(h.pnl, 0)}</div>
+                    </div>
+                </div>`;
+            }).join('');
+            return `<div class="mobile-card rounded-xl p-5 mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-sm font-semibold text-slate-300">📋 Closed Trade Log <span class="text-xs text-slate-500">(${history.length})</span></div>
+                    <button onclick="clearTradeHistory()" class="text-xs px-3 py-1 rounded-lg touch-btn" style="background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid rgba(220,38,38,0.3);">🗑️ Clear</button>
+                </div>
+                ${rows}
+            </div>`;
+        }
+
+        window.clearTradeHistory = function() {
+            if (confirm('Clear all closed trade history?')) {
+                localStorage.removeItem('tradeHistory');
+                displayPastPerformance();
+            }
+        };
         function getDateOffset(days) {
             const d = new Date();
             d.setDate(d.getDate() - days);
@@ -6425,10 +6749,9 @@
                 </div>`;
             }
 
-            container.innerHTML = html;
+            container.innerHTML = renderTradeHistorySection() + html;
         }
 
-        // Global filter state for Radar tab
         // Global filter state for Radar tab
         let radarFilterState = 'all'; // 'open', 'closed', 'all'
 
@@ -6459,6 +6782,7 @@
         // Display Radar tab
         function displayPerformanceTracking() {
             const container = document.getElementById('resultsContainer');
+            container.innerHTML = skeletonList(3);
 
             fetch('./radar_trades.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : [])
@@ -6472,8 +6796,17 @@
 
                     const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
 
-                    // Apply overrides to server trades
-                    let trades = (serverTrades || []).map(trade => {
+                    // Apply overrides to server trades — skip tombstoned entries
+                    // Tombstones are set by removeTradeByTicker so deleted server entries
+                    // don't reappear when radar_trades.json is re-fetched
+                    const serverTombstones = JSON.parse(localStorage.getItem('radarServerTombstones') || '{}');
+                    let trades = (serverTrades || []).filter(trade => {
+                        const key = trade.order_id || trade.ticker;
+                        if (serverTombstones[key]) return false;
+                        const entryKey = trade.ticker + '_' + (trade.entry_price || '');
+                        if (serverTombstones[entryKey]) return false;
+                        return true;
+                    }).map(trade => {
                         const key = trade.order_id || trade.ticker;
                         if (overrides[key]) return { ...trade, ...overrides[key] };
                         return trade;
@@ -6622,10 +6955,25 @@
                 const radarBadge = document.querySelector('[data-tab="radar"] .tab-badge, .radar-count');
                 const totalOpen = Object.values({...allBrokerTrades, ...manualTrades}).filter(t => t.status === 'Open').length;
                 if (radarBadge) radarBadge.textContent = totalOpen;
-                // Update nav badge if present
                 document.querySelectorAll('.nav-badge, [id*="radarCount"], [id*="radar-count"]').forEach(el => el.textContent = totalOpen);
 
+                // Show Radar immediately, then enrich 52W in background and re-render
                 displayPerformanceTracking();
+                enrich52WForTrades(allBrokerTrades).then(enriched => {
+                    const current = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    let dirty = false;
+                    Object.entries(enriched).forEach(([k, t]) => {
+                        if (current[k] && t.week52High && t.week52Low) {
+                            current[k].week52High = t.week52High;
+                            current[k].week52Low  = t.week52Low;
+                            dirty = true;
+                        }
+                    });
+                    if (dirty) {
+                        localStorage.setItem('radarOverrides', JSON.stringify(current));
+                        if (currentTab === 'performance') displayPerformanceTracking();
+                    }
+                });
             });
         };
 
@@ -6906,17 +7254,37 @@
                         <button onclick="radarFilterState='closed'; displayPerformanceTracking()" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="${radarFilterState==='closed' ? 'background:rgba(4,120,87,0.3);color:#10B981;border:1px solid rgba(4,120,87,0.4);' : 'background:rgba(20,25,35,0.6);color:#94A3B8;border:1px solid rgba(255,255,255,0.08);'}">✅ Closed (${closed.length})</button>
                     </div>
                 </div>
-                <div class="mobile-card rounded-xl p-4 mb-4">
-                    <div class="grid grid-cols-2 gap-4">
+                <div class="mobile-card rounded-xl p-4 mb-4" style="border:1px solid rgba(16,185,129,0.15);">
+                    <div class="text-xs text-slate-400 uppercase tracking-wider mb-3" style="letter-spacing:0.08em;">Portfolio Summary</div>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
                         <div>
-                            <div class="text-xs text-slate-400 mb-1">Amount Used</div>
-                            <div class="text-xl font-bold mono" style="color:#3B82F6;">₹${totalAmt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+                            <div class="text-xs text-slate-500 mb-1">Total Invested</div>
+                            <div class="text-lg font-bold mono" style="color:#3B82F6;">${formatINR(totalAmt, 0)}</div>
                             <div class="text-xs text-slate-500">${open.length} open trade${open.length!==1?'s':''}</div>
                         </div>
                         <div>
-                            <div class="text-xs text-slate-400 mb-1">Current Value</div>
-                            <div class="text-xl font-bold mono" style="color:#06B6D4;">₹${totalCur.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
-                            <div class="text-xs" style="color:${pnlColor};">${totalPnL>=0?'+':''}₹${totalPnL.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+                            <div class="text-xs text-slate-500 mb-1">Current Value</div>
+                            <div class="text-lg font-bold mono" style="color:#06B6D4;">${formatINR(totalCur, 0)}</div>
+                            <div class="text-xs" style="color:${pnlColor};">${formatPct(totalAmt > 0 ? (totalPnL/totalAmt*100) : 0)}</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 pt-3" style="border-top:1px solid rgba(255,255,255,0.05);">
+                        <div>
+                            <div class="text-xs text-slate-500 mb-1">Overall P&L</div>
+                            <div class="text-lg font-bold mono" style="color:${pnlColor};">${totalPnL >= 0 ? '+' : ''}${formatINR(totalPnL, 0)}</div>
+                            <div class="text-xs font-semibold" style="color:${pnlColor};">${formatPct(totalAmt > 0 ? (totalPnL/totalAmt*100) : 0)}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500 mb-1">Day P&L (est.)</div>
+                            ${(function(){
+                                let dayPnl = 0;
+                                open.forEach(t => {
+                                    const pct = parseFloat(t.current_pnl_pct || t.currentPnl || 0);
+                                    dayPnl += (t.entry_price * t.quantity * pct / 100);
+                                });
+                                const dc = dayPnl >= 0 ? '#10B981' : '#DC2626';
+                                return `<div class="text-lg font-bold mono" style="color:${dc};">${dayPnl >= 0 ? '+' : ''}${formatINR(dayPnl, 0)}</div><div class="text-xs" style="color:${dc};">${formatPct(totalAmt > 0 ? dayPnl/totalAmt*100 : 0)}</div>`;
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -6942,30 +7310,30 @@
                     <div class="grid grid-cols-4 gap-2 mb-3">
                         <div>
                             <div class="text-xs text-slate-500 mb-1">LTP</div>
-                            <div class="text-sm font-bold mono" style="color:#06B6D4;">${cp > 0 ? '₹'+cp.toLocaleString('en-IN',{maximumFractionDigits:2}) : '⟳'}</div>
+                            <div class="text-sm font-bold mono" style="color:#06B6D4;">${cp > 0 ? formatINR(cp) : '⟳'}</div>
                             ${isEditable ? '<div class="text-xs" style="color:#10B981;">🔴 LIVE</div>' : ''}
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Entry</div>
-                            ${isEditable ? '<input type="number" value="'+ep.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'entry_price\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+ep.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#3B82F6;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);">' : '<div class="text-sm font-bold mono" style="color:#3B82F6;">₹'+ep.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+ep.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'entry_price\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+ep.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#3B82F6;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);">' : '<div class="text-sm font-bold mono" style="color:#3B82F6;">'+formatINR(ep)+'</div>'}
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Target</div>
-                            ${isEditable ? '<input type="number" value="'+tgt.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'target\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+tgt.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);">' : '<div class="text-sm font-bold mono" style="color:#10B981;">₹'+tgt.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+tgt.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'target\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+tgt.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);">' : '<div class="text-sm font-bold mono" style="color:#10B981;">'+formatINR(tgt)+'</div>'}
                         </div>
                         <div>
                             <div class="text-xs text-slate-500 mb-1">Stop</div>
-                            ${isEditable ? '<input type="number" value="'+sl.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'stop_loss\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+sl.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#DC2626;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);">' : '<div class="text-sm font-bold mono" style="color:#DC2626;">₹'+sl.toFixed(2)+'</div>'}
+                            ${isEditable ? '<input type="number" value="'+sl.toFixed(2)+'" onchange="updateTradeFieldByTicker(\''+t+'\',\''+ep+'\',\'stop_loss\',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value=\''+sl.toFixed(2)+'\'}" class="w-full text-sm font-bold mono px-2 py-1 rounded" style="color:#DC2626;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);">' : '<div class="text-sm font-bold mono" style="color:#DC2626;">'+formatINR(sl)+'</div>'}
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
-                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">Amount</div><div class="font-bold mono" style="color:#3B82F6;">₹${amt.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">${qty} @ ₹${ep.toFixed(2)}</div></div>
+                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">Amount</div><div class="font-bold mono" style="color:#3B82F6;">${formatINR(amt, 0)}</div><div class="text-slate-600">${qty} @ ${formatINR(ep)}</div></div>
                         <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">52W H/L</div>${
                             trade.week52High && trade.week52Low
-                                ? `<div class="font-bold mono" style="color:#10B981;">₹${parseFloat(trade.week52High).toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-slate-600">L: ₹${parseFloat(trade.week52Low).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>`
+                                ? `<div class="font-bold mono" style="color:#10B981;">${formatINR(trade.week52High, 0)}</div><div class="text-slate-600">L: ${formatINR(trade.week52Low, 0)}</div>`
                                 : `<div class="font-bold mono text-slate-500">—</div><div class="text-slate-600">N/A</div>`
                         }</div>
-                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">P&L</div><div class="font-bold mono" style="color:${pnlCol};">${pnl>=0?'+':''}₹${pnl.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div style="color:${pnlCol};">${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%</div></div>
+                        <div style="background:rgba(30,40,50,0.4);padding:8px;border-radius:6px;"><div class="text-slate-500 mb-1">P&L</div><div class="font-bold mono" style="color:${pnlCol};">${pnl >= 0 ? '+' : ''}${formatINR(pnl, 0)}</div><div style="color:${pnlCol};">${formatPct(pnlPct)}</div></div>
                     </div>
                     <div class="flex space-x-2">
                         ${isEditable ? '<button onclick="updateTradeStatusByTicker(\''+t+'\',\''+ep+'\',\'Target Hit\')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background:rgba(4,120,87,0.2);color:#10B981;">✅ Target Hit</button><button onclick="updateTradeStatusByTicker(\''+t+'\',\''+ep+'\',\'Stop Loss\')" class="flex-1 py-2 rounded-lg text-xs font-semibold touch-btn" style="background:rgba(220,38,38,0.2);color:#DC2626;">🛑 Stop Loss</button>' : ''}
@@ -6996,8 +7364,49 @@
                         trade = Object.values(overrides).find(ov => ov.ticker === ticker && ov._custom);
                     }
                     if (trade) {
+                        // Build history entry before saving
+                        const ep = parseFloat(trade.entry_price || trade.entryTrigger || 0);
+                        const cp = parseFloat(trade.current_price || ep);
+                        const qty = parseInt(trade.quantity || 0);
+                        const tgt = parseFloat(trade.target || trade.targetExit || 0);
+                        const sl  = parseFloat(trade.stop_loss || trade.stopLoss || 0);
+                        const pnl = (cp - ep) * qty;
+                        const pnlPct = ep > 0 ? ((cp - ep) / ep * 100) : 0;
+                        // Append to trade history in localStorage
+                        if (newStatus === 'Target Hit' || newStatus === 'Stop Loss') {
+                            const history = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
+                            history.unshift({
+                                ticker: trade.ticker || ticker,
+                                entry_price: ep,
+                                exit_price: cp,
+                                target: tgt,
+                                stop_loss: sl,
+                                pnl: pnl,
+                                pnl_percent: pnlPct,
+                                status: newStatus,
+                                source: trade.source || 'Manual',
+                                opened_at: trade.triggered_at || trade.opened_at || null,
+                                closed_at: new Date().toISOString()
+                            });
+                            localStorage.setItem('tradeHistory', JSON.stringify(history));
+                        }
                         saveTradeOverride(trade, { status: newStatus, closedAt: new Date().toISOString() });
                         console.log('✓ Closed', ticker, 'as', newStatus);
+
+                        // ── Re-enable ticker for future Trendline signals ──────────────
+                        // Remove from inRadarTickers so the stock can appear in Trendline
+                        // again if the screener picks it up in a future run.
+                        // We do NOT purge it — purge is only for manual "delete" (🗑️ button).
+                        let inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+                        inRadar = inRadar.filter(t => t !== ticker);
+                        localStorage.setItem('inRadarTickers', JSON.stringify(inRadar));
+                        // Also remove from radarDeletedTickers if it was ever put there,
+                        // so the trendline filter doesn't block it.
+                        let deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+                        deleted = deleted.filter(t => t !== ticker);
+                        localStorage.setItem('radarDeletedTickers', JSON.stringify(deleted));
+                        console.log('↩️', ticker, 'returned to Trendline pool for future signals');
+
                         displayPerformanceTracking();
                     }
                 });
@@ -7026,30 +7435,51 @@
                 });
         };
 
-        // Delete from Radar → return ticker to Trendline
+        // Delete from Radar → return ticker back to Trendline pool
+        // Stock will reappear in Trendline tab on the next screener run
+        // and Telegram alerts will fire again if entry point triggers
         window.removeTradeByTicker = function(ticker, entryPrice) {
-            // Permanently purge this ticker from ALL tabs (Radar + Trendline). No coming back.
-            let purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-            if (!purged.includes(ticker)) {
-                purged.push(ticker);
-                localStorage.setItem('radarPurgedTickers', JSON.stringify(purged));
-            }
-
-            // Unmark from radar tracking
-            unmarkTickerFromRadar(ticker);
-
-            // Remove from radarOverrides entirely (manual + synced)
+            // 1. Remove all overrides for this ticker (clears it from Radar display)
             const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+            const serverTombstones = JSON.parse(localStorage.getItem('radarServerTombstones') || '{}');
+
             Object.keys(overrides).forEach(key => {
                 if (overrides[key] && overrides[key].ticker === ticker) {
+                    // If this override came from the server file (has order_id or is not _custom),
+                    // tombstone the key so it doesn't re-appear when radar_trades.json is fetched again
+                    if (!overrides[key]._custom || overrides[key].order_id) {
+                        serverTombstones[key] = { ticker, deleted_at: new Date().toISOString() };
+                        // Also tombstone by ticker+entry combo as fallback
+                        serverTombstones[ticker + '_' + (overrides[key].entry_price || entryPrice)] = true;
+                    }
                     delete overrides[key];
                 }
             });
-            // Tombstone so it never gets re-added from server file
-            overrides['DELETE_' + ticker] = { ticker, _deleted: true, _custom: false };
+            delete overrides['DELETE_' + ticker]; // remove any old-style tombstone
             localStorage.setItem('radarOverrides', JSON.stringify(overrides));
 
-            console.log('🗑️ Permanently removed', ticker, 'from all tabs');
+            // Tombstone the server entry key so it's filtered out when radar_trades.json reloads
+            serverTombstones[ticker + '_' + entryPrice] = { ticker, deleted_at: new Date().toISOString() };
+            localStorage.setItem('radarServerTombstones', JSON.stringify(serverTombstones));
+
+            // 2. Remove from inRadarTickers so isTickerInRadar() returns false
+            let inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+            inRadar = inRadar.filter(t => t !== ticker);
+            localStorage.setItem('inRadarTickers', JSON.stringify(inRadar));
+
+            // 3. Remove from radarDeletedTickers (was added by unmarkTickerFromRadar)
+            let deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+            deleted = deleted.filter(t => t !== ticker);
+            localStorage.setItem('radarDeletedTickers', JSON.stringify(deleted));
+
+            // 4. Remove from radarServerTickers cache
+            let serverTickers = JSON.parse(localStorage.getItem('radarServerTickers') || '[]');
+            serverTickers = serverTickers.filter(t => t !== ticker);
+            localStorage.setItem('radarServerTickers', JSON.stringify(serverTickers));
+
+            // 5. Do NOT add to radarPurgedTickers — ticker is free to return to Trendline
+
+            console.log('🗑️ Removed', ticker, 'from Radar → tombstoned server entry → returned to Trendline pool');
             displayPerformanceTracking();
         };
 
