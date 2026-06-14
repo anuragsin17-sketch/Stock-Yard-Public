@@ -5839,8 +5839,22 @@
                 if (!Array.isArray(stocks)) return;
                 const map = {};
                 stocks.forEach(s => {
-                    if (s.ticker && s.week52High && s.week52Low) {
-                        map[s.ticker.toUpperCase()] = { high: s.week52High, low: s.week52Low };
+                    const key = (s.ticker || '').toUpperCase();
+                    if (!key) return;
+                    // Try week52High/week52Low (old format)
+                    if (s.week52High && s.week52Low) {
+                        map[key] = { high: s.week52High, low: s.week52Low };
+                    }
+                    // Try fibonacciLevels to derive 52W range (new format)
+                    // Use 100% fib as 52W low proxy, current price as reference
+                    else if (s.fibonacciLevels && s.currentPrice) {
+                        const fibs = s.fibonacciLevels;
+                        const fibValues = Object.values(fibs).filter(v => v > 0);
+                        if (fibValues.length > 0) {
+                            const fibLow  = Math.min(...fibValues);
+                            const fibHigh = Math.max(...fibValues);
+                            map[key] = { high: fibHigh, low: fibLow };
+                        }
                     }
                 });
                 sessionStorage.setItem('trendline52wCache', JSON.stringify(map));
@@ -7583,6 +7597,7 @@
                             <div>
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Stop Loss</div>
                                 <div style="font-size:13px;font-weight:700;color:#f43f5e;margin-top:2px;" class="mono">${sl > 0 ? '₹'+sl.toFixed(2) : '<span style="color:#374151">Set below ↓</span>'}</div>
+                                ${isEditable ? `<button onclick="haptic([200]);updateTradeStatusByTicker('${t}','${ep}','Stop Loss')" style="margin-top:6px;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;border:none;cursor:pointer;width:100%;">🛑 Stop Loss</button>` : ''}
                             </div>
                             <div style="text-align:center;">
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Entry</div>
@@ -7591,6 +7606,7 @@
                             <div style="text-align:right;">
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Target</div>
                                 <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px;" class="mono">${tgt > 0 ? '₹'+tgt.toFixed(2) : '<span style="color:#374151">Set below ↓</span>'}</div>
+                                ${isEditable ? `<button onclick="haptic(50);updateTradeStatusByTicker('${t}','${ep}','Target Hit');launchConfetti(event.clientX,event.clientY)" style="margin-top:6px;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;width:100%;">✅ Target Hit</button>` : ''}
                             </div>
                         </div>
                         <div style="height:6px;background:#1f2937;border-radius:3px;position:relative;">
@@ -7648,18 +7664,10 @@
                         <div>
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target</div>
                             <input type="number" value="${tgt.toFixed(2)}" onchange="updateTradeFieldByTicker('${t}','${ep}','target',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${tgt.toFixed(2)}'}" style="width:100%;font-size:13px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:6px 8px;outline:none;font-family:'JetBrains Mono',monospace;">
-                            <button onclick="haptic(50);updateTradeStatusByTicker('${t}','${ep}','Target Hit');launchConfetti(event.clientX,event.clientY)"
-                                style="width:100%;margin-top:6px;padding:8px;border-radius:6px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;">
-                                ✅ Target Hit
-                            </button>
                         </div>
                         <div>
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop Loss</div>
                             <input type="number" value="${sl.toFixed(2)}" onchange="updateTradeFieldByTicker('${t}','${ep}','stop_loss',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${sl.toFixed(2)}'}" style="width:100%;font-size:13px;font-weight:700;color:#f43f5e;background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.3);border-radius:6px;padding:6px 8px;outline:none;font-family:'JetBrains Mono',monospace;">
-                            <button onclick="haptic([200]);updateTradeStatusByTicker('${t}','${ep}','Stop Loss')"
-                                style="width:100%;margin-top:6px;padding:8px;border-radius:6px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;border:none;cursor:pointer;">
-                                🛑 Stop Loss
-                            </button>
                         </div>
                     </div>
                     <div style="display:flex;justify-content:flex-end;">
