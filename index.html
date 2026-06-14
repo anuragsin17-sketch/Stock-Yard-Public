@@ -6371,7 +6371,7 @@
                 const volFiltered = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
                 const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
                 const totalOpps = volFiltered + trendlineStocks.length + manualStocks.length;
-                const _el=document.getElementById('totalOpportunities'); if(_el) _el.textContent = totalOpps.toLocaleString();
+                if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent= totalOpps.toLocaleString();
                 
                 let html = '';
 
@@ -6566,7 +6566,7 @@
 
                 // Count badge update using filtered count
                 const totalOppsFiltered = (screeningData?.volume_breakout_stocks?.length || 0) + filteredTrendStocks.length + manualStocksAll.length;
-                const _el=document.getElementById('totalOpportunities'); if(_el) _el.textContent = totalOppsFiltered.toLocaleString();
+                if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent= totalOppsFiltered.toLocaleString();
 
                 container.innerHTML = html;
             } catch (error) {
@@ -8122,7 +8122,7 @@
                     const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
                     const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
                     const tlFiltered = Array.isArray(tl) ? tl.filter(s => !dismissed.includes(s.ticker) && !inRadar.includes(s.ticker) && !purged.includes(s.ticker)).length : 0;
-                    const _el=document.getElementById('totalOpportunities'); if(_el) _el.textContent =
+                    if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent=
                         (volumeCount + tlFiltered + updatedManual.length).toLocaleString();
                 });
 
@@ -8845,5 +8845,6 @@
             <div class="text-xs text-slate-500 text-center mt-3">âš ï¸ This places a REAL LIMIT ORDER on Angel One</div>
         </div>
     </div>
+
 
 
