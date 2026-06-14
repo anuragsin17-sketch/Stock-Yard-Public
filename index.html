@@ -7648,23 +7648,22 @@
                         <div>
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target</div>
                             <input type="number" value="${tgt.toFixed(2)}" onchange="updateTradeFieldByTicker('${t}','${ep}','target',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${tgt.toFixed(2)}'}" style="width:100%;font-size:13px;font-weight:700;color:#10b981;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:6px 8px;outline:none;font-family:'JetBrains Mono',monospace;">
+                            <button onclick="haptic(50);updateTradeStatusByTicker('${t}','${ep}','Target Hit');launchConfetti(event.clientX,event.clientY)"
+                                style="width:100%;margin-top:6px;padding:8px;border-radius:6px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;">
+                                ✅ Target Hit
+                            </button>
                         </div>
                         <div>
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop Loss</div>
                             <input type="number" value="${sl.toFixed(2)}" onchange="updateTradeFieldByTicker('${t}','${ep}','stop_loss',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${sl.toFixed(2)}'}" style="width:100%;font-size:13px;font-weight:700;color:#f43f5e;background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.3);border-radius:6px;padding:6px 8px;outline:none;font-family:'JetBrains Mono',monospace;">
+                            <button onclick="haptic([200]);updateTradeStatusByTicker('${t}','${ep}','Stop Loss')"
+                                style="width:100%;margin-top:6px;padding:8px;border-radius:6px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;border:none;cursor:pointer;">
+                                🛑 Stop Loss
+                            </button>
                         </div>
                     </div>
-                    <!-- Action row -->
-                    <div style="display:flex;gap:8px;">
-                        <button onclick="haptic(50);updateTradeStatusByTicker('${t}','${ep}','Target Hit');launchConfetti(event.clientX,event.clientY)"
-                            style="flex:1;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-                            ✅ Target Hit
-                        </button>
-                        <button onclick="haptic([200]);updateTradeStatusByTicker('${t}','${ep}','Stop Loss')"
-                            style="flex:1;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-                            🛑 Stop Loss
-                        </button>
-                        <button onclick="removeTradeByTicker('${t}','${ep}')" style="padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.2);cursor:pointer;">🗑️</button>
+                    <div style="display:flex;justify-content:flex-end;">
+                        <button onclick="removeTradeByTicker('${t}','${ep}')" style="padding:8px 12px;border-radius:8px;font-size:13px;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.2);cursor:pointer;">🗑️</button>
                     </div>` : `
                     <div style="display:flex;gap:8px;justify-content:flex-end;">
                         <button onclick="removeTradeByTicker('${t}','${ep}')" style="padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.2);cursor:pointer;">🗑️</button>
