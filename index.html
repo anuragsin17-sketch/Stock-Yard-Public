@@ -340,25 +340,13 @@
                         <span id="sensexPrice" class="mono" style="color:#34d399;font-size:11px;font-weight:600;">--</span>
                     </a>
                 </div>
-                <!-- Right: status + refresh + theme -->
+                <!-- Right: status only -->
                 <div class="flex items-center gap-2">
                     <div style="display:flex;align-items:center;gap:5px;">
                         <div id="statusDot" style="width:7px;height:7px;border-radius:50%;background:#10b981;" class="status-dot"></div>
                         <span id="statusText" style="font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:0.5px;">LIVE FEED</span>
                     </div>
-                    <button id="refreshBtn" class="flex items-center justify-center w-8 h-8 rounded-lg touch-btn" style="background:#111625;border:1px solid #1f2937;" title="Refresh">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="#9ca3af" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                    </button>
-                    <button id="themeToggleBtn" onclick="toggleTheme()" class="flex items-center justify-center w-8 h-8 rounded-lg touch-btn" style="background:#111625;border:1px solid #1f2937;" title="Toggle light/dark mode">
-                        <span id="themeIcon" style="font-size:14px;">🌙</span>
-                    </button>
                 </div>
-            </div>
-            <!-- Sub-row: last sync -->
-            <div class="flex items-center justify-end mt-1.5">
-                <span id="lastSync" class="text-xs text-slate-500 mono tracking-wider">Loading...</span>
             </div>
         </div>
     </header>
@@ -369,7 +357,7 @@
     </div>
 
     <!-- Main Content -->
-    <main class="px-5 py-5 space-y-5">
+    <main class="px-5 py-5 space-y-5" style="padding-bottom: 80px;">
         <!-- Navigation Tabs -->
         <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:#111625;border:1px solid #1f2937;border-radius:10px;overflow-x:auto;" class="scroll-container">
             <button id="volTab" class="pill-tab flex-shrink-0 active">
@@ -416,6 +404,22 @@
             </div>
         </div>
     </main>
+
+    <!-- ── Bottom Navigation Bar ───────────────────────────────────────────── -->
+    <div style="position:fixed;bottom:0;left:0;right:0;z-index:60;background:rgba(8,12,20,0.97);border-top:1px solid #1f2937;padding:10px 20px;padding-bottom:calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-around;">
+        <!-- Refresh -->
+        <button id="refreshBtn" class="touch-btn flex flex-col items-center justify-center gap-1" style="min-height:unset;background:none;border:none;color:#9ca3af;" title="Refresh data">
+            <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span style="font-size:9px;font-weight:600;letter-spacing:0.3px;">Refresh</span>
+        </button>
+        <!-- Theme toggle -->
+        <button onclick="toggleTheme()" id="themeToggleBtn" class="touch-btn flex flex-col items-center justify-center gap-1" style="min-height:unset;background:none;border:none;color:#9ca3af;" title="Toggle theme">
+            <span id="themeIcon" style="font-size:22px;line-height:1;">🌙</span>
+            <span style="font-size:9px;font-weight:600;letter-spacing:0.3px;">Theme</span>
+        </button>
+    </div>
 
     </div><!-- /#appWrapper -->
 
@@ -8475,43 +8479,54 @@
             const dot = document.getElementById('statusDot');
             if (!el) return;
             const now = new Date();
-            // Always use IST (UTC+5:30) — reliable cross-browser calculation
-            const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
-            const ist = new Date(utcMs + (5.5 * 60 * 60 * 1000));
-            const day = ist.getDay(); // 0=Sun, 6=Sat
-            const h = ist.getHours(), m = ist.getMinutes();
+            // Browser is already in IST (offset -330 = UTC+5:30), use directly
+            // For non-IST browsers, convert via Intl API
+            let day, h, m;
+            try {
+                const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+                day = istDate.getDay();
+                h   = istDate.getHours();
+                m   = istDate.getMinutes();
+            } catch(e) {
+                // Fallback: manual UTC+5:30
+                const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+                const ist = new Date(utcMs + (5.5 * 60 * 60 * 1000));
+                day = ist.getDay(); h = ist.getHours(); m = ist.getMinutes();
+            }
+            const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+            const dayStr  = DAYS[day];
             const totalMin = h * 60 + m;
-            const openMin = 9 * 60 + 15;
+            const openMin  = 9 * 60 + 15;
             const closeMin = 15 * 60 + 30;
-            const fmt = (mins) => {
-                const hh = Math.floor(Math.abs(mins) / 60), mm = Math.abs(mins) % 60;
-                return hh > 0 ? `${hh}h ${mm}m` : `${mm}m`;
-            };
+
             if (day === 0 || day === 6) {
-                // Both Sat and Sun → next market open is Monday
-                el.textContent = '⏰ Weekend · Mon 9:15 AM';
+                // Weekend
+                el.textContent = `${dayStr} ${timeStr} · Closed`;
                 el.className = 'text-slate-400 tracking-wide';
-                if (dot) { dot.style.background = '#64748B'; dot.style.animation = 'none'; }
-            } else if (totalMin < openMin) {
-                const diff = openMin - totalMin;
-                el.textContent = `⏰ Opens in ${fmt(diff)}`;
-                el.className = 'text-slate-400 tracking-wide';
-                if (dot) { dot.style.background = '#EAB308'; dot.style.animation = 'none'; }
+                if (dot) { dot.style.background = '#DC2626'; dot.style.animation = 'none'; }
             } else if (totalMin >= openMin && totalMin < closeMin) {
-                const diff = closeMin - totalMin;
-                el.textContent = `🟢 LIVE · closes in ${fmt(diff)}`;
+                // Market open
+                el.textContent = `${dayStr} ${timeStr} · Live`;
                 el.className = 'market-open-pulse tracking-wide';
                 if (dot) { dot.style.background = '#10B981'; dot.style.animation = ''; }
+            } else if (totalMin < openMin) {
+                // Pre-market weekday
+                const diff = openMin - totalMin;
+                const hh = Math.floor(diff / 60), mm = diff % 60;
+                const opens = hh > 0 ? `${hh}h ${mm}m` : `${mm}m`;
+                el.textContent = `${dayStr} ${timeStr} · Opens ${opens}`;
+                el.className = 'text-slate-400 tracking-wide';
+                if (dot) { dot.style.background = '#EAB308'; dot.style.animation = 'none'; }
             } else {
-                // After market
-                const nextOpen = day === 5 ? 'Monday 9:15 AM' : 'tomorrow 9:15 AM';
-                el.textContent = `🔴 Closed · ${nextOpen}`;
+                // Post-market weekday
+                el.textContent = `${dayStr} ${timeStr} · Closed`;
                 el.className = 'text-slate-400 tracking-wide';
                 if (dot) { dot.style.background = '#DC2626'; dot.style.animation = 'none'; }
             }
         }
         updateMarketCountdown();
-        setInterval(updateMarketCountdown, 30000);
+        setInterval(updateMarketCountdown, 60000);
 
         // ═══════════════════════════════════════════════════════════════════════
         // FEATURE 8: Price Alert Rings
