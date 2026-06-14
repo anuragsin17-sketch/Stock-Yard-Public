@@ -100,7 +100,7 @@
     },
     "fibMatchLevel": "100.0%",
     "fibMatchPrice": 270.75,
-    "trendlineSlope": 1.839968,
+    "trendlineSlope": 1.839967,
     "anchor1Date": "2020-05",
     "anchor2Date": "2026-03"
   },
@@ -240,7 +240,7 @@
     },
     "fibMatchLevel": "100.0%",
     "fibMatchPrice": 122000.0,
-    "trendlineSlope": 1165.030373,
+    "trendlineSlope": 1165.030152,
     "anchor1Date": "2022-02",
     "anchor2Date": "2026-05"
   },
@@ -345,7 +345,7 @@
     },
     "fibMatchLevel": "78.6%",
     "fibMatchPrice": 1314.55,
-    "trendlineSlope": 23.660737,
+    "trendlineSlope": 23.660736,
     "anchor1Date": "2023-01",
     "anchor2Date": "2025-10"
   },
@@ -380,7 +380,7 @@
     },
     "fibMatchLevel": "61.8%",
     "fibMatchPrice": 3849.36,
-    "trendlineSlope": 79.247181,
+    "trendlineSlope": 79.247159,
     "anchor1Date": "2025-04",
     "anchor2Date": "2026-01"
   },
@@ -520,7 +520,7 @@
     },
     "fibMatchLevel": "23.6%",
     "fibMatchPrice": 1272.33,
-    "trendlineSlope": 10.703183,
+    "trendlineSlope": 10.703172,
     "anchor1Date": "2022-03",
     "anchor2Date": "2023-01"
   },
@@ -730,7 +730,7 @@
     },
     "fibMatchLevel": "78.6%",
     "fibMatchPrice": 1786.15,
-    "trendlineSlope": 26.79374,
+    "trendlineSlope": 26.793742,
     "anchor1Date": "2023-03",
     "anchor2Date": "2026-05"
   },
@@ -765,7 +765,7 @@
     },
     "fibMatchLevel": "78.6%",
     "fibMatchPrice": 1682.9,
-    "trendlineSlope": 16.23535,
+    "trendlineSlope": 16.235347,
     "anchor1Date": "2023-03",
     "anchor2Date": "2026-04"
   },
@@ -835,7 +835,7 @@
     },
     "fibMatchLevel": "38.2%",
     "fibMatchPrice": 1487.45,
-    "trendlineSlope": 14.334668,
+    "trendlineSlope": 14.334666,
     "anchor1Date": "2020-05",
     "anchor2Date": "2023-04"
   },
@@ -1430,7 +1430,7 @@
     },
     "fibMatchLevel": "61.8%",
     "fibMatchPrice": 3088.15,
-    "trendlineSlope": 50.031333,
+    "trendlineSlope": 50.03133,
     "anchor1Date": "2023-03",
     "anchor2Date": "2026-03"
   },
@@ -1500,7 +1500,7 @@
     },
     "fibMatchLevel": "61.8%",
     "fibMatchPrice": 837.67,
-    "trendlineSlope": 17.068266,
+    "trendlineSlope": 17.06827,
     "anchor1Date": "2025-02",
     "anchor2Date": "2026-03"
   },
@@ -1573,6 +1573,41 @@
     "trendlineSlope": 3.303974,
     "anchor1Date": "2022-07",
     "anchor2Date": "2025-09"
+  },
+  {
+    "ticker": "CENTRALBK",
+    "currentPrice": 31.04,
+    "currentLow": 30.53,
+    "triggerPrice": 29.89,
+    "distanceRemaining": 2.14,
+    "signalStatus": "WATCHLIST",
+    "notificationTrigger": false,
+    "confluenceScore": 5,
+    "patternZone": "Nearest 78.6% (6.1%)",
+    "wickTouches": 8,
+    "timeframe": "monthly",
+    "ema50": null,
+    "ema200": null,
+    "positionSizing": {
+      "allocatedAmount": 50000.0,
+      "sharesToBuy": 1672,
+      "entryPrice": 29.89,
+      "strictStopLoss": 27.5,
+      "pivotTargetExit": 36.76
+    },
+    "fibonacciLevels": {
+      "23.6%": 60.32,
+      "38.2%": 51.79,
+      "50.0%": 44.89,
+      "61.8%": 37.99,
+      "78.6%": 28.17,
+      "100.0%": 15.66
+    },
+    "fibMatchLevel": "78.6%",
+    "fibMatchPrice": 28.17,
+    "trendlineSlope": 0.296378,
+    "anchor1Date": "2020-10",
+    "anchor2Date": "2022-06"
   },
   {
     "ticker": "AADHARHFC",
@@ -1850,7 +1885,7 @@
     },
     "fibMatchLevel": "78.6%",
     "fibMatchPrice": 7468.68,
-    "trendlineSlope": 91.820149,
+    "trendlineSlope": 91.820129,
     "anchor1Date": "2023-03",
     "anchor2Date": "2026-03"
   },
@@ -1885,7 +1920,7 @@
     },
     "fibMatchLevel": "78.6%",
     "fibMatchPrice": 1009.62,
-    "trendlineSlope": 14.274503,
+    "trendlineSlope": 14.274501,
     "anchor1Date": "2023-03",
     "anchor2Date": "2025-03"
   },
@@ -2060,7 +2095,7 @@
     },
     "fibMatchLevel": "100.0%",
     "fibMatchPrice": 421.45,
-    "trendlineSlope": 1.452075,
+    "trendlineSlope": 1.452076,
     "anchor1Date": "2020-10",
     "anchor2Date": "2026-03"
   },
@@ -2165,7 +2200,7 @@
     },
     "fibMatchLevel": "78.6%",
     "fibMatchPrice": 511.62,
-    "trendlineSlope": 3.846491,
+    "trendlineSlope": 3.846493,
     "anchor1Date": "2020-11",
     "anchor2Date": "2026-03"
   },
@@ -2340,7 +2375,7 @@
     },
     "fibMatchLevel": "38.2%",
     "fibMatchPrice": 3247.4,
-    "trendlineSlope": 50.81674,
+    "trendlineSlope": 50.816727,
     "anchor1Date": "2022-06",
     "anchor2Date": "2023-03"
   },
@@ -2375,7 +2410,7 @@
     },
     "fibMatchLevel": "100.0%",
     "fibMatchPrice": 3651.37,
-    "trendlineSlope": 33.844595,
+    "trendlineSlope": 33.844597,
     "anchor1Date": "2021-04",
     "anchor2Date": "2026-04"
   },
@@ -2690,7 +2725,7 @@
     },
     "fibMatchLevel": "100.0%",
     "fibMatchPrice": 22550.0,
-    "trendlineSlope": 110.634009,
+    "trendlineSlope": 110.63405,
     "anchor1Date": "2022-06",
     "anchor2Date": "2026-03"
   },
@@ -2935,7 +2970,7 @@
     },
     "fibMatchLevel": "61.8%",
     "fibMatchPrice": 1435.15,
-    "trendlineSlope": 13.795711,
+    "trendlineSlope": 13.795713,
     "anchor1Date": "2020-05",
     "anchor2Date": "2025-03"
   },
@@ -3013,7 +3048,7 @@
     "ticker": "APOLLOTYRE",
     "currentPrice": 396.3,
     "currentLow": 386.0,
-    "triggerPrice": 369.48,
+    "triggerPrice": 369.49,
     "distanceRemaining": 4.47,
     "signalStatus": "MONITORING",
     "notificationTrigger": false,
@@ -3026,9 +3061,9 @@
     "positionSizing": {
       "allocatedAmount": 50000.0,
       "sharesToBuy": 135,
-      "entryPrice": 369.48,
-      "strictStopLoss": 339.92,
-      "pivotTargetExit": 454.46
+      "entryPrice": 369.49,
+      "strictStopLoss": 339.93,
+      "pivotTargetExit": 454.47
     },
     "fibonacciLevels": {
       "23.6%": 413.78,
@@ -3110,7 +3145,7 @@
     },
     "fibMatchLevel": "78.6%",
     "fibMatchPrice": 2298.03,
-    "trendlineSlope": 39.620846,
+    "trendlineSlope": 39.620845,
     "anchor1Date": "2023-03",
     "anchor2Date": "2026-03"
   },
@@ -3215,7 +3250,7 @@
     },
     "fibMatchLevel": "61.8%",
     "fibMatchPrice": 1022.95,
-    "trendlineSlope": 9.764991,
+    "trendlineSlope": 9.764988,
     "anchor1Date": "2023-03",
     "anchor2Date": "2024-12"
   }
