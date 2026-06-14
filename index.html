@@ -5734,27 +5734,12 @@
         async function placeAngelOrder(symbol, action, qty, price, stopLoss, target, source) {
             try {
                 const EC2_API = "https://32-194-58-75.nip.io/api/place-order";
-                let apiKey = window._syKey || sessionStorage.getItem('sy_api_key') || '';
-                
-                // If no API key set, prompt the user
-                if (!apiKey) {
-                    apiKey = prompt('Enter EC2 API Key to place orders:');
-                    if (!apiKey || !apiKey.trim()) {
-                        alert('❌ API key required to place orders.');
-                        return { success: false };
-                    }
-                    apiKey = apiKey.trim();
-                    sessionStorage.setItem('sy_api_key', apiKey);
-                    window._syKey = apiKey;
-                }
+                console.log(`📤 Placing order via EC2 API...`);
                 console.log(`   Symbol: ${symbol}, Qty: ${qty}, Price: ₹${price}, Target: ₹${target}, SL: ₹${stopLoss}`);
 
                 const response = await fetch(EC2_API, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-API-Key': apiKey
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         symbol: symbol,
                         action: action,
