@@ -6300,6 +6300,8 @@
                 dot.style.background = '#f43f5e';
                 text.textContent = 'OFFLINE';
             }
+            // Always apply market countdown on top of status update
+            updateMarketCountdown();
         }
         
         // Show error message
