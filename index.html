@@ -6345,6 +6345,41 @@
                     }
                 });
                 if (cacheUpdated) sessionStorage.setItem('trendline52wCache', JSON.stringify(tl52wMap));
+
+                // ─── Background: enrich missing 52W from golden_stocks / volume data first,
+                // then fetch from Yahoo Finance for anything still missing, and re-render.
+                const missing52w = (trendlineStocks || []).filter(s => !s.week52High || !s.week52Low);
+                if (missing52w.length > 0) {
+                    missing52w.forEach(s => {
+                        const w52 = get52WData(s.ticker);
+                        if (w52) { s.week52High = w52.high; s.week52Low = w52.low; }
+                    });
+                    // Fetch from Yahoo Finance for those still missing
+                    const stillMissing = (trendlineStocks || []).filter(s => !s.week52High || !s.week52Low);
+                    if (stillMissing.length > 0) {
+                        Promise.allSettled(stillMissing.map(async s => {
+                            try {
+                                const sym = encodeURIComponent(s.ticker + '.NS');
+                                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1y`;
+                                const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+                                if (!r.ok) return;
+                                const d = await r.json();
+                                const meta = d?.chart?.result?.[0]?.meta || {};
+                                const high = parseFloat(meta.fiftyTwoWeekHigh || meta.regularMarketDayHigh || 0);
+                                const low  = parseFloat(meta.fiftyTwoWeekLow  || meta.regularMarketDayLow  || 0);
+                                if (high > 0 && low > 0) {
+                                    s.week52High = high; s.week52Low = low;
+                                    cache52WData(s.ticker, high, low);
+                                    tl52wMap[s.ticker.toUpperCase()] = { high, low };
+                                }
+                            } catch(e) {}
+                        })).then(() => {
+                            sessionStorage.setItem('trendline52wCache', JSON.stringify(tl52wMap));
+                            // Re-render trendline tab silently with enriched data
+                            displayTrendlineScreen();
+                        });
+                    }
+                }
                 
                 if (!trendlineStocks || trendlineStocks.length === 0) {
                     container.innerHTML = `
