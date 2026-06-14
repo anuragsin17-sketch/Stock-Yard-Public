@@ -6610,6 +6610,7 @@
         
         // ─── PAST PERFORMANCE TAB ────────────────────────────────────────────────
         let perfData = null;
+        let perfTargetPct = 23;  // selected target %
         let perfDateFrom = '';
         let perfDateTo   = '';
         let perfStockFilter = '';
@@ -6663,14 +6664,11 @@
 
             try {
                 const resp = await fetch('./backtest_performance.json', { cache: 'no-store' });
-                if (!resp.ok) throw new Error('backtest_performance.json not found');
+                if (!resp.ok) throw new Error('not found');
                 perfData = await resp.json();
             } catch (e) {
                 container.innerHTML = `
                     <div class="mobile-card rounded-xl p-8 text-center">
-                        <div class="text-4xl mb-4">📊</div>
-                        <div class="text-slate-300 font-semibold mb-2">No Backtest Data Yet</div>
-                    <div class="text-center py-12 px-6">
                         <div style="font-size:48px;margin-bottom:16px;">📊</div>
                         <div class="text-slate-300 font-semibold text-base mb-2">No Backtest Data Yet</div>
                         <div class="text-xs text-slate-500">Historical performance data will appear here once the backtest has been run. Check back later.</div>
@@ -6732,11 +6730,227 @@
         // Default to 5 years on first load
         if (!perfDateFrom) { perfYears = 5; perfDateFrom = getDateOffset(5*365); }
 
+        // ── Backtest state ────────────────────────────────────────────────
+        let perfTargetPct = 23; // selected target %
+
         function renderPastPerformance(container) {
             if (!perfData) return;
-            const allStocks = perfData.stocks || [];
-            const generatedAt = perfData.generated_at ? new Date(perfData.generated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-            const backtestYears = perfData.backtest_years || '?';
+
+            // Detect format: new target_sweep format has perfData.trades[target]
+            // Old format has perfData.stocks[]
+            const isNewFormat = perfData.trades && !perfData.stocks;
+
+            if (isNewFormat) {
+                renderTargetSweepPerformance(container);
+            } else {
+                renderLegacyPerformance(container);
+            }
+        }
+
+        function renderTargetSweepPerformance(container) {
+            const available_targets = Object.keys(perfData.trades || {}).map(Number).sort((a,b)=>a-b);
+            if (!available_targets.includes(perfTargetPct)) perfTargetPct = available_targets[2] || available_targets[0];
+
+            const allTrades = perfData.trades[String(perfTargetPct)] || [];
+            const genAt = perfData.generated_at ? new Date(perfData.generated_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+            const params = perfData.params || {};
+
+            // Date filter
+            const fromTs = perfDateFrom ? new Date(perfDateFrom).getTime() : null;
+            const toTs   = perfDateTo   ? new Date(perfDateTo).getTime()   : null;
+            const trades = allTrades.filter(t => {
+                const ts = new Date(t.entry_date).getTime();
+                if (fromTs && ts < fromTs) return false;
+                if (toTs   && ts > toTs)   return false;
+                return true;
+            });
+
+            // Summary calc
+            const completed  = trades.filter(t => t.outcome !== 'OPEN');
+            const wins       = completed.filter(t => t.pnl_pct > 0);
+            const losses     = completed.filter(t => t.pnl_pct <= 0);
+            const win_pnl    = wins.reduce((s,t)=>s+t.pnl_amt,0);
+            const loss_pnl   = Math.abs(losses.reduce((s,t)=>s+t.pnl_amt,0));
+            const total_pnl  = trades.reduce((s,t)=>s+t.pnl_amt,0);
+            const win_rate   = completed.length ? (wins.length/completed.length*100).toFixed(1) : 0;
+            const pf         = loss_pnl > 0 ? (win_pnl/loss_pnl).toFixed(2) : '∞';
+            const avg_pnl    = trades.length ? (trades.reduce((s,t)=>s+t.pnl_pct,0)/trades.length).toFixed(2) : 0;
+            const avg_hold   = trades.length ? Math.round(trades.reduce((s,t)=>s+t.holding_days,0)/trades.length) : 0;
+            const target_hits  = trades.filter(t=>t.outcome==='TARGET_HIT').length;
+            const stop_losses  = trades.filter(t=>t.outcome==='STOP_LOSS').length;
+            const timeouts     = trades.filter(t=>t.outcome==='TIMEOUT').length;
+            const open_trades  = trades.filter(t=>t.outcome==='OPEN').length;
+
+            const wrColor  = win_rate >= 60 ? '#10B981' : win_rate >= 50 ? '#D97706' : '#DC2626';
+            const pnlColor = total_pnl >= 0 ? '#10B981' : '#DC2626';
+            const pfColor  = parseFloat(pf) >= 3 ? '#10B981' : parseFloat(pf) >= 1.5 ? '#D97706' : '#DC2626';
+
+            // Build per-stock summary for filtered trades
+            const bySymbol = {};
+            trades.forEach(t => {
+                if (!bySymbol[t.symbol]) bySymbol[t.symbol] = [];
+                bySymbol[t.symbol].push(t);
+            });
+            let stockList = Object.entries(bySymbol).map(([sym, ts]) => {
+                const w = ts.filter(t=>t.pnl_pct>0);
+                const pnl = ts.reduce((s,t)=>s+t.pnl_amt,0);
+                return { symbol: sym, trades: ts.length, wins: w.length,
+                         win_rate: ts.length?Math.round(w.length/ts.length*100):0,
+                         total_pnl: Math.round(pnl), avg_pnl: Math.round(ts.reduce((s,t)=>s+t.pnl_pct,0)/ts.length*100)/100 };
+            });
+            if (perfStockFilter.length >= 2) stockList = stockList.filter(s=>s.symbol.toUpperCase().includes(perfStockFilter.toUpperCase()));
+            if (perfSortBy==='win_rate') stockList.sort((a,b)=>b.win_rate-a.win_rate);
+            else if (perfSortBy==='avg_return') stockList.sort((a,b)=>b.avg_pnl-a.avg_pnl);
+            else if (perfSortBy==='total_trades') stockList.sort((a,b)=>b.trades-a.trades);
+            else stockList.sort((a,b)=>b.total_pnl-a.total_pnl);
+
+            const totalPages = Math.ceil(stockList.length / PERF_PAGE_SIZE);
+            if (perfPage > totalPages) perfPage = 1;
+            const pageStocks = stockList.slice((perfPage-1)*PERF_PAGE_SIZE, perfPage*PERF_PAGE_SIZE);
+
+            let html = buildTradeJournalCard() + `
+            <div class="mobile-card rounded-xl p-4 mb-4" style="border-color:rgba(56,189,248,0.2);background:rgba(56,189,248,0.05);">
+                <div class="text-xs font-semibold tracking-wider uppercase mb-1" style="color:#38BDF8;">📊 Trendline Strategy Backtest</div>
+                <div class="text-xs text-slate-400">SL ${params.sl_pct||8}% · ±${params.tolerance||2}% entry · Post-${(params.post_covid||'2020-04-01').substring(0,4)} · Updated: ${genAt}</div>
+            </div>
+
+            <!-- Target % selector -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">🎯 Target %</div>
+                <div class="flex flex-wrap gap-2">
+                    ${available_targets.map(t => `
+                        <button onclick="perfTargetPct=${t}; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold touch-btn"
+                            style="${perfTargetPct===t ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                            ${t}%
+                        </button>`).join('')}
+                </div>
+            </div>
+
+            <!-- Date filter -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">📅 Date Range</div>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="text-xs text-slate-500 mb-1 block">From</label>
+                        <input type="date" value="${perfDateFrom}"
+                            class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
+                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
+                            onchange="perfYears=0; perfDateFrom=this.value; renderPastPerformance(document.getElementById('resultsContainer'))"/>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500 mb-1 block">To</label>
+                        <input type="date" value="${perfDateTo}" max="${new Date().toISOString().split('T')[0]}"
+                            class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
+                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
+                            onchange="perfDateTo=this.value; renderPastPerformance(document.getElementById('resultsContainer'))"/>
+                    </div>
+                </div>
+                <div class="flex space-x-2 overflow-x-auto scroll-container">
+                    ${[['1Y',365],['2Y',730],['3Y',1095],['5Y',1825],['All',0]].map(([label,days]) => {
+                        const active = days===0?(perfYears===0&&!perfDateFrom&&!perfDateTo):(perfYears===Math.round(days/365)&&!perfDateTo);
+                        return `<button onclick="if(${days}===0){perfYears=0;perfDateFrom='';perfDateTo='';}else{perfYears=${Math.round(days/365)};perfDateFrom=getDateOffset(${days});perfDateTo='';} perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
+                            class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium touch-btn"
+                            style="${active?'background:linear-gradient(135deg,#065F46,#047857);color:#fff':'background:rgba(30,41,59,0.8);color:#94A3B8'}">${label}</button>`;
+                    }).join('')}
+                </div>
+            </div>
+
+            <!-- Summary stats -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono" style="color:${wrColor};">${win_rate}%</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Win Rate</div>
+                    <div class="text-xs text-slate-500 mt-1">${wins.length}W / ${losses.length}L</div>
+                </div>
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono" style="color:${pnlColor};">${total_pnl>=0?'+':''}₹${Math.round(total_pnl).toLocaleString()}</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Total P&L</div>
+                    <div class="text-xs text-slate-500 mt-1">${trades.length} trades</div>
+                </div>
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono" style="color:${pfColor};">${pf}x</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Profit Factor</div>
+                </div>
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono text-slate-300">${avg_hold}d</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Avg Hold</div>
+                </div>
+            </div>
+
+            <!-- Outcome breakdown -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Outcome Breakdown</div>
+                <div class="flex flex-wrap gap-2">
+                    ${[['TARGET_HIT',target_hits,'#10B981'],['STOP_LOSS',stop_losses,'#DC2626'],['TIMEOUT',timeouts,'#D97706'],['OPEN',open_trades,'#94a3b8']].map(([k,v,c])=>`
+                    <div class="px-3 py-2 rounded-lg text-center flex-1" style="background:${c}18;border:1px solid ${c}40;min-width:70px;">
+                        <div class="text-sm font-bold mono" style="color:${c};">${trades.length?Math.round(v/trades.length*100):0}%</div>
+                        <div class="text-xs text-slate-400">${k.replace('_',' ')}</div>
+                        <div class="text-xs text-slate-500">${v}</div>
+                    </div>`).join('')}
+                </div>
+            </div>
+
+            <!-- Search + sort -->
+            <div class="mobile-card rounded-xl p-4 mb-3">
+                <input type="text" placeholder="Search stock…" value="${perfStockFilter}"
+                    oninput="perfStockFilter=this.value; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
+                    class="w-full px-3 py-2 rounded-lg text-sm text-slate-100 outline-none mb-3"
+                    style="background:rgba(30,41,59,0.9);border:1px solid rgba(255,255,255,0.1);" />
+                <div class="flex space-x-2 overflow-x-auto scroll-container">
+                    ${[['total_pnl','P&L'],['win_rate','Win %'],['avg_return','Avg Ret'],['total_trades','Trades']].map(([val,label])=>`
+                    <button onclick="perfSortBy='${val}'; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
+                        class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium touch-btn"
+                        style="${perfSortBy===val?'background:linear-gradient(135deg,#065F46,#047857);color:#fff;':'background:rgba(30,41,59,0.8);color:#94A3B8;'}">${label}</button>`).join('')}
+                </div>
+            </div>
+            <div class="text-xs text-slate-500 mb-3 px-1">${stockList.length} stocks with signals in range</div>`;
+
+            // Stock cards
+            pageStocks.forEach(st => {
+                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${st.symbol}`;
+                const wrC = st.win_rate>=60?'#10B981':st.win_rate>=50?'#D97706':'#DC2626';
+                const pnlC = st.total_pnl>=0?'#10B981':'#DC2626';
+                html += `<div class="stock-card mb-3">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <a href="${chartUrl}" target="_blank" class="text-base font-bold text-slate-100 hover:text-blue-400">${st.symbol}</a>
+                            <div class="text-xs text-slate-500 mt-0.5">${st.trades} signal${st.trades!==1?'s':''}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-bold mono" style="color:${pnlC};">${st.total_pnl>=0?'+':''}₹${st.total_pnl.toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="text-center"><div class="text-sm font-bold mono" style="color:${wrC};">${st.win_rate}%</div><div class="text-xs text-slate-500">Win Rate</div></div>
+                        <div class="text-center"><div class="text-sm font-bold mono" style="color:${st.avg_pnl>=0?'#10B981':'#DC2626'};">${st.avg_pnl>=0?'+':''}${st.avg_pnl}%</div><div class="text-xs text-slate-500">Avg P&L</div></div>
+                        <div class="text-center"><div class="text-sm font-bold mono text-slate-300">${st.wins}W/${st.trades-st.wins}L</div><div class="text-xs text-slate-500">W/L</div></div>
+                    </div>
+                </div>`;
+            });
+
+            if (stockList.length === 0) html += `<div class="mobile-card rounded-xl p-6 text-center text-slate-400 text-sm">No stocks match filter.</div>`;
+
+            if (totalPages > 1) {
+                html += `<div class="mobile-card rounded-xl p-4 mt-2">
+                    <div class="flex items-center justify-between">
+                        <button onclick="perfPage=Math.max(1,perfPage-1); renderPastPerformance(document.getElementById('resultsContainer'))"
+                            class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
+                            style="${perfPage<=1?'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8':'background:rgba(30,41,59,0.9);color:#fff'}">← Prev</button>
+                        <div class="text-xs text-slate-400 text-center">
+                            <div class="font-semibold text-slate-200">Page ${perfPage} of ${totalPages}</div>
+                        </div>
+                        <button onclick="perfPage=Math.min(${totalPages},perfPage+1); renderPastPerformance(document.getElementById('resultsContainer'))"
+                            class="px-4 py-2 rounded-lg text-xs font-medium touch-btn"
+                            style="${perfPage>=totalPages?'opacity:0.3;pointer-events:none;background:rgba(30,41,59,0.5);color:#94A3B8':'background:rgba(30,41,59,0.9);color:#fff'}">Next →</button>
+                    </div>
+                </div>`;
+            }
+
+            container.innerHTML = renderTradeHistorySection() + html;
+        }
+
+        function renderLegacyPerformance(container) {
 
             // ── Date filter ──────────────────────────────────────────────────
             const fromTs = perfDateFrom ? new Date(perfDateFrom).getTime() : null;
@@ -7053,7 +7267,7 @@
             }
 
             container.innerHTML = renderTradeHistorySection() + html;
-        }
+        } // end renderLegacyPerformance
 
         // Global filter state for Radar tab
         let radarFilterState = 'all'; // 'open', 'closed', 'all'
