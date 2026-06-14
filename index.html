@@ -7213,7 +7213,7 @@
                     liveTickers.add(ticker);
                     // Look up 52W data from screener dataset
                     const screenerStock = (typeof screeningData !== 'undefined' && screeningData)
-                        ? screeningData.find(s => s.ticker === ticker || s.symbol === ticker)
+                        ? (screeningData.golden_stocks || []).concat(screeningData.volume_breakout_stocks || []).find(s => s.ticker === ticker || s.symbol === ticker)
                         : null;
                     allBrokerTrades[ticker] = {
                         ticker,
