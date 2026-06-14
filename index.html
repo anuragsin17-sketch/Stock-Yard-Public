@@ -5662,18 +5662,22 @@
             const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
 
             // Fetch trendline count async, then update Opportunities
+            const volFiltered = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
             animateCounter('totalStocks', total, 1000);
             // Show volume + manual immediately, then add trendline count once fetched
-            animateCounter('totalOpportunities', volumeCount + manualStocks.length, 800);
+            animateCounter('totalOpportunities', volFiltered + manualStocks.length, 800);
             fetch('./trendline_screen.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : [])
                 .catch(() => [])
                 .then(trendlineStocks => {
-                    const trendlineCount = Array.isArray(trendlineStocks) ? trendlineStocks.length : 0;
+                    const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+                    const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+                    const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                    const trendlineCount = Array.isArray(trendlineStocks)
+                        ? trendlineStocks.filter(s => !dismissed.includes(s.ticker) && !inRadar.includes(s.ticker) && !purged.includes(s.ticker)).length
+                        : 0;
                     const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                    // Use tab badge counts for consistency
-                    const volCount = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
-                    animateCounter('totalOpportunities', volCount + trendlineCount + updatedManual.length, 800);
+                    animateCounter('totalOpportunities', volFiltered + trendlineCount + updatedManual.length, 800);
                 });
             
             // Update NIFTY 50 and SENSEX with real-time data
@@ -8119,15 +8123,18 @@
             closeAddStockModal();
 
             // Refresh opportunities count (volume + trendline + manual)
-            const volumeCount = screeningData?.volume_breakout_stocks?.length || 0;
+            const volumeCount = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
             const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
             fetch('./trendline_screen.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : [])
                 .catch(() => [])
                 .then(tl => {
-                    const tlCount = Array.isArray(tl) ? tl.length : 0;
+                    const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+                    const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+                    const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                    const tlFiltered = Array.isArray(tl) ? tl.filter(s => !dismissed.includes(s.ticker) && !inRadar.includes(s.ticker) && !purged.includes(s.ticker)).length : 0;
                     document.getElementById('totalOpportunities').textContent =
-                        (volumeCount + tlCount + updatedManual.length).toLocaleString();
+                        (volumeCount + tlFiltered + updatedManual.length).toLocaleString();
                 });
 
             // Switch to trendline tab to show the saved stock
