@@ -6735,16 +6735,8 @@
 
         function renderPastPerformance(container) {
             if (!perfData) return;
-
-            // Detect format: new target_sweep format has perfData.trades[target]
-            // Old format has perfData.stocks[]
-            const isNewFormat = perfData.trades && !perfData.stocks;
-
-            if (isNewFormat) {
-                renderTargetSweepPerformance(container);
-            } else {
-                renderLegacyPerformance(container);
-            }
+            // Always use new target_sweep format renderer
+            renderTargetSweepPerformance(container);
         }
 
         function renderTargetSweepPerformance(container) {
