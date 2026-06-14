@@ -6759,10 +6759,11 @@
 
             // ── Filter form (always shown) ────────────────────────────────
             let html = `
-            <!-- Target % selector -->
-            <div class="mobile-card rounded-xl p-4 mb-4">
-                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">🎯 Select Target %</div>
-                <div class="flex flex-wrap gap-2">
+            <!-- Compact backtest config — single card -->
+            <div class="mobile-card rounded-xl p-4 mb-3">
+                <!-- Target % -->
+                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">🎯 Target %</div>
+                <div class="flex flex-wrap gap-1.5 mb-4">
                     ${available_targets.map(t => `
                         <button onclick="perfTargetPct=${t}; perfSubmitted=false; renderPastPerformance(document.getElementById('resultsContainer'))"
                             class="px-3 py-1.5 rounded-lg text-xs font-bold touch-btn"
@@ -6770,61 +6771,58 @@
                             ${t}%
                         </button>`).join('')}
                 </div>
-            </div>
 
-            <!-- Capital selector — just 5L and 10L -->
-            <div class="mobile-card rounded-xl p-4 mb-4">
-                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">💰 Your Capital</div>
-                <div class="flex gap-3">
-                    <button onclick="perfCapital=500000; document.querySelectorAll('.cap-btn').forEach(b=>b.style.background='rgba(30,41,59,0.8)'); this.style.background='linear-gradient(135deg,#4C1D95,#6D28D9)'; this.style.color='#fff';"
-                        class="cap-btn flex-1 py-3 rounded-xl text-sm font-bold touch-btn"
-                        style="${perfCapital===500000?'background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;':'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
-                        ₹5 Lakh
-                    </button>
-                    <button onclick="perfCapital=1000000; document.querySelectorAll('.cap-btn').forEach(b=>b.style.background='rgba(30,41,59,0.8)'); this.style.background='linear-gradient(135deg,#4C1D95,#6D28D9)'; this.style.color='#fff';"
-                        class="cap-btn flex-1 py-3 rounded-xl text-sm font-bold touch-btn"
-                        style="${perfCapital===1000000?'background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;':'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
-                        ₹10 Lakh
-                    </button>
-                </div>
-                <div class="text-xs text-slate-500 mt-2">Backtest uses ₹50K per trade. Your capital shows how many concurrent trades you can run and your ROI%.</div>
-            </div>
-
-            <!-- Date Range filter -->
-            <div class="mobile-card rounded-xl p-4 mb-4">
-                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">📅 Date Range</div>
-                <div class="grid grid-cols-2 gap-3 mb-3">
+                <!-- Capital + Date Range in one row -->
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;margin-bottom:12px;">
+                    <!-- Capital -->
                     <div>
-                        <label class="text-xs text-slate-500 mb-1 block">From</label>
-                        <input type="date" id="perfDateFromInput"
-                            class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
-                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
-                            onchange="perfYears=0; perfDateFrom=this.value;"/>
+                        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">💰 Capital</div>
+                        <div class="flex gap-1.5">
+                            <button onclick="perfCapital=500000; document.querySelectorAll('.cap-btn').forEach(b=>{b.style.background='rgba(30,41,59,0.8)';b.style.color='#94A3B8';}); this.style.background='linear-gradient(135deg,#4C1D95,#6D28D9)'; this.style.color='#fff';"
+                                class="cap-btn px-3 py-1.5 rounded-lg text-xs font-bold touch-btn"
+                                style="${perfCapital===500000?'background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;':'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                                ₹5L
+                            </button>
+                            <button onclick="perfCapital=1000000; document.querySelectorAll('.cap-btn').forEach(b=>{b.style.background='rgba(30,41,59,0.8)';b.style.color='#94A3B8';}); this.style.background='linear-gradient(135deg,#4C1D95,#6D28D9)'; this.style.color='#fff';"
+                                class="cap-btn px-3 py-1.5 rounded-lg text-xs font-bold touch-btn"
+                                style="${perfCapital===1000000?'background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;':'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                                ₹10L
+                            </button>
+                        </div>
                     </div>
+                    <!-- Date Range -->
                     <div>
-                        <label class="text-xs text-slate-500 mb-1 block">To</label>
-                        <input type="date" id="perfDateToInput"
-                            class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
-                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
-                            onchange="perfDateTo=this.value;"/>
+                        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">📅 Period</div>
+                        <div class="flex gap-1.5 flex-wrap">
+                            ${[['1Y',365],['2Y',730],['3Y',1095],['5Y',1825],['All',0]].map(([label,days]) => {
+                                const active = days===0?(perfYears===0&&!perfDateFrom&&!perfDateTo):(perfYears===Math.round(days/365)&&!perfDateTo);
+                                return `<button onclick="if(${days}===0){perfYears=0;perfDateFrom='';perfDateTo='';}else{perfYears=${Math.round(days/365)};perfDateFrom=getDateOffset(${days});perfDateTo='';} const dfi=document.getElementById('perfDateFromInput'); const dti=document.getElementById('perfDateToInput'); if(dfi)dfi.value=perfDateFrom||''; if(dti)dti.value=perfDateTo||'';"
+                                    class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold touch-btn"
+                                    style="${active?'background:linear-gradient(135deg,#065F46,#047857);color:#fff':'background:rgba(30,41,59,0.8);color:#94A3B8'}">${label}</button>`;
+                            }).join('')}
+                        </div>
                     </div>
                 </div>
-                <div class="flex space-x-2 overflow-x-auto scroll-container">
-                    ${[['1Y',365],['2Y',730],['3Y',1095],['5Y',1825],['All',0]].map(([label,days]) => {
-                        const active = days===0?(perfYears===0&&!perfDateFrom&&!perfDateTo):(perfYears===Math.round(days/365)&&!perfDateTo);
-                        return `<button onclick="if(${days}===0){perfYears=0;perfDateFrom='';perfDateTo='';}else{perfYears=${Math.round(days/365)};perfDateFrom=getDateOffset(${days});perfDateTo='';} const dfi=document.getElementById('perfDateFromInput'); const dti=document.getElementById('perfDateToInput'); if(dfi)dfi.value=perfDateFrom||''; if(dti)dti.value=perfDateTo||'';"
-                            class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium touch-btn"
-                            style="${active?'background:linear-gradient(135deg,#065F46,#047857);color:#fff':'background:rgba(30,41,59,0.8);color:#94A3B8'}">${label}</button>`;
-                    }).join('')}
-                </div>
-            </div>
 
-            <!-- Run button -->
-            <button onclick="perfSubmitted=true; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
-                class="w-full py-4 rounded-xl text-base font-bold touch-btn mb-4"
-                style="background:linear-gradient(135deg,#065F46,#047857);color:#fff;">
-                🚀 Run Backtest
-            </button>`;
+                <!-- Custom date inputs (compact, inline) -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                    <input type="date" id="perfDateFromInput"
+                        class="w-full px-2 py-1.5 rounded-lg text-xs mono outline-none"
+                        style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.25);color:#38BDF8;"
+                        onchange="perfYears=0; perfDateFrom=this.value;" placeholder="From"/>
+                    <input type="date" id="perfDateToInput"
+                        class="w-full px-2 py-1.5 rounded-lg text-xs mono outline-none"
+                        style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.25);color:#38BDF8;"
+                        onchange="perfDateTo=this.value;" placeholder="To"/>
+                </div>
+
+                <!-- Run button — same style as Take Trade -->
+                <button onclick="perfSubmitted=true; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
+                    class="w-full py-2.5 rounded-lg text-sm font-semibold touch-btn"
+                    style="background:linear-gradient(135deg,#065F46,#047857);color:#fff;">
+                    🚀 Run Backtest
+                </button>
+            </div>`;
 
             if (!perfSubmitted) {
                 container.innerHTML = html;
@@ -7523,7 +7521,7 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
                     <button onclick="openAddTradeModal()" class="py-3 rounded-xl text-sm font-semibold touch-btn flex items-center justify-center space-x-2" style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        <span>+ Add Trade Manually</span>
+                        <span>Add Trade Manually</span>
                     </button>
                     <button onclick="syncRadarFromAngelOne()" class="py-3 rounded-xl text-sm font-semibold touch-btn flex items-center justify-center space-x-2" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -7551,7 +7549,7 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
                     <button onclick="openAddTradeModal()" class="py-2 rounded-lg text-xs font-semibold touch-btn flex items-center justify-center space-x-1" style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        <span>+ Add Trade</span>
+                        <span>Add Trade</span>
                     </button>
                     <button onclick="syncRadarFromAngelOne()" class="py-2 rounded-lg text-xs font-semibold touch-btn flex items-center justify-center space-x-1" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
