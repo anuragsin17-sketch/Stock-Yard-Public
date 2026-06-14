@@ -6141,6 +6141,25 @@
             container.innerHTML = html;
             // Refresh all tab counts after rendering
             updateTabCounts();
+            // Fetch live LTP for each visible stock
+            paged.forEach(stock => {
+                const ticker = stock.ticker;
+                fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${ticker}`, { cache: 'no-store' })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data || !data.success) return;
+                        const ltp = parseFloat(data.ltp);
+                        if (!ltp || ltp <= 0) return;
+                        const el = document.getElementById(`vol_ltp_${ticker}`);
+                        if (el) {
+                            el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+                            // Colour based on vs entry zone
+                            const threshold = stock.alert_threshold || 0;
+                            el.style.color = ltp <= threshold ? '#10B981' : '#ffffff';
+                        }
+                    })
+                    .catch(() => {});
+            });
         }
 
         function createVolumeGainerCard(stock) {
@@ -6168,14 +6187,15 @@
                 <!-- Header -->
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
                     <div>
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                        <div style="margin-bottom:4px;">
                             <a href="${chartUrl}" target="_blank" style="font-size:16px;font-weight:700;color:#fff;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${ticker}</a>
-                            ${statusBadge}
                         </div>
-                        <div style="font-size:11px;color:#6b7280;">${company}</div>
+                        <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">${company}</div>
+                        ${statusBadge}
                     </div>
                     <div style="text-align:right;">
-                        <div style="font-size:16px;font-weight:700;color:#F59E0B;" class="mono">+${gainPct}%</div>
+                        <div id="vol_ltp_${ticker}" style="font-size:18px;font-weight:700;color:#ffffff;" class="mono">—</div>
+                        <div style="font-size:11px;font-weight:700;color:#F59E0B;" class="mono">+${gainPct}%</div>
                         <div style="font-size:10px;color:#6b7280;">on ${addedDate}</div>
                     </div>
                 </div>                <!-- Metrics grid -->
