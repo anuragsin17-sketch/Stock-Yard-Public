@@ -19,8 +19,11 @@ import time
 import requests
 from datetime import datetime
 
-BOT_TOKEN   = os.environ.get('TELEGRAM_BOT_TOKEN', '8253327701:AAGNFzBJ8QwKw8x8Hg-tlvWHg18DD4lgogQ')
-CHAT_ID     = os.environ.get('TELEGRAM_CHAT_ID', '8901309420')
+BOT_TOKEN   = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+CHAT_ID     = os.environ.get('TELEGRAM_CHAT_ID', '')
+
+if not BOT_TOKEN or not CHAT_ID:
+    raise RuntimeError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set as environment variables. Never hardcode tokens.")
 API         = f"https://api.telegram.org/bot{BOT_TOKEN}"
 PLACE_ORDER = 'http://127.0.0.1:5000/api/place-order'
 RADAR_FILE  = '/home/ubuntu/radar_trades.json'
