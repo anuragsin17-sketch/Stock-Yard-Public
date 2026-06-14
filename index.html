@@ -8473,9 +8473,9 @@
             const dot = document.getElementById('statusDot');
             if (!el) return;
             const now = new Date();
-            // Always use IST (Asia/Kolkata) regardless of browser timezone
-            const istStr = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-            const ist = new Date(istStr);
+            // Always use IST (UTC+5:30) — reliable cross-browser calculation
+            const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const ist = new Date(utcMs + (5.5 * 60 * 60 * 1000));
             const day = ist.getDay(); // 0=Sun, 6=Sat
             const h = ist.getHours(), m = ist.getMinutes();
             const totalMin = h * 60 + m;
