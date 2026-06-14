@@ -6617,6 +6617,7 @@
         let perfSortBy = 'total_pnl';
         let perfYears = 0;
         let perfPage = 1;
+        let perfSubmitted = false; // results only shown after submit
         const PERF_PAGE_SIZE = 10;
 
         // Pagination state for Volume and Trendline tabs
@@ -6750,12 +6751,73 @@
         function renderTargetSweepPerformance(container) {
             const available_targets = Object.keys(perfData.trades || {}).map(Number).sort((a,b)=>a-b);
             if (!available_targets.includes(perfTargetPct)) perfTargetPct = available_targets[2] || available_targets[0];
-
-            const allTrades = perfData.trades[String(perfTargetPct)] || [];
             const genAt = perfData.generated_at ? new Date(perfData.generated_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
             const params = perfData.params || {};
 
-            // Date filter
+            // ── Filter form (always shown) ────────────────────────────────
+            let html = `
+            <!-- Target % selector -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">🎯 Select Target %</div>
+                <div class="flex flex-wrap gap-2">
+                    ${available_targets.map(t => `
+                        <button onclick="perfTargetPct=${t}; perfSubmitted=false; renderPastPerformance(document.getElementById('resultsContainer'))"
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold touch-btn"
+                            style="${perfTargetPct===t ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                            ${t}%
+                        </button>`).join('')}
+                </div>
+            </div>
+
+            <!-- Date filter -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">📅 Date Range</div>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="text-xs text-slate-500 mb-1 block">From</label>
+                        <input type="date" id="perfDateFromInput"
+                            class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
+                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
+                            onchange="perfYears=0; perfDateFrom=this.value;"/>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500 mb-1 block">To</label>
+                        <input type="date" id="perfDateToInput"
+                            class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
+                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
+                            onchange="perfDateTo=this.value;"/>
+                    </div>
+                </div>
+                <div class="flex space-x-2 overflow-x-auto scroll-container mb-1">
+                    ${[['1Y',365],['2Y',730],['3Y',1095],['5Y',1825],['All',0]].map(([label,days]) => {
+                        const active = days===0?(perfYears===0&&!perfDateFrom&&!perfDateTo):(perfYears===Math.round(days/365)&&!perfDateTo);
+                        return `<button onclick="if(${days}===0){perfYears=0;perfDateFrom='';perfDateTo='';}else{perfYears=${Math.round(days/365)};perfDateFrom=getDateOffset(${days});perfDateTo='';} document.getElementById('perfDateFromInput').value=perfDateFrom; document.getElementById('perfDateToInput').value=perfDateTo||'';"
+                            class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium touch-btn"
+                            style="${active?'background:linear-gradient(135deg,#065F46,#047857);color:#fff':'background:rgba(30,41,59,0.8);color:#94A3B8'}">${label}</button>`;
+                    }).join('')}
+                </div>
+            </div>
+
+            <!-- Run button -->
+            <button onclick="perfSubmitted=true; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
+                class="w-full py-4 rounded-xl text-base font-bold touch-btn mb-4"
+                style="background:linear-gradient(135deg,#065F46,#047857);color:#fff;">
+                🚀 Run Backtest
+            </button>`;
+
+            // ── Results (only after submit) ───────────────────────────────
+            if (!perfSubmitted) {
+                container.innerHTML = html;
+                // Set date inputs via JS
+                const dfInput = document.getElementById('perfDateFromInput');
+                const dtInput = document.getElementById('perfDateToInput');
+                if (dfInput) dfInput.value = perfDateFrom || '';
+                if (dtInput) { dtInput.value = perfDateTo || ''; dtInput.max = new Date().toISOString().split('T')[0]; }
+                return;
+            }
+
+            // Apply filters
+            const allTrades = perfData.trades[String(perfTargetPct)] || [];
             const fromTs = perfDateFrom ? new Date(perfDateFrom).getTime() : null;
             const toTs   = perfDateTo   ? new Date(perfDateTo).getTime()   : null;
             const trades = allTrades.filter(t => {
@@ -6774,7 +6836,6 @@
             const total_pnl  = trades.reduce((s,t)=>s+t.pnl_amt,0);
             const win_rate   = completed.length ? (wins.length/completed.length*100).toFixed(1) : 0;
             const pf         = loss_pnl > 0 ? (win_pnl/loss_pnl).toFixed(2) : '∞';
-            const avg_pnl    = trades.length ? (trades.reduce((s,t)=>s+t.pnl_pct,0)/trades.length).toFixed(2) : 0;
             const avg_hold   = trades.length ? Math.round(trades.reduce((s,t)=>s+t.holding_days,0)/trades.length) : 0;
             const target_hits  = trades.filter(t=>t.outcome==='TARGET_HIT').length;
             const stop_losses  = trades.filter(t=>t.outcome==='STOP_LOSS').length;
@@ -6785,75 +6846,21 @@
             const pnlColor = total_pnl >= 0 ? '#10B981' : '#DC2626';
             const pfColor  = parseFloat(pf) >= 3 ? '#10B981' : parseFloat(pf) >= 1.5 ? '#D97706' : '#DC2626';
 
-            // Build per-stock summary for filtered trades
-            const bySymbol = {};
-            trades.forEach(t => {
-                if (!bySymbol[t.symbol]) bySymbol[t.symbol] = [];
-                bySymbol[t.symbol].push(t);
-            });
-            let stockList = Object.entries(bySymbol).map(([sym, ts]) => {
-                const w = ts.filter(t=>t.pnl_pct>0);
-                const pnl = ts.reduce((s,t)=>s+t.pnl_amt,0);
-                return { symbol: sym, trades: ts.length, wins: w.length,
-                         win_rate: ts.length?Math.round(w.length/ts.length*100):0,
-                         total_pnl: Math.round(pnl), avg_pnl: Math.round(ts.reduce((s,t)=>s+t.pnl_pct,0)/ts.length*100)/100 };
-            });
-            if (perfStockFilter.length >= 2) stockList = stockList.filter(s=>s.symbol.toUpperCase().includes(perfStockFilter.toUpperCase()));
-            if (perfSortBy==='win_rate') stockList.sort((a,b)=>b.win_rate-a.win_rate);
-            else if (perfSortBy==='avg_return') stockList.sort((a,b)=>b.avg_pnl-a.avg_pnl);
-            else if (perfSortBy==='total_trades') stockList.sort((a,b)=>b.trades-a.trades);
-            else stockList.sort((a,b)=>b.total_pnl-a.total_pnl);
+            if (trades.length === 0) {
+                html += `<div class="mobile-card rounded-xl p-8 text-center">
+                    <div class="text-4xl mb-3">🔍</div>
+                    <div class="text-slate-300 font-semibold mb-2">No trades in this range</div>
+                    <div class="text-xs text-slate-500">Try a wider date range or click All</div>
+                </div>`;
+                container.innerHTML = html;
+                return;
+            }
 
-            const totalPages = Math.ceil(stockList.length / PERF_PAGE_SIZE);
-            if (perfPage > totalPages) perfPage = 1;
-            const pageStocks = stockList.slice((perfPage-1)*PERF_PAGE_SIZE, perfPage*PERF_PAGE_SIZE);
-
-            let html = buildTradeJournalCard() + `
-            <div class="mobile-card rounded-xl p-4 mb-4" style="border-color:rgba(56,189,248,0.2);background:rgba(56,189,248,0.05);">
-                <div class="text-xs font-semibold tracking-wider uppercase mb-1" style="color:#38BDF8;">📊 Trendline Strategy Backtest</div>
-                <div class="text-xs text-slate-400">SL ${params.sl_pct||8}% · ±${params.tolerance||2}% entry · Post-${(params.post_covid||'2020-04-01').substring(0,4)} · Updated: ${genAt}</div>
-            </div>
-
-            <!-- Target % selector -->
-            <div class="mobile-card rounded-xl p-4 mb-4">
-                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">🎯 Target %</div>
-                <div class="flex flex-wrap gap-2">
-                    ${available_targets.map(t => `
-                        <button onclick="perfTargetPct=${t}; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
-                            class="px-3 py-1.5 rounded-lg text-xs font-bold touch-btn"
-                            style="${perfTargetPct===t ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
-                            ${t}%
-                        </button>`).join('')}
-                </div>
-            </div>
-
-            <!-- Date filter -->
-            <div class="mobile-card rounded-xl p-4 mb-4">
-                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">📅 Date Range</div>
-                <div class="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                        <label class="text-xs text-slate-500 mb-1 block">From</label>
-                        <input type="date" value="${perfDateFrom}"
-                            class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
-                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
-                            onchange="perfYears=0; perfDateFrom=this.value; renderPastPerformance(document.getElementById('resultsContainer'))"/>
-                    </div>
-                    <div>
-                        <label class="text-xs text-slate-500 mb-1 block">To</label>
-                        <input type="date" value="${perfDateTo}" max="${new Date().toISOString().split('T')[0]}"
-                            class="w-full px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
-                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.3);color:#38BDF8;"
-                            onchange="perfDateTo=this.value; renderPastPerformance(document.getElementById('resultsContainer'))"/>
-                    </div>
-                </div>
-                <div class="flex space-x-2 overflow-x-auto scroll-container">
-                    ${[['1Y',365],['2Y',730],['3Y',1095],['5Y',1825],['All',0]].map(([label,days]) => {
-                        const active = days===0?(perfYears===0&&!perfDateFrom&&!perfDateTo):(perfYears===Math.round(days/365)&&!perfDateTo);
-                        return `<button onclick="if(${days}===0){perfYears=0;perfDateFrom='';perfDateTo='';}else{perfYears=${Math.round(days/365)};perfDateFrom=getDateOffset(${days});perfDateTo='';} perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
-                            class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium touch-btn"
-                            style="${active?'background:linear-gradient(135deg,#065F46,#047857);color:#fff':'background:rgba(30,41,59,0.8);color:#94A3B8'}">${label}</button>`;
-                    }).join('')}
-                </div>
+            // Summary header
+            html += `
+            <div class="mobile-card rounded-xl p-4 mb-3" style="border-color:rgba(56,189,248,0.2);background:rgba(56,189,248,0.05);">
+                <div class="text-xs font-semibold tracking-wider uppercase mb-1" style="color:#38BDF8;">📊 Results — Target ${perfTargetPct}% · ${trades.length} signals</div>
+                <div class="text-xs text-slate-400">SL ${params.sl_pct||8}% · ±${params.tolerance||2}% · ${perfDateFrom||'2020'} → ${perfDateTo||'now'} · ${genAt}</div>
             </div>
 
             <!-- Summary stats -->
@@ -6889,8 +6896,32 @@
                         <div class="text-xs text-slate-500">${v}</div>
                     </div>`).join('')}
                 </div>
-            </div>
+            </div>`;
 
+            // Stock list
+            const bySymbol = {};
+            trades.forEach(t => {
+                if (!bySymbol[t.symbol]) bySymbol[t.symbol] = [];
+                bySymbol[t.symbol].push(t);
+            });
+            let stockList = Object.entries(bySymbol).map(([sym, ts]) => {
+                const w = ts.filter(t=>t.pnl_pct>0);
+                const pnl = ts.reduce((s,t)=>s+t.pnl_amt,0);
+                return { symbol: sym, trades: ts.length, wins: w.length,
+                         win_rate: ts.length?Math.round(w.length/ts.length*100):0,
+                         total_pnl: Math.round(pnl), avg_pnl: Math.round(ts.reduce((s,t)=>s+t.pnl_pct,0)/ts.length*100)/100 };
+            });
+            if (perfStockFilter.length >= 2) stockList = stockList.filter(s=>s.symbol.toUpperCase().includes(perfStockFilter.toUpperCase()));
+            if (perfSortBy==='win_rate') stockList.sort((a,b)=>b.win_rate-a.win_rate);
+            else if (perfSortBy==='avg_return') stockList.sort((a,b)=>b.avg_pnl-a.avg_pnl);
+            else if (perfSortBy==='total_trades') stockList.sort((a,b)=>b.trades-a.trades);
+            else stockList.sort((a,b)=>b.total_pnl-a.total_pnl);
+
+            const totalPages = Math.ceil(stockList.length / PERF_PAGE_SIZE);
+            if (perfPage > totalPages) perfPage = 1;
+            const pageStocks = stockList.slice((perfPage-1)*PERF_PAGE_SIZE, perfPage*PERF_PAGE_SIZE);
+
+            html += `
             <!-- Search + sort -->
             <div class="mobile-card rounded-xl p-4 mb-3">
                 <input type="text" placeholder="Search stock…" value="${perfStockFilter}"
@@ -6904,9 +6935,8 @@
                         style="${perfSortBy===val?'background:linear-gradient(135deg,#065F46,#047857);color:#fff;':'background:rgba(30,41,59,0.8);color:#94A3B8;'}">${label}</button>`).join('')}
                 </div>
             </div>
-            <div class="text-xs text-slate-500 mb-3 px-1">${stockList.length} stocks with signals in range</div>`;
+            <div class="text-xs text-slate-500 mb-3 px-1">${stockList.length} stocks with signals</div>`;
 
-            // Stock cards
             pageStocks.forEach(st => {
                 const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${st.symbol}`;
                 const wrC = st.win_rate>=60?'#10B981':st.win_rate>=50?'#D97706':'#DC2626';
@@ -6947,8 +6977,14 @@
                 </div>`;
             }
 
-            container.innerHTML = renderTradeHistorySection() + html;
-        }
+            container.innerHTML = html;
+
+            // Fix date inputs
+            const dfInput = document.getElementById('perfDateFromInput');
+            const dtInput = document.getElementById('perfDateToInput');
+            if (dfInput) dfInput.value = perfDateFrom || '';
+            if (dtInput) { dtInput.value = perfDateTo || ''; dtInput.max = new Date().toISOString().split('T')[0]; }
+        } // end renderTargetSweepPerformance
 
         function renderLegacyPerformance(container) {
 
