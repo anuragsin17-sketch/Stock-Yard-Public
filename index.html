@@ -5887,27 +5887,50 @@
                 }
             });
 
-            // Step 2 — Yahoo Finance for anything still missing
+            // Step 2 — Fetch 52W directly from Yahoo Finance (public API, no EC2 needed)
             const stillMissing = Object.entries(tradesMap)
                 .filter(([, t]) => !t.week52High || !t.week52Low);
             if (stillMissing.length === 0) return tradesMap;
 
-            console.log(`🔍 Fetching 52W for ${stillMissing.length} stocks from backend...`);
+            console.log(`🔍 Fetching 52W for ${stillMissing.length} stocks from Yahoo Finance...`);
             await Promise.allSettled(stillMissing.map(async ([key, t]) => {
                 try {
-                    const sym = encodeURIComponent(t.ticker);
-                    const url = `https://32.194.58.75/api/get-52w?symbol=${sym}`;
-                    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+                    const sym = encodeURIComponent(t.ticker + '.NS');
+                    // Yahoo Finance v8 quote endpoint — public, no auth required
+                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1y`;
+                    const resp = await fetch(url, {
+                        signal: AbortSignal.timeout(10000),
+                        headers: { 'Accept': 'application/json' }
+                    });
                     if (!resp.ok) return;
                     const data = await resp.json();
-                    if (data.success && data.week_52_high && data.week_52_low) {
-                        tradesMap[key].week52High = parseFloat(data.week_52_high);
-                        tradesMap[key].week52Low  = parseFloat(data.week_52_low);
-                        cache52WData(t.ticker, data.week_52_high, data.week_52_low);
-                        console.log(`  ✓ ${t.ticker} 52W H:${data.week_52_high} L:${data.week_52_low}`);
+                    const meta = data?.chart?.result?.[0]?.meta;
+                    if (meta) {
+                        const high = parseFloat(meta.fiftyTwoWeekHigh || meta.regularMarketDayHigh || 0);
+                        const low  = parseFloat(meta.fiftyTwoWeekLow  || meta.regularMarketDayLow  || 0);
+                        if (high > 0 && low > 0) {
+                            tradesMap[key].week52High = high;
+                            tradesMap[key].week52Low  = low;
+                            cache52WData(t.ticker, high, low);
+                            console.log(`  ✓ ${t.ticker} 52W H:${high} L:${low}`);
+                        }
                     }
                 } catch (e) {
-                    console.warn(`  ⚠ 52W fetch failed for ${t.ticker}:`, e.message);
+                    // Fallback to EC2 if Yahoo fails
+                    try {
+                        const sym = encodeURIComponent(t.ticker);
+                        const url = `https://32.194.58.75/api/get-52w?symbol=${sym}`;
+                        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+                        if (!resp.ok) return;
+                        const data = await resp.json();
+                        if (data.success && data.week_52_high && data.week_52_low) {
+                            tradesMap[key].week52High = parseFloat(data.week_52_high);
+                            tradesMap[key].week52Low  = parseFloat(data.week_52_low);
+                            cache52WData(t.ticker, data.week_52_high, data.week_52_low);
+                        }
+                    } catch (e2) {
+                        console.warn(`  ⚠ 52W fetch failed for ${t.ticker}`);
+                    }
                 }
             }));
 
@@ -7109,6 +7132,7 @@
                                     if (idx >= 0) {
                                         trades[idx].week52High = t.week52High;
                                         trades[idx].week52Low  = t.week52Low;
+                                        dirty = true;  // always re-render if 52W was fetched
                                     }
                                 }
                             });
