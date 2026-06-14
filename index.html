@@ -1,4 +1,4 @@
-??<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -5834,20 +5834,10 @@
                 stocks.forEach(s => {
                     const key = (s.ticker || '').toUpperCase();
                     if (!key) return;
-                    // Try week52High/week52Low (old format)
+                    // Only use explicit week52High/week52Low — never derive from Fibonacci
+                    // (Fibonacci grid spans multi-year swings, not 52-week range)
                     if (s.week52High && s.week52Low) {
                         map[key] = { high: s.week52High, low: s.week52Low };
-                    }
-                    // Try fibonacciLevels to derive 52W range (new format)
-                    // Use 100% fib as 52W low proxy, current price as reference
-                    else if (s.fibonacciLevels && s.currentPrice) {
-                        const fibs = s.fibonacciLevels;
-                        const fibValues = Object.values(fibs).filter(v => v > 0);
-                        if (fibValues.length > 0) {
-                            const fibLow  = Math.min(...fibValues);
-                            const fibHigh = Math.max(...fibValues);
-                            map[key] = { high: fibHigh, low: fibLow };
-                        }
                     }
                 });
                 sessionStorage.setItem('trendline52wCache', JSON.stringify(map));
@@ -6428,10 +6418,11 @@
                 const filteredTrendStocks = trendlineStocks
                     .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker))
                     .sort((a, b) => {
-                        const order = { 'CRITICAL_TOUCH': 0, 'CRITICAL ENTRY': 0, 'WATCHLIST': 1, 'MONITORING': 2 };
-                        const aOrder = order[a.signalStatus] ?? 3;
-                        const bOrder = order[b.signalStatus] ?? 3;
-                        if (aOrder !== bOrder) return aOrder - bOrder;
+                        // Primary: confluence score (highest first = BEST ENTRY → STRONG → GOOD → WATCH)
+                        const aScore = a.confluenceScore || 0;
+                        const bScore = b.confluenceScore || 0;
+                        if (bScore !== aScore) return bScore - aScore;
+                        // Secondary: touch distance (closest first)
                         return (a.distanceRemaining || 0) - (b.distanceRemaining || 0);
                     });
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
@@ -8450,9 +8441,9 @@
             const dot = document.getElementById('statusDot');
             if (!el) return;
             const now = new Date();
-            // Convert to IST (UTC+5:30)
-            const istOffset = 5.5 * 60 * 60 * 1000;
-            const ist = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + istOffset);
+            // Always use IST (Asia/Kolkata) regardless of browser timezone
+            const istStr = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+            const ist = new Date(istStr);
             const day = ist.getDay(); // 0=Sun, 6=Sat
             const h = ist.getHours(), m = ist.getMinutes();
             const totalMin = h * 60 + m;
@@ -8463,6 +8454,7 @@
                 return hh > 0 ? `${hh}h ${mm}m` : `${mm}m`;
             };
             if (day === 0 || day === 6) {
+                // Both Sat and Sun → next market open is Monday
                 el.textContent = '⏰ Weekend · Mon 9:15 AM';
                 el.className = 'text-slate-400 tracking-wide';
                 if (dot) { dot.style.background = '#64748B'; dot.style.animation = 'none'; }
