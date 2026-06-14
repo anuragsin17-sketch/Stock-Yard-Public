@@ -6432,7 +6432,15 @@
                 
                 // Trendline pagination — filter dismissed stocks first
                 const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
-                const filteredTrendStocks = trendlineStocks.filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker));
+                const filteredTrendStocks = trendlineStocks
+                    .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker))
+                    .sort((a, b) => {
+                        const order = { 'CRITICAL_TOUCH': 0, 'CRITICAL ENTRY': 0, 'WATCHLIST': 1, 'MONITORING': 2 };
+                        const aOrder = order[a.signalStatus] ?? 3;
+                        const bOrder = order[b.signalStatus] ?? 3;
+                        if (aOrder !== bOrder) return aOrder - bOrder;
+                        return (a.distanceRemaining || 0) - (b.distanceRemaining || 0);
+                    });
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
                 if (trendPage > trendTotalPages) trendPage = 1;
                 const pagedTrendStocks = filteredTrendStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
@@ -6511,7 +6519,7 @@
                                     <div style="font-size:14px;font-weight:700;color:#fbbf24;">${stock.confluenceScore != null ? stock.confluenceScore : '—'} <span style="color:#6b7280;font-size:11px;">/ 10</span></div>
                                 </div>
                                 <div>
-                                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">52-Week H / L</div>
+                                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">52-Week L / H</div>
                                     ${tl52wHigh && tl52wLow ? `<div style="font-size:12px;font-weight:600;color:#e5e7eb;" class="mono">${formatINR(tl52wLow)} / ${formatINR(tl52wHigh)}</div>` : '<div style="font-size:12px;color:#6b7280;">—</div>'}
                                 </div>
                             </div>
