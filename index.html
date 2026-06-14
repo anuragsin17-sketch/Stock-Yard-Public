@@ -6659,14 +6659,21 @@
                 </div>`;
         }
 
+        let perfTradesData = null; // full trade-level data from backtest_trades.json
+
         async function displayPastPerformance() {
             const container = document.getElementById('resultsContainer');
             container.innerHTML = skeletonList(3);
 
             try {
-                const resp = await fetch('./backtest_performance.json', { cache: 'no-store' });
-                if (!resp.ok) throw new Error('not found');
-                perfData = await resp.json();
+                // Load summary + full trade data in parallel
+                const [summaryResp, tradesResp] = await Promise.all([
+                    fetch('./backtest_performance.json', { cache: 'no-store' }),
+                    fetch('./backtest_trades.json', { cache: 'no-store' })
+                ]);
+                if (!summaryResp.ok) throw new Error('not found');
+                perfData = await summaryResp.json();
+                if (tradesResp.ok) perfTradesData = await tradesResp.json();
             } catch (e) {
                 container.innerHTML = `
                     <div class="mobile-card rounded-xl p-8 text-center">
@@ -6830,93 +6837,105 @@
 
             // ── Results ───────────────────────────────────────────────────
             const s = summaries[String(perfTargetPct)];
-            if (!s) {
+            // Use embedded trades from backtest_performance.json, fall back to backtest_trades.json
+            const tradesSource = (perfData.trades && Object.keys(perfData.trades).length > 0)
+                ? perfData.trades
+                : (perfTradesData || {});
+            const allTradesForTarget = (tradesSource)[String(perfTargetPct)] || [];
+
+            // Apply date filter to actual trades
+            const fromTs = perfDateFrom ? new Date(perfDateFrom).getTime() : null;
+            const toTs   = perfDateTo   ? new Date(perfDateTo).getTime()   : null;
+            const filteredTrades = allTradesForTarget.filter(t => {
+                const ts = new Date(t.entry_date).getTime();
+                if (fromTs && ts < fromTs) return false;
+                if (toTs   && ts > toTs)   return false;
+                return true;
+            });
+
+            if (!s && filteredTrades.length === 0) {
                 container.innerHTML = html + `<div class="mobile-card rounded-xl p-6 text-center text-slate-400">No data for ${perfTargetPct}% target.</div>`;
                 return;
             }
 
-            // Backtest ran at ₹50K/trade fixed. 
-            // Scale P&L proportionally to user's capital.
-            // At ₹5L capital → 10 trades at ₹50K each max concurrent
-            // At ₹10L capital → 20 trades at ₹50K each max concurrent
-            // Scale = userCapital / (totalSignals * 50000) → fraction of all signals they could have taken
-            const tradesPerCycle = Math.floor(perfCapital / 50000); // how many concurrent trades at ₹50K each
-            // Realistic: each trade runs ~96d avg, user rotates capital
-            // In 3 years (1095 days) each ₹50K slot does 1095/96 ≈ 11 rotations
-            // Total trades user can do = tradesPerCycle * rotations
-            const avgHold = s.avg_hold || 96;
-            const periodDays = perfYears > 0 ? perfYears * 365 : 1095;
-            const rotations = Math.floor(periodDays / avgHold);
-            const userTrades = tradesPerCycle * rotations;
-            // Scale factor = userTrades / total backtest signals
-            const scaleFactor = Math.min(1, userTrades / (s.total || 2357));
-            const scaledPnl = Math.round(s.total_pnl * scaleFactor);
-            const roiPct = perfCapital > 0 ? (scaledPnl / perfCapital * 100).toFixed(1) : 0;
+            // Recalculate from filtered trades
+            const completed  = filteredTrades.filter(t => t.outcome !== 'OPEN');
+            const wins       = completed.filter(t => t.pnl_pct > 0);
+            const losses_arr = completed.filter(t => t.pnl_pct <= 0);
+            const win_pnl    = wins.reduce((a,t)=>a+t.pnl_amt,0);
+            const loss_pnl   = Math.abs(losses_arr.reduce((a,t)=>a+t.pnl_amt,0));
+            const total_pnl_raw = filteredTrades.reduce((a,t)=>a+t.pnl_amt,0);
+            const win_rate   = completed.length ? (wins.length/completed.length*100).toFixed(1) : 0;
+            const pf_val     = loss_pnl > 0 ? (win_pnl/loss_pnl).toFixed(2) : '∞';
+            const avg_hold   = filteredTrades.length ? Math.round(filteredTrades.reduce((a,t)=>a+t.holding_days,0)/filteredTrades.length) : 0;
+            const target_hits  = filteredTrades.filter(t=>t.outcome==='TARGET_HIT').length;
+            const stop_losses  = filteredTrades.filter(t=>t.outcome==='STOP_LOSS').length;
+            const timeouts_ct  = filteredTrades.filter(t=>t.outcome==='TIMEOUT').length;
+            const open_ct      = filteredTrades.filter(t=>t.outcome==='OPEN').length;
 
-            const wrColor  = s.win_rate >= 60 ? '#10B981' : s.win_rate >= 50 ? '#D97706' : '#DC2626';
-            const pnlColor = scaledPnl >= 0 ? '#10B981' : '#DC2626';
-            const pfColor  = s.pf >= 3 ? '#10B981' : s.pf >= 1.5 ? '#D97706' : '#DC2626';
+            // P&L is actual from backtest at ₹50K/trade — NO scaling
+            const actualPnl = Math.round(total_pnl_raw);
+            // ROI = what % of your capital was the profit (informational)
+            const roiPct    = perfCapital > 0 ? (actualPnl / perfCapital * 100).toFixed(1) : 0;
+
+            const wrColor  = parseFloat(win_rate) >= 60 ? '#10B981' : parseFloat(win_rate) >= 50 ? '#D97706' : '#DC2626';
+            const pnlColor = actualPnl >= 0 ? '#10B981' : '#DC2626';
+            const pfColor  = parseFloat(pf_val) >= 3 ? '#10B981' : parseFloat(pf_val) >= 1.5 ? '#D97706' : '#DC2626';
             const capLabel = perfCapital >= 100000 ? (perfCapital/100000)+'L' : (perfCapital/1000)+'K';
+            const periodLabel = perfDateFrom ? `${perfDateFrom} → ${perfDateTo||'now'}` : 'All (Post-2020)';
 
             html += `
             <!-- Results header -->
             <div class="mobile-card rounded-xl p-4 mb-3" style="border-color:rgba(56,189,248,0.2);background:rgba(56,189,248,0.05);">
                 <div class="text-xs font-semibold tracking-wider uppercase mb-1" style="color:#38BDF8;">
-                    📊 Target ${perfTargetPct}% · ₹${capLabel} capital · ₹50K/trade · 752 stocks · Post-2020
+                    📊 Target ${perfTargetPct}% · ₹${capLabel} capital · ${filteredTrades.length} trades · ${periodLabel}
                 </div>
-                <div class="text-xs text-slate-400">SL ${params.sl_pct||8}% · ±${params.tolerance||2}% entry · ~${tradesPerCycle} concurrent trades · Updated: ${genAt}</div>
+                <div class="text-xs text-slate-400">SL ${params.sl_pct||8}% · ±${params.tolerance||2}% entry · Updated: ${genAt}</div>
             </div>
 
             <!-- Summary stats -->
             <div class="grid grid-cols-2 gap-3 mb-4">
                 <div class="mobile-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold mono" style="color:${wrColor};">${s.win_rate}%</div>
+                    <div class="text-2xl font-bold mono" style="color:${wrColor};">${win_rate}%</div>
                     <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Win Rate</div>
-                    <div class="text-xs text-slate-500 mt-1">${s.wins}W / ${s.losses}L of ${s.completed}</div>
+                    <div class="text-xs text-slate-500 mt-1">${wins.length}W / ${losses_arr.length}L of ${completed.length}</div>
                 </div>
                 <div class="mobile-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold mono" style="color:${pnlColor};">${scaledPnl>=0?'+':''}₹${scaledPnl.toLocaleString()}</div>
-                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Est. P&L with ₹${capLabel}</div>
-                    <div class="text-xs mt-1" style="color:${pnlColor};">${roiPct}% ROI · ${userTrades} trades over ${periodDays}d</div>
+                    <div class="text-2xl font-bold mono" style="color:${pnlColor};">${actualPnl>=0?'+':''}₹${Math.abs(actualPnl).toLocaleString()}</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Total P&L (₹50K/trade)</div>
+                    <div class="text-xs mt-1" style="color:${pnlColor};">${roiPct}% ROI on ₹${capLabel}</div>
                 </div>
                 <div class="mobile-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold mono" style="color:${pfColor};">${s.pf}x</div>
+                    <div class="text-2xl font-bold mono" style="color:${pfColor};">${pf_val}x</div>
                     <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Profit Factor</div>
                 </div>
                 <div class="mobile-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold mono text-slate-300">${s.avg_hold}d</div>
+                    <div class="text-2xl font-bold mono text-slate-300">${avg_hold}d</div>
                     <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Avg Hold</div>
-                </div>
-                <div class="mobile-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold mono" style="color:#10B981;">+${s.avg_pnl}%</div>
-                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Avg P&L/Trade</div>
-                </div>
-                <div class="mobile-card rounded-xl p-4 text-center">
-                    <div class="text-2xl font-bold mono text-slate-300">${s.open}</div>
-                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Still Open</div>
                 </div>
             </div>
 
             <!-- Outcome breakdown -->
             <div class="mobile-card rounded-xl p-4 mb-4">
-                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Outcome Breakdown</div>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Outcome Breakdown (${filteredTrades.length} trades)</div>
                 <div class="flex flex-wrap gap-2">
-                    ${[['TARGET HIT',s.target_hits,'#10B981'],['STOP LOSS',s.stop_losses,'#DC2626'],['TIMEOUT',s.timeouts,'#D97706'],['OPEN',s.open,'#94a3b8']].map(([k,v,c])=>`
+                    ${[['TARGET HIT',target_hits,'#10B981'],['STOP LOSS',stop_losses,'#DC2626'],['TIMEOUT',timeouts_ct,'#D97706'],['OPEN',open_ct,'#94a3b8']].map(([k,v,c])=>`
                     <div class="px-3 py-2 rounded-lg text-center flex-1" style="background:${c}18;border:1px solid ${c}40;min-width:70px;">
-                        <div class="text-sm font-bold mono" style="color:${c};">${s.total?Math.round(v/s.total*100):0}%</div>
+                        <div class="text-sm font-bold mono" style="color:${c};">${filteredTrades.length?Math.round(v/filteredTrades.length*100):0}%</div>
                         <div class="text-xs text-slate-400">${k}</div>
                         <div class="text-xs text-slate-500">${v}</div>
                     </div>`).join('')}
                 </div>
             </div>
 
-            <!-- All targets comparison -->
+            <!-- All targets comparison — recomputed from filtered trades -->
             <div class="mobile-card rounded-xl p-4 mb-4">
-                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">All Targets Comparison (₹${perfCapital>=100000?(perfCapital/100000)+'L':(perfCapital/1000)+'K'}/trade)</div>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">All Targets Comparison · ${periodLabel} · ₹50K/trade</div>
                 <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:12px;">
                     <thead><tr style="border-bottom:1px solid #1f2937;">
                         <th style="padding:8px;text-align:left;color:#64748b;">Target</th>
+                        <th style="padding:8px;text-align:right;color:#64748b;">Trades</th>
                         <th style="padding:8px;text-align:right;color:#64748b;">Win%</th>
                         <th style="padding:8px;text-align:right;color:#64748b;">PF</th>
                         <th style="padding:8px;text-align:right;color:#64748b;">Total P&L</th>
@@ -6924,25 +6943,81 @@
                     </tr></thead>
                     <tbody>
                         ${available_targets.map(t => {
-                            const ts = summaries[String(t)];
-                            if (!ts) return '';
-                            const tpnl = Math.round(ts.total_pnl);
-                            const wrc = ts.win_rate >= 60 ? '#10b981' : ts.win_rate >= 50 ? '#f59e0b' : '#f43f5e';
-                            const pfc = ts.pf >= 3 ? '#10b981' : ts.pf >= 1.5 ? '#f59e0b' : '#f43f5e';
-                            const pc = tpnl >= 0 ? '#10b981' : '#f43f5e';
+                            const tTrades = (tradesSource[String(t)] || []).filter(tr => {
+                                const ts2 = new Date(tr.entry_date).getTime();
+                                if (fromTs && ts2 < fromTs) return false;
+                                if (toTs   && ts2 > toTs)   return false;
+                                return true;
+                            });
+                            if (tTrades.length === 0) return '';
+                            const tCompleted = tTrades.filter(tr => tr.outcome !== 'OPEN');
+                            const tWins      = tCompleted.filter(tr => tr.pnl_pct > 0);
+                            const tLosses    = tCompleted.filter(tr => tr.pnl_pct <= 0);
+                            const tWinPnl    = tWins.reduce((a,tr)=>a+tr.pnl_amt,0);
+                            const tLossPnl   = Math.abs(tLosses.reduce((a,tr)=>a+tr.pnl_amt,0));
+                            const tTotalPnl  = Math.round(tTrades.reduce((a,tr)=>a+tr.pnl_amt,0));
+                            const tWinRate   = tCompleted.length ? (tWins.length/tCompleted.length*100).toFixed(1) : '0.0';
+                            const tPF        = tLossPnl > 0 ? (tWinPnl/tLossPnl).toFixed(2) : '∞';
+                            const tHold      = tTrades.length ? Math.round(tTrades.reduce((a,tr)=>a+tr.holding_days,0)/tTrades.length) : 0;
+                            const wrc  = parseFloat(tWinRate) >= 60 ? '#10b981' : parseFloat(tWinRate) >= 50 ? '#f59e0b' : '#f43f5e';
+                            const pfc  = parseFloat(tPF) >= 3 ? '#10b981' : parseFloat(tPF) >= 1.5 ? '#f59e0b' : '#f43f5e';
+                            const pc   = tTotalPnl >= 0 ? '#10b981' : '#f43f5e';
                             const isSelected = t === perfTargetPct;
                             return `<tr style="border-bottom:1px solid rgba(31,41,55,0.4);${isSelected?'background:rgba(16,185,129,0.05);':''}">
                                 <td style="padding:8px;font-weight:700;color:${isSelected?'#34d399':'#e2e8f0'};">${t}%${isSelected?' ✓':''}</td>
-                                <td style="padding:8px;text-align:right;font-weight:700;color:${wrc};">${ts.win_rate}%</td>
-                                <td style="padding:8px;text-align:right;font-weight:700;color:${pfc};">${ts.pf}x</td>
-                                <td style="padding:8px;text-align:right;font-weight:700;color:${pc};">${tpnl>=0?'+':''}₹${tpnl.toLocaleString()}</td>
-                                <td style="padding:8px;text-align:right;color:#94a3b8;">${ts.avg_hold}d</td>
+                                <td style="padding:8px;text-align:right;color:#94a3b8;">${tTrades.length}</td>
+                                <td style="padding:8px;text-align:right;font-weight:700;color:${wrc};">${tWinRate}%</td>
+                                <td style="padding:8px;text-align:right;font-weight:700;color:${pfc};">${tPF}x</td>
+                                <td style="padding:8px;text-align:right;font-weight:700;color:${pc};">${tTotalPnl>=0?'+':''}₹${Math.abs(tTotalPnl).toLocaleString()}</td>
+                                <td style="padding:8px;text-align:right;color:#94a3b8;">${tHold}d</td>
                             </tr>`;
                         }).join('')}
                     </tbody>
                 </table>
                 </div>
             </div>`;
+
+            // Trade details section
+            if (filteredTrades.length > 0) {
+                const sortedTrades = [...filteredTrades].sort((a,b) => b.entry_date.localeCompare(a.entry_date));
+                let tradeRows = sortedTrades.slice(0, 200).map(t => {
+                    const pc = t.pnl_pct > 0 ? '#10b981' : '#f43f5e';
+                    const oc = t.outcome==='TARGET_HIT'?'#10b981':t.outcome==='STOP_LOSS'?'#f43f5e':'#94a3b8';
+                    const actualAmt = Math.round(t.pnl_amt);
+                    return `<tr style="border-bottom:1px solid rgba(31,41,55,0.3);">
+                        <td style="padding:7px 10px;font-weight:700;font-size:12px;">${t.symbol}</td>
+                        <td style="padding:7px 10px;color:#94a3b8;font-size:11px;">${t.entry_date}</td>
+                        <td style="padding:7px 10px;text-align:right;font-family:monospace;font-size:12px;">₹${t.entry_price.toLocaleString()}</td>
+                        <td style="padding:7px 10px;text-align:right;font-family:monospace;font-size:12px;">₹${t.exit_price.toLocaleString()}</td>
+                        <td style="padding:7px 10px;text-align:right;font-weight:700;color:${pc};font-size:12px;">${t.pnl_pct>0?'+':''}${t.pnl_pct.toFixed(1)}%</td>
+                        <td style="padding:7px 10px;text-align:right;font-weight:700;color:${pc};font-size:12px;">${actualAmt>=0?'+':''}₹${Math.abs(actualAmt).toLocaleString()}</td>
+                        <td style="padding:7px 10px;color:${oc};font-size:11px;font-weight:600;">${t.outcome.replace('_',' ')}</td>
+                        <td style="padding:7px 10px;text-align:right;color:#94a3b8;font-size:11px;">${t.holding_days}d</td>
+                    </tr>`;
+                }).join('');
+
+                html += `
+                <div class="mobile-card rounded-xl p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">📋 Trade Details (${filteredTrades.length} trades${filteredTrades.length>200?', showing 200':''} · ₹${capLabel}/trade)</div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead><tr style="border-bottom:1px solid #1f2937;">
+                            <th style="padding:7px 10px;text-align:left;color:#64748b;font-size:11px;">Stock</th>
+                            <th style="padding:7px 10px;text-align:left;color:#64748b;font-size:11px;">Entry Date</th>
+                            <th style="padding:7px 10px;text-align:right;color:#64748b;font-size:11px;">Entry</th>
+                            <th style="padding:7px 10px;text-align:right;color:#64748b;font-size:11px;">Exit</th>
+                            <th style="padding:7px 10px;text-align:right;color:#64748b;font-size:11px;">P&L%</th>
+                            <th style="padding:7px 10px;text-align:right;color:#64748b;font-size:11px;">P&L ₹</th>
+                            <th style="padding:7px 10px;text-align:left;color:#64748b;font-size:11px;">Outcome</th>
+                            <th style="padding:7px 10px;text-align:right;color:#64748b;font-size:11px;">Days</th>
+                        </tr></thead>
+                        <tbody>${tradeRows}</tbody>
+                    </table>
+                    </div>
+                </div>`;
+            }
 
             container.innerHTML = html;
             const inp = document.getElementById('perfCapitalInput');
