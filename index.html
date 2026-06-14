@@ -6134,10 +6134,10 @@
                 html += paginationControls(
                     volPage, totalPages,
                     'volPage=Math.max(1,volPage-1); displayVolumeGainerTab()',
-                    `volPage=Math.min(${totalPages},volPage+1); displayVolumeGainerTab()`
+                    `volPage=Math.min(${totalPages},volPage+1); displayVolumeGainerTab()`,
+                    (p) => `volPage=${p}; displayVolumeGainerTab()`
                 );
             }
-
             container.innerHTML = html;
             // Refresh all tab counts after rendering
             updateTabCounts();
@@ -6797,22 +6797,19 @@
         let trendPage = 1;
         const TAB_PAGE_SIZE = 10;
 
-        function paginationControls(currentPage, totalPages, onPrev, onNext) {
+        function paginationControls(currentPage, totalPages, onPrev, onNext, onJump) {
             if (totalPages <= 1) return '';
-            // Build numbered page buttons
+            // onJump: function that takes page number, defaults to trendline
+            const jumpFn = onJump || ((p) => `trendPage=${p}; displayTrendlineScreen()`);
             let pageButtons = '';
             for (let p = 1; p <= totalPages; p++) {
                 const isActive = p === currentPage;
-                const onClickFn = p === currentPage ? '' : 
-                    (p === currentPage - 1 ? onPrev : 
-                     p === currentPage + 1 ? onNext :
-                     // For arbitrary page jumps derive the tab and set directly
-                     `trendPage=${p}; displayTrendlineScreen()`);
+                const clickAction = isActive ? '' : jumpFn(p);
                 pageButtons += `
-                    <button onclick="${p < currentPage ? `trendPage=${p}; displayTrendlineScreen()` : p > currentPage ? `trendPage=${p}; displayTrendlineScreen()` : ''}"
+                    <button onclick="${clickAction}"
                         class="w-9 h-9 rounded-lg text-xs font-semibold touch-btn flex items-center justify-center"
-                        style="${isActive 
-                            ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;pointer-events:none' 
+                        style="${isActive
+                            ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;pointer-events:none'
                             : 'background:rgba(30,41,59,0.9);color:#94A3B8'}">
                         ${p}
                     </button>`;
