@@ -6618,6 +6618,7 @@
         let perfYears = 0;
         let perfPage = 1;
         let perfSubmitted = false; // results only shown after submit
+        let perfStrategy = 'trendline'; // 'trendline' or 'volume'
         const PERF_PAGE_SIZE = 10;
 
         // Pagination state for Volume and Trendline tabs
@@ -6665,15 +6666,27 @@
             const container = document.getElementById('resultsContainer');
             container.innerHTML = skeletonList(3);
 
+            // Pick correct files based on strategy
+            const summaryFile = perfStrategy === 'volume'
+                ? './volume_backtest_performance.json'
+                : './backtest_performance.json';
+            const tradesFile = perfStrategy === 'volume'
+                ? './volume_backtest_performance.json'   // trades embedded in same file
+                : './backtest_trades.json';
+
             try {
-                // Load summary + full trade data in parallel
                 const [summaryResp, tradesResp] = await Promise.all([
-                    fetch('./backtest_performance.json', { cache: 'no-store' }),
-                    fetch('./backtest_trades.json', { cache: 'no-store' })
+                    fetch(summaryFile,  { cache: 'no-store' }),
+                    fetch(tradesFile,   { cache: 'no-store' })
                 ]);
                 if (!summaryResp.ok) throw new Error('not found');
                 perfData = await summaryResp.json();
-                if (tradesResp.ok) perfTradesData = await tradesResp.json();
+                // For volume strategy trades are embedded in same file
+                if (perfStrategy === 'volume') {
+                    perfTradesData = null; // already in perfData.trades
+                } else {
+                    perfTradesData = tradesResp.ok ? await tradesResp.json() : null;
+                }
             } catch (e) {
                 container.innerHTML = `
                     <div class="mobile-card rounded-xl p-8 text-center">
@@ -6756,9 +6769,27 @@
             if (!available_targets.includes(perfTargetPct)) perfTargetPct = available_targets[2] || available_targets[0];
             const genAt = perfData.generated_at ? new Date(perfData.generated_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
             const params = perfData.params || {};
+            const isVolume = perfStrategy === 'volume';
 
             // ── Filter form (always shown) ────────────────────────────────
             let html = `
+            <!-- Strategy selector -->
+            <div class="mobile-card rounded-xl p-3 mb-3">
+                <div class="flex gap-2">
+                    <button onclick="perfStrategy='trendline'; perfData=null; perfTradesData=null; perfSubmitted=false; perfTargetPct=23; displayPastPerformance();"
+                        class="flex-1 py-2 rounded-lg text-xs font-bold touch-btn flex items-center justify-center gap-1.5"
+                        style="${perfStrategy==='trendline' ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                        📈 Trendline Strategy
+                    </button>
+                    <button onclick="perfStrategy='volume'; perfData=null; perfTradesData=null; perfSubmitted=false; perfTargetPct=20; displayPastPerformance();"
+                        class="flex-1 py-2 rounded-lg text-xs font-bold touch-btn flex items-center justify-center gap-1.5"
+                        style="${perfStrategy==='volume' ? 'background:linear-gradient(135deg,#1D4ED8,#2563EB);color:#fff;' : 'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                        🔥 Volume Gainer Strategy
+                    </button>
+                </div>
+                ${isVolume ? `<div class="text-xs text-slate-500 mt-2 text-center">Entry at signal day low retest · SL 7% · 5 years data</div>` : `<div class="text-xs text-slate-500 mt-2 text-center">Trendline + Fibonacci confluence · SL 8% · 5 years data</div>`}
+            </div>
+
             <!-- Compact backtest config — single card -->
             <div class="mobile-card rounded-xl p-4 mb-3">
 
