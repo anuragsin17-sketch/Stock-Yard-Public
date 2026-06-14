@@ -6740,10 +6740,169 @@
         }
 
         function renderTargetSweepPerformance(container) {
-            const available_targets = Object.keys(perfData.trades || {}).map(Number).sort((a,b)=>a-b);
+            const summaries = perfData.summaries || {};
+            const available_targets = Object.keys(summaries).map(Number).sort((a,b)=>a-b);
+            if (available_targets.length === 0) {
+                container.innerHTML = `<div class="mobile-card rounded-xl p-8 text-center"><div class="text-slate-400">No backtest data available.</div></div>`;
+                return;
+            }
             if (!available_targets.includes(perfTargetPct)) perfTargetPct = available_targets[2] || available_targets[0];
             const genAt = perfData.generated_at ? new Date(perfData.generated_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
             const params = perfData.params || {};
+
+            // ── Filter form (always shown) ────────────────────────────────
+            let html = `
+            <!-- Target % selector -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">🎯 Select Target %</div>
+                <div class="flex flex-wrap gap-2">
+                    ${available_targets.map(t => `
+                        <button onclick="perfTargetPct=${t}; perfSubmitted=false; renderPastPerformance(document.getElementById('resultsContainer'))"
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold touch-btn"
+                            style="${perfTargetPct===t ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                            ${t}%
+                        </button>`).join('')}
+                </div>
+            </div>
+
+            <!-- Capital input -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">💰 Capital Per Trade</div>
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-slate-400 text-sm">₹</span>
+                    <input type="number" id="perfCapitalInput" value="${perfCapital}" min="10000" step="10000"
+                        class="flex-1 px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
+                        style="background:rgba(30,41,59,0.9);border:1px solid rgba(167,139,250,0.4);color:#A78BFA;"
+                        onchange="perfCapital=Math.max(10000,parseInt(this.value)||50000);"/>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    ${[25000,50000,100000,250000,500000].map(v=>`
+                    <button onclick="perfCapital=${v}; document.getElementById('perfCapitalInput').value=${v};"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium touch-btn"
+                        style="background:rgba(30,41,59,0.8);color:#94A3B8;">
+                        ₹${v>=100000?(v/100000)+'L':(v/1000)+'K'}</button>`).join('')}
+                </div>
+            </div>
+
+            <!-- Run button -->
+            <button onclick="perfSubmitted=true; perfPage=1; renderPastPerformance(document.getElementById('resultsContainer'))"
+                class="w-full py-4 rounded-xl text-base font-bold touch-btn mb-4"
+                style="background:linear-gradient(135deg,#065F46,#047857);color:#fff;">
+                🚀 Run Backtest
+            </button>`;
+
+            if (!perfSubmitted) {
+                container.innerHTML = html;
+                const inp = document.getElementById('perfCapitalInput');
+                if (inp) inp.value = perfCapital;
+                return;
+            }
+
+            // ── Results ───────────────────────────────────────────────────
+            const s = summaries[String(perfTargetPct)];
+            if (!s) {
+                container.innerHTML = html + `<div class="mobile-card rounded-xl p-6 text-center text-slate-400">No data for ${perfTargetPct}% target.</div>`;
+                return;
+            }
+
+            // Scale P&L by capital (backtest used ₹50K per trade)
+            const scaleFactor = perfCapital / 50000;
+            const scaledPnl = Math.round(s.total_pnl * scaleFactor);
+
+            const wrColor  = s.win_rate >= 60 ? '#10B981' : s.win_rate >= 50 ? '#D97706' : '#DC2626';
+            const pnlColor = scaledPnl >= 0 ? '#10B981' : '#DC2626';
+            const pfColor  = s.pf >= 3 ? '#10B981' : s.pf >= 1.5 ? '#D97706' : '#DC2626';
+
+            html += `
+            <!-- Results header -->
+            <div class="mobile-card rounded-xl p-4 mb-3" style="border-color:rgba(56,189,248,0.2);background:rgba(56,189,248,0.05);">
+                <div class="text-xs font-semibold tracking-wider uppercase mb-1" style="color:#38BDF8;">
+                    📊 Target ${perfTargetPct}% · ₹${perfCapital>=100000?(perfCapital/100000)+'L':(perfCapital/1000)+'K'}/trade · 752 stocks · Post-2020
+                </div>
+                <div class="text-xs text-slate-400">SL ${params.sl_pct||8}% · ±${params.tolerance||2}% entry · Updated: ${genAt}</div>
+            </div>
+
+            <!-- Summary stats -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono" style="color:${wrColor};">${s.win_rate}%</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Win Rate</div>
+                    <div class="text-xs text-slate-500 mt-1">${s.wins}W / ${s.losses}L of ${s.completed}</div>
+                </div>
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono" style="color:${pnlColor};">${scaledPnl>=0?'+':''}₹${scaledPnl.toLocaleString()}</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Total P&L</div>
+                    <div class="text-xs text-slate-500 mt-1">${s.total} signals</div>
+                </div>
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono" style="color:${pfColor};">${s.pf}x</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Profit Factor</div>
+                </div>
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono text-slate-300">${s.avg_hold}d</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Avg Hold</div>
+                </div>
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono" style="color:#10B981;">+${s.avg_pnl}%</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Avg P&L/Trade</div>
+                </div>
+                <div class="mobile-card rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold mono text-slate-300">${s.open}</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Still Open</div>
+                </div>
+            </div>
+
+            <!-- Outcome breakdown -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Outcome Breakdown</div>
+                <div class="flex flex-wrap gap-2">
+                    ${[['TARGET HIT',s.target_hits,'#10B981'],['STOP LOSS',s.stop_losses,'#DC2626'],['TIMEOUT',s.timeouts,'#D97706'],['OPEN',s.open,'#94a3b8']].map(([k,v,c])=>`
+                    <div class="px-3 py-2 rounded-lg text-center flex-1" style="background:${c}18;border:1px solid ${c}40;min-width:70px;">
+                        <div class="text-sm font-bold mono" style="color:${c};">${s.total?Math.round(v/s.total*100):0}%</div>
+                        <div class="text-xs text-slate-400">${k}</div>
+                        <div class="text-xs text-slate-500">${v}</div>
+                    </div>`).join('')}
+                </div>
+            </div>
+
+            <!-- All targets comparison -->
+            <div class="mobile-card rounded-xl p-4 mb-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">All Targets Comparison (₹${perfCapital>=100000?(perfCapital/100000)+'L':(perfCapital/1000)+'K'}/trade)</div>
+                <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead><tr style="border-bottom:1px solid #1f2937;">
+                        <th style="padding:8px;text-align:left;color:#64748b;">Target</th>
+                        <th style="padding:8px;text-align:right;color:#64748b;">Win%</th>
+                        <th style="padding:8px;text-align:right;color:#64748b;">PF</th>
+                        <th style="padding:8px;text-align:right;color:#64748b;">Total P&L</th>
+                        <th style="padding:8px;text-align:right;color:#64748b;">Hold</th>
+                    </tr></thead>
+                    <tbody>
+                        ${available_targets.map(t => {
+                            const ts = summaries[String(t)];
+                            if (!ts) return '';
+                            const tpnl = Math.round(ts.total_pnl * scaleFactor);
+                            const wrc = ts.win_rate >= 60 ? '#10b981' : ts.win_rate >= 50 ? '#f59e0b' : '#f43f5e';
+                            const pfc = ts.pf >= 3 ? '#10b981' : ts.pf >= 1.5 ? '#f59e0b' : '#f43f5e';
+                            const pc = tpnl >= 0 ? '#10b981' : '#f43f5e';
+                            const isSelected = t === perfTargetPct;
+                            return `<tr style="border-bottom:1px solid rgba(31,41,55,0.4);${isSelected?'background:rgba(16,185,129,0.05);':''}">
+                                <td style="padding:8px;font-weight:700;color:${isSelected?'#34d399':'#e2e8f0'};">${t}%${isSelected?' ✓':''}</td>
+                                <td style="padding:8px;text-align:right;font-weight:700;color:${wrc};">${ts.win_rate}%</td>
+                                <td style="padding:8px;text-align:right;font-weight:700;color:${pfc};">${ts.pf}x</td>
+                                <td style="padding:8px;text-align:right;font-weight:700;color:${pc};">${tpnl>=0?'+':''}₹${tpnl.toLocaleString()}</td>
+                                <td style="padding:8px;text-align:right;color:#94a3b8;">${ts.avg_hold}d</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+                </div>
+            </div>`;
+
+            container.innerHTML = html;
+            const inp = document.getElementById('perfCapitalInput');
+            if (inp) inp.value = perfCapital;
+        } // end renderTargetSweepPerformance
 
             // ── Filter form (always shown) ────────────────────────────────
             let html = `
