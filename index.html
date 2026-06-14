@@ -5254,7 +5254,7 @@
                     try {
                         const symbol = stock.symbol.replace('.NS', '').replace('-EQ', '');
                         const response = await Promise.race([
-                            fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${symbol}`),
+                            fetch(`https://32.194.58.75/api/get-quote?symbol=${symbol}`),
                             new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
                         ]);
                         if (response.ok) {
@@ -5318,7 +5318,7 @@
             try {
                 console.log('🔄 Syncing trades with Angel One...');
                 
-                const response = await fetch('https://32-194-58-75.nip.io/api/sync-trades', {
+                const response = await fetch('https://32.194.58.75/api/sync-trades', {
                     cache: 'no-store',
                     headers: { },
                     mode: 'cors'
@@ -5429,7 +5429,7 @@
         // Fetch live LTP from Angel One for a single stock
         async function fetchLiveQuote(symbol) {
             try {
-                const response = await fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${symbol}`, {
+                const response = await fetch(`https://32.194.58.75/api/get-quote?symbol=${symbol}`, {
                     cache: 'no-store',
                     mode: 'cors'
                 });
@@ -5733,7 +5733,7 @@
         // Place order via GitHub Actions (credentials stay in GitHub Secrets)
         async function placeAngelOrder(symbol, action, qty, price, stopLoss, target, source) {
             try {
-                const EC2_API = "https://32-194-58-75.nip.io/api/place-order";
+                const EC2_API = "https://32.194.58.75/api/place-order";
                 const apiKey  = "SY-" + btoa(symbol + qty + Math.floor(Date.now()/300000));
 
                 console.log(`📤 Placing order via EC2 API...`);
@@ -5919,7 +5919,7 @@
                     // Fallback to EC2 if Yahoo fails
                     try {
                         const sym = encodeURIComponent(t.ticker);
-                        const url = `https://32-194-58-75.nip.io/api/get-52w?symbol=${sym}`;
+                        const url = `https://32.194.58.75/api/get-52w?symbol=${sym}`;
                         const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
                         if (!resp.ok) return;
                         const data = await resp.json();
@@ -7035,7 +7035,7 @@
                     ((parseFloat(t.target || t.targetExit || 0) > 0) ||
                      (parseFloat(t.stop_loss || t.stoploss || t.stopLoss || 0) > 0))
                 );
-                fetch('https://32-194-58-75.nip.io/api/save-radar', {
+                fetch('https://32.194.58.75/api/save-radar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     mode: 'cors',
@@ -7182,9 +7182,9 @@
 
             // Fetch Angel One + Groww in parallel
             Promise.all([
-                fetch('https://32-194-58-75.nip.io/api/sync-trades', { cache: 'no-store', mode: 'cors' })
+                fetch('https://32.194.58.75/api/sync-trades', { cache: 'no-store', mode: 'cors' })
                     .then(r => r.ok ? r.json() : null).catch(() => null),
-                fetch('https://32-194-58-75.nip.io/api/sync-groww', { cache: 'no-store', mode: 'cors' })
+                fetch('https://32.194.58.75/api/sync-groww', { cache: 'no-store', mode: 'cors' })
                     .then(r => r.ok ? r.json() : null).catch(() => null)
             ]).then(([angelData, growwData]) => {
                 const angelPositions = (angelData && angelData.success) ? (angelData.open_trades || []) : [];
@@ -7351,7 +7351,7 @@
         // Call /api/sync-trades endpoint from EC2 backend
         async function syncTradesFromAngelOne() {
             try {
-                const response = await fetch('https://32-194-58-75.nip.io/api/sync-trades', {
+                const response = await fetch('https://32.194.58.75/api/sync-trades', {
                     cache: 'no-store',
                     headers: { },
                     mode: 'cors'
@@ -7399,7 +7399,7 @@
         async function fetchAngelOneOrders() {
             try {
                 // Try to fetch from EC2 sync service (use correct port and endpoint)
-                const response = await fetch('https://32-194-58-75.nip.io/api/sync-trades', { 
+                const response = await fetch('https://32.194.58.75/api/sync-trades', { 
                     cache: 'no-store', 
                     headers: { }, 
                     mode: 'cors' 
