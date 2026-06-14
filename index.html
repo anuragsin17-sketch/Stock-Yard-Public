@@ -5671,7 +5671,9 @@
                 .then(trendlineStocks => {
                     const trendlineCount = Array.isArray(trendlineStocks) ? trendlineStocks.length : 0;
                     const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                    animateCounter('totalOpportunities', volumeCount + trendlineCount + updatedManual.length, 800);
+                    // Use tab badge counts for consistency
+                    const volCount = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
+                    animateCounter('totalOpportunities', volCount + trendlineCount + updatedManual.length, 800);
                 });
             
             // Update NIFTY 50 and SENSEX with real-time data
@@ -6373,8 +6375,9 @@
 
                 // Update opportunities count now that we have trendline data
                 const volumeCount = screeningData?.volume_breakout_stocks?.length || 0;
+                const volFiltered = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
                 const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                const totalOpps = volumeCount + trendlineStocks.length + manualStocks.length;
+                const totalOpps = volFiltered + trendlineStocks.length + manualStocks.length;
                 document.getElementById('totalOpportunities').textContent = totalOpps.toLocaleString();
                 
                 let html = '';
