@@ -1,5 +1,5 @@
 // Stock Yard Service Worker
-const CACHE_NAME = 'stock-yard-v3';
+const CACHE_NAME = 'stock-yard-v4';
 const APP_SHELL = [
   './',
   './index.html',
@@ -44,7 +44,19 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for app shell (HTML, manifest, etc.)
+  // Network-first for HTML — always get latest version
+  if (url.pathname.endsWith('.html') || url.pathname === '/' || url.pathname.endsWith('/')) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for app shell (manifest, sw, etc.)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
