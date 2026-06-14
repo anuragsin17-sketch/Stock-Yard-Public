@@ -5224,9 +5224,8 @@
             const allStocks = [];
             
             if (currentTab === 'volume') {
-                screeningData.volume_breakout_stocks?.slice(0, 10).forEach(stock => {
-                    allStocks.push({ symbol: stock.symbol, type: 'volume', currentPrice: stock.current_price });
-                });
+                // Volume tab now uses volume_gainer_watchlist — no live price fetch needed here
+                // Alerts are handled by the backend monitor
             } else if (currentTab === 'trendline') {
                 // Skip — trendline prices come from the JSON file updated by backend workflow
                 return;
@@ -6023,9 +6022,8 @@
         }
 
         function updateTabCounts() {
-            // Volume count (≥20x filter)
-            const volCount = (screeningData?.volume_breakout_stocks || [])
-                .filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
+            // Volume count — unalerted watchlist entries
+            const volCount = (volGainerData || []).filter(s => !s.alerted).length;
             setTabCount('volTabCount', volCount);
 
             // Trendline count (dismissed excluded)
@@ -6068,7 +6066,170 @@
                 });
         }
         
-        // Display results for current tab
+        // ─── VOLUME GAINER TAB (new logic) ──────────────────────────────────────
+        let volGainerData = null; // cached watchlist
+
+        async function displayVolumeGainerTab() {
+            currentTab = 'volume';
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = skeletonList(3);
+
+            try {
+                const resp = await fetch('./volume_gainer_watchlist.json', { cache: 'no-store' });
+                if (resp.ok) {
+                    volGainerData = await resp.json();
+                } else {
+                    volGainerData = [];
+                }
+            } catch (e) {
+                volGainerData = [];
+            }
+
+            if (!Array.isArray(volGainerData) || volGainerData.length === 0) {
+                container.innerHTML = `
+                    <div class="mobile-card rounded-xl p-8 text-center">
+                        <div style="font-size:48px;margin-bottom:16px;">🔥</div>
+                        <div class="text-slate-300 font-semibold text-base mb-2">No Volume Gainers Yet</div>
+                        <div class="text-xs text-slate-500">List is built after market close each day. Stocks that gained >10% will appear here as potential retest entries.</div>
+                    </div>`;
+                // Update tab count
+                setTabCount('volTabCount', 0);
+                return;
+            }
+
+            // Sort: unalerted first, then by gain_pct desc
+            const sorted = [...volGainerData].sort((a, b) => {
+                if (a.alerted !== b.alerted) return a.alerted ? 1 : -1;
+                return (b.gain_pct || 0) - (a.gain_pct || 0);
+            });
+
+            // Paginate
+            const totalPages = Math.ceil(sorted.length / TAB_PAGE_SIZE);
+            if (volPage > totalPages) volPage = 1;
+            const paged = sorted.slice((volPage-1)*TAB_PAGE_SIZE, volPage*TAB_PAGE_SIZE);
+
+            // Update count badge
+            const unalerted = sorted.filter(s => !s.alerted).length;
+            setTabCount('volTabCount', unalerted);
+
+            let html = `
+            <!-- Header info -->
+            <div class="mobile-card rounded-xl p-3 mb-3" style="background:rgba(16,185,129,0.05);border-color:rgba(16,185,129,0.2);">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-semibold text-slate-300">🔥 Volume Gainer Watchlist</div>
+                        <div class="text-xs text-slate-500 mt-0.5">Stocks that gained >10% — waiting for retest of signal day low</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm font-bold" style="color:#10B981;">${unalerted} active</div>
+                        <div class="text-xs text-slate-500">${sorted.length} total</div>
+                    </div>
+                </div>
+            </div>`;
+
+            paged.forEach(stock => {
+                html += createVolumeGainerCard(stock);
+            });
+
+            if (totalPages > 1) {
+                html += paginationControls(
+                    volPage, totalPages,
+                    'volPage=Math.max(1,volPage-1); displayVolumeGainerTab()',
+                    `volPage=Math.min(${totalPages},volPage+1); displayVolumeGainerTab()`
+                );
+            }
+
+            container.innerHTML = html;
+        }
+
+        function createVolumeGainerCard(stock) {
+            const ticker       = stock.ticker || '';
+            const company      = stock.company || ticker;
+            const gainPct      = (stock.gain_pct || 0).toFixed(1);
+            const prevLow      = stock.prev_day_low || 0;
+            const threshold    = stock.alert_threshold || prevLow;
+            const targetPrice  = stock.target_price  || round2(prevLow * 1.20);
+            const slPrice      = stock.sl_price       || round2(prevLow * 0.93);
+            const addedDate    = stock.added_date || '';
+            const closePrice   = stock.close_price || 0;
+            const alerted      = stock.alerted || false;
+            const alertSentAt  = stock.alert_sent_at
+                ? new Date(stock.alert_sent_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})
+                : null;
+
+            const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ticker}`;
+            const statusBadge = alerted
+                ? `<span style="background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">✅ ALERTED</span>`
+                : `<span style="background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">👁 WATCHING</span>`;
+
+            return `
+            <div style="background:#111625;border:1px solid #1f2937;border-radius:12px;padding:18px;margin-bottom:12px;">
+                <!-- Header -->
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                    <div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                            <a href="${chartUrl}" target="_blank" style="font-size:16px;font-weight:700;color:#fff;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${ticker}</a>
+                            ${statusBadge}
+                        </div>
+                        <div style="font-size:11px;color:#6b7280;">${company}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:16px;font-weight:700;color:#F59E0B;" class="mono">+${gainPct}%</div>
+                        <div style="font-size:10px;color:#6b7280;">on ${addedDate}</div>
+                    </div>
+                </div>
+                <!-- Metrics grid -->
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:12px;border-radius:8px;margin-bottom:12px;">
+                    <div>
+                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Zone</div>
+                        <div style="font-size:13px;font-weight:700;color:#3B82F6;" class="mono">
+                            ₹<input type="number" id="vol_entry_${ticker}"
+                                value="${threshold.toFixed(2)}"
+                                step="0.5"
+                                style="font-size:13px;font-weight:700;color:#3b82f6;background:transparent;border:none;border-bottom:1px solid rgba(59,130,246,0.3);outline:none;width:70px;font-family:'JetBrains Mono',monospace;"/>
+                        </div>
+                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">prev low ₹${prevLow.toLocaleString()}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target +20%</div>
+                        <div style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${targetPrice.toLocaleString()}</div>
+                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">SL ₹${slPrice.toLocaleString()} (-7%)</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Signal Close</div>
+                        <div style="font-size:13px;font-weight:700;color:#e5e7eb;" class="mono">₹${closePrice.toLocaleString()}</div>
+                        ${alertSentAt ? `<div style="font-size:9px;color:#10B981;margin-top:2px;">Alerted: ${alertSentAt}</div>` : ''}
+                    </div>
+                </div>
+                <!-- Action -->
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <a href="${chartUrl}" target="_blank"
+                        style="flex:1;padding:9px 12px;border-radius:8px;font-size:12px;font-weight:600;background:rgba(59,130,246,0.1);color:#3B82F6;border:1px solid rgba(59,130,246,0.3);text-align:center;text-decoration:none;">
+                        📉 Chart
+                    </a>
+                    <button onclick="takeVolumeGainerTrade('${ticker}','${company.replace(/'/g,"\\'")}',${targetPrice},${slPrice})"
+                        style="flex:2;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;">
+                        📥 Take Trade
+                    </button>
+                </div>
+            </div>`;
+        }
+
+        function round2(v) { return Math.round(v * 100) / 100; }
+
+        window.takeVolumeGainerTrade = function(ticker, company, preTarget, preSL) {
+            const entryEl = document.getElementById(`vol_entry_${ticker}`);
+            const entry   = parseFloat(entryEl ? entryEl.value : 0);
+            if (!entry || entry <= 0) {
+                alert('Please set a valid entry price first');
+                return;
+            }
+            const target   = preTarget || round2(entry * 1.20);
+            const stopLoss = preSL     || round2(entry * 0.93);
+            showOrderModal(ticker, entry, stopLoss, target, 'VolumeGainer');
+        };
+
+        // ─── Display results for current tab ─────────────────────────────────────
         function displayResults(tab) {
             const container = document.getElementById('resultsContainer');
             
@@ -6083,13 +6244,8 @@
             
             switch(tab) {
                 case 'volume':
-                    stocks = (screeningData.volume_breakout_stocks || [])
-                        .filter(s => (s.breakout_volume_ratio || 0) >= 20)
-                        .slice()
-                        .sort((a, b) => (b.breakout_volume_ratio || 0) - (a.breakout_volume_ratio || 0));
-                    title = '';
-                    sortingInfo = '';
-                    break;
+                    displayVolumeGainerTab();
+                    return;
                 case 'trendline':
                     displayTrendlineScreen();
                     return;
@@ -6100,10 +6256,8 @@
                     displayPastPerformance();
                     return;
                 default:
-                    // Default to volume tab
-                    stocks = screeningData.volume_breakout_stocks || [];
-                    currentTab = 'volume';
-                    break;
+                    displayVolumeGainerTab();
+                    return;
             }
             
             if (stocks.length === 0) {
