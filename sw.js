@@ -1,5 +1,5 @@
 // Stock Yard Service Worker
-const CACHE_NAME = 'stock-yard-v1';
+const CACHE_NAME = 'stock-yard-v3';
 const APP_SHELL = [
   './',
   './index.html',
