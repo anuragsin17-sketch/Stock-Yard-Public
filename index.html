@@ -6731,8 +6731,7 @@
         // Default to 5 years on first load
         if (!perfDateFrom) { perfYears = 5; perfDateFrom = getDateOffset(5*365); }
 
-        // ── Backtest state ────────────────────────────────────────────────
-        let perfTargetPct = 23; // selected target %
+        // ── Backtest state (perfTargetPct declared above with perfData)
 
         function renderPastPerformance(container) {
             if (!perfData) return;
