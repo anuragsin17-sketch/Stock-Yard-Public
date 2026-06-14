@@ -6765,23 +6765,22 @@
                 </div>
             </div>
 
-            <!-- Capital input -->
+            <!-- Capital selector — just 5L and 10L -->
             <div class="mobile-card rounded-xl p-4 mb-4">
-                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">💰 Capital Per Trade</div>
-                <div class="flex items-center gap-3 mb-3">
-                    <span class="text-slate-400 text-sm">₹</span>
-                    <input type="number" id="perfCapitalInput" value="${perfCapital}" min="10000" step="10000"
-                        class="flex-1 px-3 py-2 rounded-lg text-sm mono text-slate-100 outline-none"
-                        style="background:rgba(30,41,59,0.9);border:1px solid rgba(167,139,250,0.4);color:#A78BFA;"
-                        onchange="perfCapital=Math.max(10000,parseInt(this.value)||50000);"/>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">💰 Your Capital</div>
+                <div class="flex gap-3">
+                    <button onclick="perfCapital=500000; document.querySelectorAll('.cap-btn').forEach(b=>b.style.background='rgba(30,41,59,0.8)'); this.style.background='linear-gradient(135deg,#4C1D95,#6D28D9)'; this.style.color='#fff';"
+                        class="cap-btn flex-1 py-3 rounded-xl text-sm font-bold touch-btn"
+                        style="${perfCapital===500000?'background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;':'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                        ₹5 Lakh
+                    </button>
+                    <button onclick="perfCapital=1000000; document.querySelectorAll('.cap-btn').forEach(b=>b.style.background='rgba(30,41,59,0.8)'); this.style.background='linear-gradient(135deg,#4C1D95,#6D28D9)'; this.style.color='#fff';"
+                        class="cap-btn flex-1 py-3 rounded-xl text-sm font-bold touch-btn"
+                        style="${perfCapital===1000000?'background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;':'background:rgba(30,41,59,0.8);color:#94A3B8;'}">
+                        ₹10 Lakh
+                    </button>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    ${[25000,50000,100000,250000,500000].map(v=>`
-                    <button onclick="perfCapital=${v}; document.getElementById('perfCapitalInput').value=${v};"
-                        class="px-3 py-1.5 rounded-lg text-xs font-medium touch-btn"
-                        style="background:rgba(30,41,59,0.8);color:#94A3B8;">
-                        ₹${v>=100000?(v/100000)+'L':(v/1000)+'K'}</button>`).join('')}
-                </div>
+                <div class="text-xs text-slate-500 mt-2">Backtest uses ₹50K per trade. Your capital shows how many concurrent trades you can run and your ROI%.</div>
             </div>
 
             <!-- Date Range filter -->
@@ -6829,13 +6828,6 @@
                 return;
             }
 
-            if (!perfSubmitted) {
-                container.innerHTML = html;
-                const inp = document.getElementById('perfCapitalInput');
-                if (inp) inp.value = perfCapital;
-                return;
-            }
-
             // ── Results ───────────────────────────────────────────────────
             const s = summaries[String(perfTargetPct)];
             if (!s) {
@@ -6843,21 +6835,36 @@
                 return;
             }
 
-            // Scale P&L by capital (backtest used ₹50K per trade)
-            const scaleFactor = perfCapital / 50000;
+            // Backtest ran at ₹50K/trade fixed. 
+            // Scale P&L proportionally to user's capital.
+            // At ₹5L capital → 10 trades at ₹50K each max concurrent
+            // At ₹10L capital → 20 trades at ₹50K each max concurrent
+            // Scale = userCapital / (totalSignals * 50000) → fraction of all signals they could have taken
+            const tradesPerCycle = Math.floor(perfCapital / 50000); // how many concurrent trades at ₹50K each
+            // Realistic: each trade runs ~96d avg, user rotates capital
+            // In 3 years (1095 days) each ₹50K slot does 1095/96 ≈ 11 rotations
+            // Total trades user can do = tradesPerCycle * rotations
+            const avgHold = s.avg_hold || 96;
+            const periodDays = perfYears > 0 ? perfYears * 365 : 1095;
+            const rotations = Math.floor(periodDays / avgHold);
+            const userTrades = tradesPerCycle * rotations;
+            // Scale factor = userTrades / total backtest signals
+            const scaleFactor = Math.min(1, userTrades / (s.total || 2357));
             const scaledPnl = Math.round(s.total_pnl * scaleFactor);
+            const roiPct = perfCapital > 0 ? (scaledPnl / perfCapital * 100).toFixed(1) : 0;
 
             const wrColor  = s.win_rate >= 60 ? '#10B981' : s.win_rate >= 50 ? '#D97706' : '#DC2626';
             const pnlColor = scaledPnl >= 0 ? '#10B981' : '#DC2626';
             const pfColor  = s.pf >= 3 ? '#10B981' : s.pf >= 1.5 ? '#D97706' : '#DC2626';
+            const capLabel = perfCapital >= 100000 ? (perfCapital/100000)+'L' : (perfCapital/1000)+'K';
 
             html += `
             <!-- Results header -->
             <div class="mobile-card rounded-xl p-4 mb-3" style="border-color:rgba(56,189,248,0.2);background:rgba(56,189,248,0.05);">
                 <div class="text-xs font-semibold tracking-wider uppercase mb-1" style="color:#38BDF8;">
-                    📊 Target ${perfTargetPct}% · ₹${perfCapital>=100000?(perfCapital/100000)+'L':(perfCapital/1000)+'K'}/trade · 752 stocks · Post-2020
+                    📊 Target ${perfTargetPct}% · ₹${capLabel} capital · ₹50K/trade · 752 stocks · Post-2020
                 </div>
-                <div class="text-xs text-slate-400">SL ${params.sl_pct||8}% · ±${params.tolerance||2}% entry · Updated: ${genAt}</div>
+                <div class="text-xs text-slate-400">SL ${params.sl_pct||8}% · ±${params.tolerance||2}% entry · ~${tradesPerCycle} concurrent trades · Updated: ${genAt}</div>
             </div>
 
             <!-- Summary stats -->
@@ -6869,8 +6876,8 @@
                 </div>
                 <div class="mobile-card rounded-xl p-4 text-center">
                     <div class="text-2xl font-bold mono" style="color:${pnlColor};">${scaledPnl>=0?'+':''}₹${scaledPnl.toLocaleString()}</div>
-                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Total P&L</div>
-                    <div class="text-xs text-slate-500 mt-1">${s.total} signals</div>
+                    <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Est. P&L with ₹${capLabel}</div>
+                    <div class="text-xs mt-1" style="color:${pnlColor};">${roiPct}% ROI · ${userTrades} trades over ${periodDays}d</div>
                 </div>
                 <div class="mobile-card rounded-xl p-4 text-center">
                     <div class="text-2xl font-bold mono" style="color:${pfColor};">${s.pf}x</div>
@@ -6919,7 +6926,7 @@
                         ${available_targets.map(t => {
                             const ts = summaries[String(t)];
                             if (!ts) return '';
-                            const tpnl = Math.round(ts.total_pnl * scaleFactor);
+                            const tpnl = Math.round(ts.total_pnl);
                             const wrc = ts.win_rate >= 60 ? '#10b981' : ts.win_rate >= 50 ? '#f59e0b' : '#f43f5e';
                             const pfc = ts.pf >= 3 ? '#10b981' : ts.pf >= 1.5 ? '#f59e0b' : '#f43f5e';
                             const pc = tpnl >= 0 ? '#10b981' : '#f43f5e';
