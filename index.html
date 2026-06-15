@@ -7535,8 +7535,6 @@
         };
 
         // Save a user override for a specific trade
-        function saveTradeOverride(trade, changes) {
-
         // ── Groww Token Modal ─────────────────────────────────────────────────
         window.openGrowwTokenModal = function() {
             const modal = document.getElementById('growwTokenModal');
@@ -7575,6 +7573,9 @@
             }
         };
         // ─────────────────────────────────────────────────────────────────────
+
+        // Save a user override for a specific trade
+        function saveTradeOverride(trade, changes) {
             const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
             const key = trade.order_id || trade.ticker;
             overrides[key] = { ...(overrides[key] || {}), ...trade, ...changes };
