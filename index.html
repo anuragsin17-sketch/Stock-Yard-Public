@@ -7522,10 +7522,13 @@
                 return fetchLiveQuote(trade.ticker || trade.symbol)
                     .then(quote => {
                         if (quote) {
+                            // Use today's open; fall back to prev close if open is 0
+                            const openPrice = (quote.open > 0) ? quote.open : (quote.close || 0);
                             return {
                                 ticker: trade.ticker || trade.symbol,
                                 ltp: quote.ltp,
-                                open: quote.open || 0,
+                                open: openPrice,
+                                close: quote.close || 0,
                                 timestamp: quote.timestamp
                             };
                         }
@@ -7555,11 +7558,13 @@
             return trades.map(trade => {
                 const quote = liveQuotes.find(q => q.ticker === (trade.ticker || trade.symbol));
                 if (quote) {
+                    // Use today's open; fall back to prev close if open is 0
+                    const todayOpen = (quote.open > 0) ? quote.open : (quote.close || 0);
                     return {
                         ...trade,
                         currentPrice: quote.ltp,
                         current_price: quote.ltp,
-                        today_open: quote.open || 0,
+                        today_open: todayOpen,
                         ltp_last_updated: quote.timestamp
                     };
                 }
