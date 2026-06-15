@@ -6183,6 +6183,9 @@
                         .filter(t => !t._deleted)
                         .filter(t => !purged.includes(t.ticker))
                         .filter(t => !deleted.includes(t.ticker));
+                    // Only count broker-synced trades (same filter as renderRadarTab)
+                    const allowedSrc = ['Angel One', 'angel one', 'Groww', 'groww', 'LocalTest'];
+                    trades = trades.filter(t => t.order_id || t.is_angel_synced || allowedSrc.includes(t.source));
                     const openCount = trades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
                     setTabCount('radarTabCount', openCount);
                 });
@@ -6259,7 +6262,7 @@
                 </button>
                 <div id="volSearchWrap" style="display:${volSearch?'flex':'none'};align-items:center;gap:6px;flex:1;">
                     <input type="text" placeholder="Type 3+ chars..." value="${volSearch}" autocomplete="off"
-                        oninput="volSearch=this.value.toUpperCase();displayVolumeGainerTab();"
+                        oninput="const v=this.value.toUpperCase();const cur=this.selectionStart;volSearch=v;if(v.length===0||v.length>=3){displayVolumeGainerTab().then(()=>{const i=document.querySelector('#volSearchWrap input');if(i){i.value=v;try{i.setSelectionRange(cur,cur);}catch(e){}i.focus();}});}"
                         style="flex:1;background:#111625;border:1px solid rgba(16,185,129,0.3);border-radius:5px;outline:none;color:#f1f5f9;font-size:11px;padding:4px 8px;font-family:'JetBrains Mono',monospace;"/>
                     ${volSearch ? `<button onclick="volSearch='';displayVolumeGainerTab();" style="all:unset;color:#6b7280;cursor:pointer;font-size:14px;">✕</button>` : ''}
                 </div>
@@ -6736,7 +6739,7 @@
                         </button>
                         <div id="trendSearchWrap" style="display:${trendSearch?'flex':'none'};align-items:center;gap:6px;flex:1;">
                             <input type="text" placeholder="Type 3+ chars..." value="${trendSearch}" autocomplete="off"
-                                oninput="trendSearch=this.value.toUpperCase();trendPage=1;displayTrendlineScreen();"
+                                oninput="const v=this.value.toUpperCase();const cur=this.selectionStart;trendSearch=v;trendPage=1;if(v.length===0||v.length>=3){displayTrendlineScreen();setTimeout(()=>{const i=document.querySelector('#trendSearchWrap input');if(i){i.value=v;try{i.setSelectionRange(cur,cur);}catch(e){}i.focus();}},0);}"
                                 style="flex:1;background:#111625;border:1px solid rgba(16,185,129,0.3);border-radius:5px;outline:none;color:#f1f5f9;font-size:11px;padding:4px 8px;font-family:'JetBrains Mono',monospace;"/>
                             ${trendSearch ? `<button onclick="trendSearch='';trendPage=1;displayTrendlineScreen();" style="all:unset;color:#6b7280;cursor:pointer;font-size:14px;">✕</button>` : ''}
                         </div>
