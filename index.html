@@ -7522,13 +7522,11 @@
                 return fetchLiveQuote(trade.ticker || trade.symbol)
                     .then(quote => {
                         if (quote) {
-                            // Use today's open; fall back to prev close if open is 0
-                            const openPrice = (quote.open > 0) ? quote.open : (quote.close || 0);
                             return {
                                 ticker: trade.ticker || trade.symbol,
                                 ltp: quote.ltp,
-                                open: openPrice,
-                                close: quote.close || 0,
+                                open: quote.open || 0,
+                                close: quote.close || 0,   // prev day close — used for Day P&L
                                 timestamp: quote.timestamp
                             };
                         }
@@ -7558,13 +7556,12 @@
             return trades.map(trade => {
                 const quote = liveQuotes.find(q => q.ticker === (trade.ticker || trade.symbol));
                 if (quote) {
-                    // Use today's open; fall back to prev close if open is 0
-                    const todayOpen = (quote.open > 0) ? quote.open : (quote.close || 0);
                     return {
                         ...trade,
                         currentPrice: quote.ltp,
                         current_price: quote.ltp,
-                        today_open: todayOpen,
+                        today_open: quote.open || 0,
+                        prev_close: quote.close || 0,   // prev day close for Day P&L
                         ltp_last_updated: quote.timestamp
                     };
                 }
@@ -7615,9 +7612,10 @@
 
                     totalCur += ltp * qty;
 
-                    // Track day P&L (ltp vs today's open); skip if open unavailable
-                    if (op > 0) {
-                        dayPnl += (ltp - op) * qty;
+                    // Track day P&L: (current price - prev day close) * qty
+                    const prevClose = parseFloat(q.close || 0);
+                    if (prevClose > 0) {
+                        dayPnl += (ltp - prevClose) * qty;
                     }
                 });
 
@@ -7889,12 +7887,12 @@
                             ${(function(){
                                 let dayPnl = 0;
                                 open.forEach(t => {
-                                    const cp  = parseFloat(t.current_price || 0);
-                                    const op  = parseFloat(t.today_open || 0);  // today's open from live quote
-                                    const qty = parseFloat(t.quantity || 0);
-                                    // Only count day P&L when today's open is available; skip if missing to avoid showing overall P&L as day P&L
-                                    if (qty > 0 && cp > 0 && op > 0) {
-                                        dayPnl += (cp - op) * qty;
+                                    const cp   = parseFloat(t.current_price || 0);
+                                    const prev = parseFloat(t.prev_close || 0);  // previous day's closing price
+                                    const qty  = parseFloat(t.quantity || 0);
+                                    // Day P&L = (current price - prev day close) * qty
+                                    if (qty > 0 && cp > 0 && prev > 0) {
+                                        dayPnl += (cp - prev) * qty;
                                     }
                                 });
                                 const dc = dayPnl >= 0 ? '#10b981' : '#f43f5e';
