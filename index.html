@@ -7378,6 +7378,30 @@
                                 });
                                 if (dirty) localStorage.setItem('radarOverrides', JSON.stringify(overridesNow));
                                 renderRadarTab(container, updated);
+
+                                // Update Day P&L immediately using prev close from live quotes
+                                let dayPnl = 0, totalAmtLive = 0;
+                                liveQuotes.forEach(q => {
+                                    const trade = updated.find(t => (t.ticker || t.symbol) === q.ticker);
+                                    if (!trade) return;
+                                    const ltp      = parseFloat(q.ltp   || 0);
+                                    const prevClose = parseFloat(q.close || 0);
+                                    const qty      = parseFloat(trade.quantity || 0);
+                                    totalAmtLive  += (trade.entry_price || 0) * qty;
+                                    if (ltp > 0 && prevClose > 0 && qty > 0) {
+                                        dayPnl += (ltp - prevClose) * qty;
+                                    }
+                                });
+                                const sumDayEl = document.getElementById('radar_sum_day');
+                                if (sumDayEl) {
+                                    const dayColor = dayPnl >= 0 ? '#10b981' : '#f43f5e';
+                                    sumDayEl.innerHTML = `<span style="color:${dayColor};">${dayPnl >= 0 ? '+' : ''}${formatINR(dayPnl, 0)}</span>`;
+                                    sumDayEl.style.color = dayColor;
+                                    // also update pct sub-line
+                                    const pctEl = sumDayEl.nextElementSibling;
+                                    if (pctEl) { pctEl.textContent = formatPct(totalAmtLive > 0 ? dayPnl/totalAmtLive*100 : 0); pctEl.style.color = dayColor; }
+                                }
+
                                 // Start 30-sec live refresh timer
                                 startRadarLiveTimer(updated);
                             } else {
