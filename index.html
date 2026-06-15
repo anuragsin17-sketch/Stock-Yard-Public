@@ -5124,15 +5124,9 @@
 
         // ─── ONE-TIME CLEANUP: remove auto-added Trendline entries from localStorage ──
         (function purgeNonBrokerTrades() {
-            // v3: keep ONLY Angel One, Groww, and order_id trades in radar localStorage
-            const CLEANUP_KEY = 'sy_radar_purge_v3';
-            if (localStorage.getItem(CLEANUP_KEY)) return;
-
+            // v4: runs every page load — always keep ONLY Angel One/Groww trades
             const allowedSources = ['Angel One', 'angel one', 'Groww', 'groww'];
-            const isAllowed = t =>
-                t.order_id ||
-                allowedSources.includes(t.source) ||
-                t.is_angel_synced;
+            const isAllowed = t => t.order_id || allowedSources.includes(t.source) || t.is_angel_synced;
 
             try {
                 const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
@@ -5140,24 +5134,27 @@
                 Object.keys(overrides).forEach(k => {
                     if (!isAllowed(overrides[k])) { delete overrides[k]; changed = true; }
                 });
-                if (changed) localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+                if (changed) {
+                    localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+                    console.log('✅ radarOverrides purged');
+                }
             } catch(e) {}
 
             try {
                 const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
                 const filtered = trades.filter(isAllowed);
-                if (filtered.length !== trades.length)
+                if (filtered.length !== trades.length) {
                     localStorage.setItem('radarTrades', JSON.stringify(filtered));
+                    console.log('✅ radarTrades purged:', trades.length, '→', filtered.length);
+                }
             } catch(e) {}
 
             try {
-                const overridesNow = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                const validTickers = Object.values(overridesNow).map(t => t.ticker).filter(Boolean);
-                localStorage.setItem('inRadarTickers', JSON.stringify(validTickers));
+                const ov = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                localStorage.setItem('inRadarTickers', JSON.stringify(
+                    Object.values(ov).filter(isAllowed).map(t => t.ticker).filter(Boolean)
+                ));
             } catch(e) {}
-
-            localStorage.setItem(CLEANUP_KEY, '1');
-            console.log('✅ Radar purged: only Angel One/Groww trades kept');
         })();
 
         // Check PIN on load
