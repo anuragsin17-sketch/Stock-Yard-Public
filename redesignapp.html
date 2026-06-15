@@ -325,8 +325,8 @@
         <div class="px-5 py-3">
             <!-- Top row: logo + index pill + status + controls -->
             <div class="flex items-center justify-between">
-                <!-- Left: logo + title + NIFTY + SENSEX inline -->
-                <div class="flex items-center gap-2">
+                <!-- Left: logo + title + NIFTY + SENSEX -->
+                <div class="flex items-center gap-3">
                     <div style="width:28px;height:28px;background:linear-gradient(135deg,#10b981,#059669);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#080c14;font-weight:800;font-size:14px;">⚡</div>
                     <h1 class="text-base font-bold tracking-tight text-white" id="headerTitle">Stock Yard</h1>
                     <a href="https://in.tradingview.com/chart/?symbol=NSE:NIFTY" target="_blank"
@@ -6669,15 +6669,14 @@
                 
                 let html = '';
 
-                // Add Stock button for Trendline tab — compact pill, left-aligned
+                // Add Stock button for Trendline tab
                 html += `
-                    <div style="margin-bottom:10px;">
-                        <button onclick="openAddStockModal('trendline')"
-                            style="all:unset;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;cursor:pointer;">
-                            <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                            Add Stock
-                        </button>
-                    </div>
+                    <button onclick="openAddStockModal('trendline')"
+                        class="w-full py-3 rounded-xl text-sm font-semibold touch-btn mb-2 flex items-center justify-center space-x-2"
+                        style="background: rgba(4,120,87,0.15); border: 1px dashed rgba(4,120,87,0.5); color: #10B981;">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>Add Stock</span>
+                    </button>
                 `;
 
                 // Show manually added stocks first (skip those already in Radar)
@@ -8178,10 +8177,10 @@
                             <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>Groww Token
                         </button>
                     </div>
-                    <div style="background:#111625;border:1px solid #1f2937;border-radius:12px;padding:48px 24px;text-align:center;">
+                    <div style="background:#111625;border:1px solid #1f2937;border-radius:16px;padding:48px 24px;text-align:center;">
                         <div style="font-size:44px;margin-bottom:16px;opacity:0.6;">📡</div>
-                        <div style="font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:8px;">Radar is Empty</div>
-                        <div style="font-size:12px;color:#4b5563;line-height:1.5;">Take a trade from Trendline or add one manually.</div>
+                        <div style="font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:8px;letter-spacing:-0.3px;">Radar is Empty</div>
+                        <div style="font-size:12px;color:#4b5563;line-height:1.5;">Take a trade from the Trendline tab<br>or add one manually above.</div>
                     </div>`;
                 return;
             }
@@ -8198,6 +8197,7 @@
             let html = `
                 <!-- ── Radar Control Bar ── -->
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center;">
+                    <!-- Filter pills -->
                     <button onclick="radarFilterState='all'; displayPerformanceTracking()"
                         style="all:unset;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;${radarFilterState==='all' ? 'background:linear-gradient(135deg,#065F46,#047857);color:#fff;' : 'background:#111625;color:#9ca3af;border:1px solid #1f2937;'}">
                         All <span style="opacity:0.6;">${trades.length}</span>
@@ -8211,17 +8211,21 @@
                         Closed <span style="opacity:0.6;">${closed.length}</span>
                     </button>
                     <div style="flex:1;"></div>
+                    <!-- Action pills -->
                     <button onclick="openAddTradeModal()"
                         style="all:unset;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;cursor:pointer;">
-                        <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>Add Trade
+                        <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                        Add Trade
                     </button>
                     <button onclick="syncRadarFromAngelOne()"
                         style="all:unset;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(6,182,212,0.3);color:#22d3ee;cursor:pointer;">
-                        <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Sync
+                        <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Sync
                     </button>
                     <button onclick="openGrowwTokenModal()"
                         style="all:unset;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(139,92,246,0.3);color:#a78bfa;cursor:pointer;">
-                        <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>Groww Token
+                        <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                        Groww Token
                     </button>
                 </div>
                 <div style="background:#111625;border:1px solid #1f2937;border-radius:14px;padding:20px;margin-bottom:16px;">
