@@ -7610,9 +7610,10 @@
 
                     totalCur += ltp * qty;
 
-                    // Track day P&L (ltp vs today's open)
-                    const base = op > 0 ? op : ep;
-                    dayPnl += (ltp - base) * qty;
+                    // Track day P&L (ltp vs today's open); skip if open unavailable
+                    if (op > 0) {
+                        dayPnl += (ltp - op) * qty;
+                    }
                 });
 
                 // Update portfolio summary totals
@@ -7885,12 +7886,10 @@
                                 open.forEach(t => {
                                     const cp  = parseFloat(t.current_price || 0);
                                     const op  = parseFloat(t.today_open || 0);  // today's open from live quote
-                                    const ep  = parseFloat(t.entry_price || 0);
                                     const qty = parseFloat(t.quantity || 0);
-                                    if (qty > 0 && cp > 0) {
-                                        // Use today's open if available, else fall back to entry price
-                                        const base = op > 0 ? op : ep;
-                                        dayPnl += (cp - base) * qty;
+                                    // Only count day P&L when today's open is available; skip if missing to avoid showing overall P&L as day P&L
+                                    if (qty > 0 && cp > 0 && op > 0) {
+                                        dayPnl += (cp - op) * qty;
                                     }
                                 });
                                 const dc = dayPnl >= 0 ? '#10b981' : '#f43f5e';
