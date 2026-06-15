@@ -7525,6 +7525,7 @@
                             return {
                                 ticker: trade.ticker || trade.symbol,
                                 ltp: quote.ltp,
+                                open: quote.open || 0,
                                 timestamp: quote.timestamp
                             };
                         }
@@ -7558,6 +7559,7 @@
                         ...trade,
                         currentPrice: quote.ltp,
                         current_price: quote.ltp,
+                        today_open: quote.open || 0,
                         ltp_last_updated: quote.timestamp
                     };
                 }
@@ -7576,13 +7578,14 @@
                 const quotes = await fetchLiveLTPForRadarTrades(openTrades);
                 if (!quotes || quotes.length === 0) return;
 
-                let totalAmt = 0, totalCur = 0;
+                let totalAmt = 0, totalCur = 0, dayPnl = 0;
                 openTrades.forEach(t => { totalAmt += (t.entry_price||0) * (t.quantity||0); });
 
                 quotes.forEach(q => {
                     const trade = openTrades.find(t => (t.ticker||t.symbol) === q.ticker);
                     if (!trade) return;
                     const ltp = parseFloat(q.ltp);
+                    const op  = parseFloat(q.open || 0);
                     const ep  = parseFloat(trade.entry_price || 0);
                     const qty = parseFloat(trade.quantity || 0);
                     const pnl = (ltp - ep) * qty;
@@ -7606,6 +7609,10 @@
                     }
 
                     totalCur += ltp * qty;
+
+                    // Track day P&L (ltp vs today's open)
+                    const base = op > 0 ? op : ep;
+                    dayPnl += (ltp - base) * qty;
                 });
 
                 // Update portfolio summary totals
@@ -7621,8 +7628,9 @@
                     sumPnlEl.style.color = pnlCol;
                 }
                 if (sumDayEl) {
-                    sumDayEl.textContent = (totalPnL >= 0 ? '+' : '') + '₹' + Math.abs(Math.round(totalPnL)).toLocaleString('en-IN');
-                    sumDayEl.style.color = pnlCol;
+                    const dayColor = dayPnl >= 0 ? '#10b981' : '#f43f5e';
+                    sumDayEl.textContent = (dayPnl >= 0 ? '+' : '') + '₹' + Math.abs(Math.round(dayPnl)).toLocaleString('en-IN');
+                    sumDayEl.style.color = dayColor;
                 }
 
                 // Update last-refreshed timestamp
@@ -7875,11 +7883,14 @@
                             ${(function(){
                                 let dayPnl = 0;
                                 open.forEach(t => {
-                                    const cp = parseFloat(t.current_price || 0);
-                                    const ep = parseFloat(t.entry_price || 0);
+                                    const cp  = parseFloat(t.current_price || 0);
+                                    const op  = parseFloat(t.today_open || 0);  // today's open from live quote
+                                    const ep  = parseFloat(t.entry_price || 0);
                                     const qty = parseFloat(t.quantity || 0);
-                                    if (cp > 0 && ep > 0 && qty > 0) {
-                                        dayPnl += (cp - ep) * qty;
+                                    if (qty > 0 && cp > 0) {
+                                        // Use today's open if available, else fall back to entry price
+                                        const base = op > 0 ? op : ep;
+                                        dayPnl += (cp - base) * qty;
                                     }
                                 });
                                 const dc = dayPnl >= 0 ? '#10b981' : '#f43f5e';
