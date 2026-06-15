@@ -5040,6 +5040,7 @@
         let currentTab = 'volume';
         let livePriceUpdateTimer = null;
         let indexUpdateTimer = null;
+        let radarLiveTimer = null;  // 30-sec in-place LTP updater for Radar tab
 
         // ─── FORMAT HELPERS ──────────────────────────────────────────────────────
         function formatINR(val, decimals = 2) {
@@ -5977,6 +5978,8 @@
         // Switch between tabs
         function switchTab(tab) {
             currentTab = tab;
+            // Stop radar live timer when leaving radar tab
+            if (tab !== 'performance') stopRadarLiveTimer();
             // Reset trendline page to 1 whenever tab changes
             trendPage = 1;
             volPage = 1;
@@ -6673,7 +6676,7 @@
                     const tl52w = get52WData(stock.ticker);
                     const tl52wHigh = stock.week52High || (tl52w ? tl52w.high : null);
                     const tl52wLow  = stock.week52Low  || (tl52w ? tl52w.low  : null);
-                    const stockNameHtml = `<span onclick="openSpotlight('${stock.ticker}', ${stock.currentPrice}, ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0}, ${stock.confluenceScore || 0}, '${(stock.patternZone||'').replace(/'/g,"\\'")}', ${tl52wHigh||'null'}, ${tl52wLow||'null'})" style="cursor:pointer;color:#ffffff;font-weight:700;font-size:16px;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${stock.ticker}</span>`;
+                    const stockNameHtml = `<a href="${chartUrl}" target="_blank" style="color:#ffffff;font-weight:700;font-size:16px;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${stock.ticker}</a>`;
 
                     html += `
                         <div style="background:#111625;border:1px solid #1f2937;border-radius:12px;padding:20px;margin-bottom:16px;">
@@ -6687,7 +6690,7 @@
                                     <div style="font-size:11px;color:#6b7280;">Wicks: ${stock.wickTouches || '-'} | ${stock.timeframe || 'monthly'}</div>
                                 </div>
                                 <div style="text-align:right;">
-                                    <div style="font-size:18px;font-weight:700;color:#ffffff;">${formatINR(stock.currentPrice)}</div>
+                                    <div id="tl_ltp_${stock.ticker}" style="font-size:18px;font-weight:700;color:#ffffff;">${formatINR(stock.currentPrice)}</div>
                                     <div style="font-size:11px;color:#6b7280;margin-top:2px;">Distance: <span id="dist_${stock.ticker}" style="color:#34d399;font-weight:700;">${liveDist}%</span></div>
                                 </div>
                             </div>
@@ -6769,6 +6772,28 @@
                 if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent= totalOppsFiltered.toLocaleString();
 
                 container.innerHTML = html;
+
+                // Fetch live LTP for visible trendline stocks
+                pagedTrendStocks.forEach(stock => {
+                    fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${stock.ticker}`, { cache: 'no-store' })
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => {
+                            if (!data || !data.success) return;
+                            const ltp = parseFloat(data.ltp);
+                            if (!ltp || ltp <= 0) return;
+                            const el = document.getElementById(`tl_ltp_${stock.ticker}`);
+                            if (el) el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+                            const distEl = document.getElementById(`dist_${stock.ticker}`);
+                            const entryEl = document.getElementById(`entry_${stock.ticker}`);
+                            if (distEl && entryEl) {
+                                const entry = parseFloat(entryEl.value) || stock.triggerPrice;
+                                const dist = Math.abs((ltp - entry) / entry * 100).toFixed(2);
+                                distEl.textContent = dist + '%';
+                                distEl.style.color = dist <= 1 ? '#f43f5e' : dist <= 5 ? '#fbbf24' : '#34d399';
+                            }
+                        })
+                        .catch(() => {});
+                });
             } catch (error) {
                 container.innerHTML = `
                     <div class="mobile-card rounded-xl p-6 text-center">
@@ -7353,6 +7378,10 @@
                                 });
                                 if (dirty) localStorage.setItem('radarOverrides', JSON.stringify(overridesNow));
                                 renderRadarTab(container, updated);
+                                // Start 30-sec live refresh timer
+                                startRadarLiveTimer(updated);
+                            } else {
+                                startRadarLiveTimer(trades);
                             }
                         });
                     }
@@ -7534,6 +7563,77 @@
                 }
                 return trade;
             });
+        }
+
+        // ─── RADAR LIVE AUTO-REFRESH (30 sec in-place update) ────────────────────
+        function startRadarLiveTimer(trades) {
+            stopRadarLiveTimer();
+            const openTrades = (trades || []).filter(t => t.status === 'Open' || t.status === 'Triggered');
+            if (openTrades.length === 0) return;
+
+            radarLiveTimer = setInterval(async () => {
+                if (currentTab !== 'performance') { stopRadarLiveTimer(); return; }
+                const quotes = await fetchLiveLTPForRadarTrades(openTrades);
+                if (!quotes || quotes.length === 0) return;
+
+                let totalAmt = 0, totalCur = 0;
+                openTrades.forEach(t => { totalAmt += (t.entry_price||0) * (t.quantity||0); });
+
+                quotes.forEach(q => {
+                    const trade = openTrades.find(t => (t.ticker||t.symbol) === q.ticker);
+                    if (!trade) return;
+                    const ltp = parseFloat(q.ltp);
+                    const ep  = parseFloat(trade.entry_price || 0);
+                    const qty = parseFloat(trade.quantity || 0);
+                    const pnl = (ltp - ep) * qty;
+                    const pnlPct = ep > 0 ? ((ltp - ep) / ep * 100) : 0;
+                    const pnlCol = pnl >= 0 ? '#10b981' : '#f43f5e';
+
+                    // Update LTP display
+                    const ltpEl = document.getElementById(`radar_ltp_${q.ticker}`);
+                    if (ltpEl) ltpEl.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+
+                    // Update P&L display
+                    const pnlEl = document.getElementById(`radar_pnl_${q.ticker}`);
+                    if (pnlEl) {
+                        pnlEl.textContent = (pnl >= 0 ? '+' : '') + '₹' + Math.abs(Math.round(pnl)).toLocaleString('en-IN');
+                        pnlEl.style.color = pnlCol;
+                    }
+                    const pnlPctEl = document.getElementById(`radar_pnlpct_${q.ticker}`);
+                    if (pnlPctEl) {
+                        pnlPctEl.textContent = (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%';
+                        pnlPctEl.style.color = pnlCol;
+                    }
+
+                    totalCur += ltp * qty;
+                });
+
+                // Update portfolio summary totals
+                const totalPnL = totalCur - totalAmt;
+                const pnlCol = totalPnL >= 0 ? '#10b981' : '#f43f5e';
+
+                const sumCurEl  = document.getElementById('radar_sum_cur');
+                const sumPnlEl  = document.getElementById('radar_sum_pnl');
+                const sumDayEl  = document.getElementById('radar_sum_day');
+                if (sumCurEl) sumCurEl.textContent = '₹' + Math.round(totalCur).toLocaleString('en-IN');
+                if (sumPnlEl) {
+                    sumPnlEl.textContent = (totalPnL >= 0 ? '+' : '') + '₹' + Math.abs(Math.round(totalPnL)).toLocaleString('en-IN');
+                    sumPnlEl.style.color = pnlCol;
+                }
+                if (sumDayEl) {
+                    sumDayEl.textContent = (totalPnL >= 0 ? '+' : '') + '₹' + Math.abs(Math.round(totalPnL)).toLocaleString('en-IN');
+                    sumDayEl.style.color = pnlCol;
+                }
+
+                // Update last-refreshed timestamp
+                const tsEl = document.getElementById('radar_live_ts');
+                if (tsEl) tsEl.textContent = '● LIVE · ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+            }, 30000);
+        }
+
+        function stopRadarLiveTimer() {
+            if (radarLiveTimer) { clearInterval(radarLiveTimer); radarLiveTimer = null; }
         }
         
         // Call /api/sync-trades endpoint from EC2 backend
@@ -7762,12 +7862,12 @@
                         </div>
                         <div style="background:rgba(8,12,20,0.4);border:1px solid rgba(31,41,55,0.6);padding:14px;border-radius:10px;">
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Current Value</div>
-                            <div style="font-size:16px;font-weight:700;color:#06b6d4;" class="mono">${formatINR(totalCur, 0)}</div>
+                            <div id="radar_sum_cur" style="font-size:16px;font-weight:700;color:#06b6d4;" class="mono">${formatINR(totalCur, 0)}</div>
                             <div style="font-size:11px;margin-top:3px;color:${pnlColor};">${formatPct(totalAmt > 0 ? (totalPnL/totalAmt*100) : 0)}</div>
                         </div>
                         <div style="background:rgba(8,12,20,0.4);border:1px solid rgba(31,41,55,0.6);padding:14px;border-radius:10px;">
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Overall P&amp;L</div>
-                            <div style="font-size:16px;font-weight:700;color:${pnlColor};" class="mono">${totalPnL >= 0 ? '+' : ''}${formatINR(totalPnL, 0)}</div>
+                            <div id="radar_sum_pnl" style="font-size:16px;font-weight:700;color:${pnlColor};" class="mono">${totalPnL >= 0 ? '+' : ''}${formatINR(totalPnL, 0)}</div>
                             <div style="font-size:11px;font-weight:600;margin-top:3px;color:${pnlColor};">${formatPct(totalAmt > 0 ? (totalPnL/totalAmt*100) : 0)}</div>
                         </div>
                         <div style="background:rgba(8,12,20,0.4);border:1px solid rgba(31,41,55,0.6);padding:14px;border-radius:10px;">
@@ -7775,11 +7875,15 @@
                             ${(function(){
                                 let dayPnl = 0;
                                 open.forEach(t => {
-                                    const pct = parseFloat(t.current_pnl_pct || t.currentPnl || 0);
-                                    dayPnl += (t.entry_price * t.quantity * pct / 100);
+                                    const cp = parseFloat(t.current_price || 0);
+                                    const ep = parseFloat(t.entry_price || 0);
+                                    const qty = parseFloat(t.quantity || 0);
+                                    if (cp > 0 && ep > 0 && qty > 0) {
+                                        dayPnl += (cp - ep) * qty;
+                                    }
                                 });
                                 const dc = dayPnl >= 0 ? '#10b981' : '#f43f5e';
-                                return `<div style="font-size:16px;font-weight:700;color:${dc};" class="mono">${dayPnl >= 0 ? '+' : ''}${formatINR(dayPnl, 0)}</div><div style="font-size:11px;margin-top:3px;color:${dc};">${formatPct(totalAmt > 0 ? dayPnl/totalAmt*100 : 0)}</div>`;
+                                return `<div id="radar_sum_day" style="font-size:16px;font-weight:700;color:${dc};" class="mono">${dayPnl >= 0 ? '+' : ''}${formatINR(dayPnl, 0)}</div><div style="font-size:11px;margin-top:3px;color:${dc};">${formatPct(totalAmt > 0 ? dayPnl/totalAmt*100 : 0)}</div>`;
                             })()}
                         </div>
                     </div>
@@ -7838,8 +7942,8 @@
                             <div style="font-size:11px;color:#6b7280;">${source}</div>
                         </div>
                         <div style="text-align:right;">
-                            <div style="font-size:18px;font-weight:700;color:#06b6d4;" class="mono">${cp > 0 ? formatINR(cp) : '⟳'}</div>
-                            ${isEditable ? '<div style="font-size:10px;color:#10b981;font-weight:700;margin-top:2px;">● LIVE</div>' : ''}
+                            <div id="radar_ltp_${t}" style="font-size:18px;font-weight:700;color:#06b6d4;" class="mono">${cp > 0 ? formatINR(cp) : '⟳'}</div>
+                            ${isEditable ? '<div id="radar_live_ts" style="font-size:10px;color:#10b981;font-weight:700;margin-top:2px;">● LIVE</div>' : ''}
                         </div>
                     </div>
                     <!-- Risk-Reward Timeline Bar -->
@@ -7862,8 +7966,8 @@
                         </div>
                         <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:10px;border-radius:8px;">
                             <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">P&amp;L</div>
-                            <div style="font-size:13px;font-weight:700;color:${pnlCol};" class="mono">${pnl >= 0 ? '+' : ''}${formatINR(pnl, 0)}</div>
-                            <div style="font-size:10px;font-weight:600;margin-top:1px;color:${pnlCol};">${formatPct(pnlPct)}</div>
+                            <div id="radar_pnl_${t}" style="font-size:13px;font-weight:700;color:${pnlCol};" class="mono">${pnl >= 0 ? '+' : ''}${formatINR(pnl, 0)}</div>
+                            <div id="radar_pnlpct_${t}" style="font-size:10px;font-weight:600;margin-top:1px;color:${pnlCol};">${formatPct(pnlPct)}</div>
                         </div>
                     </div>
                     <!-- Editable fields row (open trades) -->
@@ -8372,6 +8476,7 @@
         window.addEventListener('beforeunload', function() {
             if (livePriceUpdateTimer) clearInterval(livePriceUpdateTimer);
             if (indexUpdateTimer) clearInterval(indexUpdateTimer);
+            stopRadarLiveTimer();
             console.log('🔴 Live price updates stopped');
         });
 
