@@ -473,6 +473,22 @@
         </div>
     </div>
 
+    <!-- ── Groww Token Update Modal ─────────────────────────────────────────── -->
+    <div id="growwTokenModal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;">
+        <div style="background:#111625;border:1px solid #1f2937;border-radius:16px;padding:24px;width:90%;max-width:480px;margin:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 style="color:#f1f5f9;font-size:16px;font-weight:700;">🔑 Update Groww Token</h3>
+                <button onclick="closeGrowwTokenModal()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+            </div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Paste today's Groww bearer token from browser DevTools → Network → any api.groww.in request → Authorization header.</div>
+            <textarea id="growwTokenInput" rows="5" placeholder="Paste token here (eyJ...)" style="width:100%;padding:10px;background:#080c14;border:1px solid #1f2937;border-radius:8px;color:#f1f5f9;font-size:11px;font-family:'JetBrains Mono',monospace;resize:vertical;box-sizing:border-box;"></textarea>
+            <div style="font-size:12px;color:#94a3b8;margin-top:10px;margin-bottom:6px;">Admin Secret (set once on EC2 as ADMIN_SECRET env var):</div>
+            <input id="growwAdminSecret" type="password" placeholder="Admin secret" style="width:100%;padding:10px;background:#080c14;border:1px solid #1f2937;border-radius:8px;color:#f1f5f9;font-size:13px;box-sizing:border-box;"/>
+            <div id="growwTokenStatus" style="min-height:20px;font-size:12px;margin-top:10px;"></div>
+            <button onclick="submitGrowwToken()" style="width:100%;margin-top:12px;padding:12px;border-radius:10px;background:linear-gradient(135deg,#4c1d95,#6d28d9);color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;">Update Token & Restart Service</button>
+        </div>
+    </div>
+
     <script>
         // Embedded live data (updated by GitHub Actions)
         const LIVE_DATA = {
@@ -7520,6 +7536,45 @@
 
         // Save a user override for a specific trade
         function saveTradeOverride(trade, changes) {
+
+        // ── Groww Token Modal ─────────────────────────────────────────────────
+        window.openGrowwTokenModal = function() {
+            const modal = document.getElementById('growwTokenModal');
+            modal.style.display = 'flex';
+            document.getElementById('growwTokenInput').value = '';
+            document.getElementById('growwTokenStatus').textContent = '';
+        };
+        window.closeGrowwTokenModal = function() {
+            document.getElementById('growwTokenModal').style.display = 'none';
+        };
+        window.submitGrowwToken = async function() {
+            const token  = document.getElementById('growwTokenInput').value.trim();
+            const secret = document.getElementById('growwAdminSecret').value.trim();
+            const status = document.getElementById('growwTokenStatus');
+            if (!token) { status.textContent = '⚠️ Please paste the token first.'; status.style.color = '#f59e0b'; return; }
+            if (!secret) { status.textContent = '⚠️ Please enter the admin secret.'; status.style.color = '#f59e0b'; return; }
+            status.textContent = '⏳ Updating...'; status.style.color = '#94a3b8';
+            try {
+                const resp = await fetch('https://32-194-58-75.nip.io/api/set-groww-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, secret })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    status.textContent = '✅ Token updated! Groww sync will work now.';
+                    status.style.color = '#10b981';
+                    setTimeout(closeGrowwTokenModal, 2000);
+                } else {
+                    status.textContent = '❌ ' + (data.error || 'Failed');
+                    status.style.color = '#f43f5e';
+                }
+            } catch(e) {
+                status.textContent = '❌ Error: ' + e.message;
+                status.style.color = '#f43f5e';
+            }
+        };
+        // ─────────────────────────────────────────────────────────────────────
             const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
             const key = trade.order_id || trade.ticker;
             overrides[key] = { ...(overrides[key] || {}), ...trade, ...changes };
@@ -7895,6 +7950,12 @@
                     <button onclick="syncRadarFromAngelOne()" class="py-2 rounded-lg text-xs font-semibold touch-btn flex items-center justify-center space-x-1" style="background: rgba(6,182,212,0.1); border: 1px dashed rgba(6,182,212,0.4); color: #06B6D4;">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                         <span>Sync Angel One & Groww</span>
+                    </button>
+                    </div>
+                    <div style="margin-top:6px;">
+                    <button onclick="openGrowwTokenModal()" class="w-full py-2 rounded-lg text-xs font-semibold touch-btn flex items-center justify-center space-x-1" style="background: rgba(139,92,246,0.1); border: 1px dashed rgba(139,92,246,0.4); color: #a78bfa;">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                        <span>Update Groww Token</span>
                     </button>
                     </div>
                     <div class="flex space-x-2">
