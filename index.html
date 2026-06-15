@@ -8312,7 +8312,7 @@
                 <div id="radarSearchWrap" style="display:${radarSearch?'block':'none'};margin-bottom:12px;">
                     <div style="font-size:11px;color:#9ca3af;margin-bottom:6px;">Symbol *</div>
                     <input type="text" placeholder="Type 3+ chars to search (e.g. HDF)" value="${radarSearch}" autocomplete="off"
-                        oninput="radarSearch=this.value.toUpperCase(); displayPerformanceTracking(); setTimeout(()=>{const w=document.getElementById('radarSearchWrap');if(w){w.style.display='block';const inp=w.querySelector('input');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}}  ,0);"
+                        oninput="radarSearch=this.value.toUpperCase(); filterRadarCards();"
                         style="width:100%;padding:12px 16px;background:#111625;border:1px solid #1f2937;border-radius:10px;outline:none;color:#f1f5f9;font-size:13px;font-family:'JetBrains Mono',monospace;box-sizing:border-box;"/>
                 </div>
                 <div style="background:#111625;border:1px solid #1f2937;border-radius:14px;padding:20px;margin-bottom:16px;">
@@ -8354,6 +8354,8 @@
                 </div>
             `;
 
+            // ── Trade cards — wrapped so filterRadarCards() can update them without full re-render
+            html += `<div id="radarCardsArea">`;
             displayTrades.forEach(trade => {
                 const { ticker, entry_price: ep, current_price: cp, target: tgt, stop_loss: sl, quantity: qty, status, source } = trade;
                 const amt = ep * qty, cur = cp * qty, pnl = cur - amt;
@@ -8459,8 +8461,70 @@
                 </div>`;
             });
 
+            html += `</div>`; // close radarCardsArea
+
             container.innerHTML = html;
         }
+
+        // Filter radar cards in-place without re-rendering the whole page
+        window.filterRadarCards = function() {
+            const area = document.getElementById('radarCardsArea');
+            if (!area) { displayPerformanceTracking(); return; }
+
+            fetch('./radar_trades.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : []).catch(() => [])
+                .then(serverTrades => {
+                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                    const purged  = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                    const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+                    const tombstones = JSON.parse(localStorage.getItem('radarServerTombstones') || '{}');
+
+                    let trades = serverTrades.map(st => {
+                        const key = st.order_id || st.ticker;
+                        if (tombstones[key] || tombstones[st.ticker + '_' + st.entry_price]) return null;
+                        return overrides[key] ? { ...st, ...overrides[key] } : st;
+                    }).filter(Boolean);
+                    Object.values(overrides).forEach(ov => {
+                        if (ov._custom && !trades.find(t => t.ticker === ov.ticker)) trades.push(ov);
+                    });
+                    trades = trades.filter(t => !t._deleted && !purged.includes(t.ticker) && !deleted.includes(t.ticker));
+
+                    const norm = t => {
+                        const ep = parseFloat(t.entry_price || t.entryTrigger || 0);
+                        const rawTarget = parseFloat(t.target || t.targetExit || 0);
+                        const rawSL = parseFloat(t.stop_loss || t.stopLoss || 0);
+                        return { ...t,
+                            entry_price: ep,
+                            target: rawTarget > 0 ? rawTarget : ep > 0 ? parseFloat((ep * 1.25).toFixed(2)) : 0,
+                            stop_loss: rawSL > 0 ? rawSL : ep > 0 ? parseFloat((ep * 0.93).toFixed(2)) : 0,
+                            current_price: parseFloat(t.current_price || t.currentPrice || ep),
+                            quantity: parseInt(t.quantity || 0),
+                            status: t.status || 'Open',
+                            source: t.source || 'Manual'
+                        };
+                    };
+                    trades = trades.filter(t => !t._deleted).map(norm);
+
+                    let filtered = radarFilterState === 'open' ? trades.filter(t => t.status === 'Open' || t.status === 'Triggered')
+                        : radarFilterState === 'closed' ? trades.filter(t => t.status !== 'Open' && t.status !== 'Triggered')
+                        : trades;
+                    if (radarSearch.length >= 1) {
+                        filtered = trades.filter(t => (t.ticker||'').toUpperCase().includes(radarSearch));
+                    }
+
+                    if (filtered.length === 0) {
+                        area.innerHTML = `<div style="padding:32px;text-align:center;color:#6b7280;font-size:13px;">No trades match "<strong style="color:#f1f5f9;">${radarSearch}</strong>"</div>`;
+                        return;
+                    }
+
+                    // Re-render only the cards using the existing renderRadarTab function
+                    const tempContainer = document.createElement('div');
+                    renderRadarTab(tempContainer, filtered);
+                    const newArea = tempContainer.querySelector('#radarCardsArea');
+                    if (newArea) area.innerHTML = newArea.innerHTML;
+                    else area.innerHTML = tempContainer.innerHTML;
+                });
+        };
 
         window.updateTradeStatus = function(idx, status) {
             // Legacy - not used in new flow
