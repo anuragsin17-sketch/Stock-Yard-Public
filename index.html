@@ -7591,12 +7591,19 @@
                 const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
                 if (!resp.ok) return 0;
                 const data = await resp.json();
-                const meta = data?.chart?.result?.[0]?.meta;
-                if (meta) {
-                    // chartPreviousClose is the reliable field for prev day close
-                    const pc = parseFloat(meta.chartPreviousClose || meta.previousClose || 0);
+                const result = data?.chart?.result?.[0];
+                if (!result) return 0;
+                // Use second-to-last daily close as prev day close
+                // (chartPreviousClose returns wrong date — too far back)
+                const closes = (result.indicators?.quote?.[0]?.close || []).filter(c => c != null);
+                if (closes.length >= 2) {
+                    const pc = parseFloat(closes[closes.length - 2].toFixed(2));
                     if (pc > 0) { console.log(`  prev close ${ticker}: ${pc}`); return pc; }
                 }
+                // fallback to meta field
+                const meta = result.meta;
+                const pc = parseFloat(meta?.chartPreviousClose || meta?.previousClose || 0);
+                if (pc > 0) { console.log(`  prev close ${ticker} (meta): ${pc}`); return pc; }
             } catch(e) { console.warn(`fetchPrevClose ${ticker} failed:`, e.message); }
             return 0;
         }
