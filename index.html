@@ -5123,6 +5123,46 @@
             }
         }
 
+        // ─── ONE-TIME CLEANUP: remove auto-added Trendline entries from localStorage ──
+        (function purgeAutoTrendlineTrades() {
+            const CLEANUP_KEY = 'sy_tl_purge_v1';
+            if (localStorage.getItem(CLEANUP_KEY)) return; // already done
+
+            // radarOverrides: remove entries with source='Trendline' that have no quantity (auto-added by old monitor)
+            try {
+                const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                let changed = false;
+                Object.keys(overrides).forEach(k => {
+                    const t = overrides[k];
+                    if ((t.source === 'Trendline' || t.source === 'trendline') && !parseInt(t.quantity)) {
+                        delete overrides[k];
+                        changed = true;
+                    }
+                });
+                if (changed) localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+            } catch(e) {}
+
+            // radarTrades: same filter
+            try {
+                const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
+                const filtered = trades.filter(t =>
+                    !((t.source === 'Trendline' || t.source === 'trendline') && !parseInt(t.quantity))
+                );
+                if (filtered.length !== trades.length)
+                    localStorage.setItem('radarTrades', JSON.stringify(filtered));
+            } catch(e) {}
+
+            // inRadarTickers: will be rebuilt on next sync — clear it so stale tickers don't block trendline tab
+            try {
+                const overridesNow = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                const validTickers = Object.values(overridesNow).map(t => t.ticker).filter(Boolean);
+                localStorage.setItem('inRadarTickers', JSON.stringify(validTickers));
+            } catch(e) {}
+
+            localStorage.setItem(CLEANUP_KEY, '1');
+            console.log('✅ Auto-added Trendline trades purged from localStorage');
+        })();
+
         // Check PIN on load
         (function() {
             if (sessionStorage.getItem('sy_pin_unlocked') === '1') {
