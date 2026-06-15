@@ -5374,13 +5374,17 @@
                         liveTickers.add(ticker);
                         // Preserve target/stop from existing override so they don't reset to 0
                         const prev = existing[ticker] || {};
+                        const entryVal = parseFloat(p.entry_price || prev.entry_price || 0);
+                        // Use saved values first; if still 0, compute defaults: SL = 7% below, Target = 25% above entry
+                        const savedTarget = parseFloat(p.target || prev.target || prev.targetExit || 0);
+                        const savedSL     = parseFloat(p.stop_loss || prev.stop_loss || prev.stopLoss || 0);
                         angelTrades[ticker] = {
                             ticker,
                             quantity:      p.quantity      || prev.quantity      || 0,
-                            entry_price:   p.entry_price   || prev.entry_price   || 0,
-                            current_price: p.current_price || prev.current_price || p.entry_price || 0,
-                            target:        p.target        || prev.target        || prev.targetExit   || 0,
-                            stop_loss:     p.stop_loss     || prev.stop_loss     || prev.stopLoss     || 0,
+                            entry_price:   entryVal,
+                            current_price: parseFloat(p.current_price || prev.current_price || entryVal),
+                            target:        savedTarget > 0 ? savedTarget : (entryVal > 0 ? parseFloat((entryVal * 1.25).toFixed(2)) : 0),
+                            stop_loss:     savedSL     > 0 ? savedSL     : (entryVal > 0 ? parseFloat((entryVal * 0.93).toFixed(2)) : 0),
                             week52High:    prev.week52High  || null,
                             week52Low:     prev.week52Low   || null,
                             status:        'Open',
@@ -7905,12 +7909,18 @@
             // Normalize both snake_case and camelCase field names
             const norm = t => {
                 const w52 = get52WData(t.ticker || t.symbol);
+                const ep  = parseFloat(t.entry_price || t.entryTrigger || 0);
+                const rawTarget = parseFloat(t.target  || t.targetExit  || 0);
+                const rawSL     = parseFloat(t.stop_loss || t.stopLoss  || 0);
+                // Default: target = 25% above entry, stoploss = 7% below entry
+                const defaultTarget = ep > 0 ? parseFloat((ep * 1.25).toFixed(2)) : 0;
+                const defaultSL     = ep > 0 ? parseFloat((ep * 0.93).toFixed(2)) : 0;
                 return {
                     ...t,
-                    entry_price:   parseFloat(t.entry_price   || t.entryTrigger || 0),
-                    target:        parseFloat(t.target        || t.targetExit   || 0),
-                    stop_loss:     parseFloat(t.stop_loss     || t.stopLoss     || 0),
-                    current_price: parseFloat(t.current_price || t.currentPrice || t.entry_price || t.entryTrigger || 0),
+                    entry_price:   ep,
+                    target:        rawTarget > 0 ? rawTarget : defaultTarget,
+                    stop_loss:     rawSL     > 0 ? rawSL     : defaultSL,
+                    current_price: parseFloat(t.current_price || t.currentPrice || ep),
                     quantity:      parseInt(t.quantity || 0),
                     status:        t.status || 'Open',
                     source:        t.source || 'Manual',
@@ -8878,21 +8888,24 @@
                 const ist = new Date(utcMs + (5.5 * 60 * 60 * 1000));
                 day = ist.getDay(); h = ist.getHours(); m = ist.getMinutes();
             }
-            const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-            const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-            const dayStr  = DAYS[day];
+            const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const istDate2 = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            const dateStr  = `${istDate2.getDate()} ${MONTHS[istDate2.getMonth()]}`;
+            const timeStr  = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+            const dayStr   = DAYS[day];
             const totalMin = h * 60 + m;
             const openMin  = 9 * 60 + 15;
             const closeMin = 15 * 60 + 30;
 
             if (day === 0 || day === 6) {
                 // Weekend
-                el.textContent = `${dayStr} ${timeStr} · Closed`;
+                el.textContent = `${dayStr} ${dateStr} ${timeStr} · Closed`;
                 el.className = 'text-slate-400 tracking-wide';
                 if (dot) { dot.style.background = '#DC2626'; dot.style.animation = 'none'; }
             } else if (totalMin >= openMin && totalMin < closeMin) {
                 // Market open
-                el.textContent = `${dayStr} ${timeStr} · Live`;
+                el.textContent = `${dayStr} ${dateStr} ${timeStr} · Live`;
                 el.className = 'market-open-pulse tracking-wide';
                 if (dot) { dot.style.background = '#10B981'; dot.style.animation = ''; }
             } else if (totalMin < openMin) {
@@ -8900,12 +8913,12 @@
                 const diff = openMin - totalMin;
                 const hh = Math.floor(diff / 60), mm = diff % 60;
                 const opens = hh > 0 ? `${hh}h ${mm}m` : `${mm}m`;
-                el.textContent = `${dayStr} ${timeStr} · Opens ${opens}`;
+                el.textContent = `${dayStr} ${dateStr} ${timeStr} · Opens ${opens}`;
                 el.className = 'text-slate-400 tracking-wide';
                 if (dot) { dot.style.background = '#EAB308'; dot.style.animation = 'none'; }
             } else {
                 // Post-market weekday
-                el.textContent = `${dayStr} ${timeStr} · Closed`;
+                el.textContent = `${dayStr} ${dateStr} ${timeStr} · Closed`;
                 el.className = 'text-slate-400 tracking-wide';
                 if (dot) { dot.style.background = '#DC2626'; dot.style.animation = 'none'; }
             }
