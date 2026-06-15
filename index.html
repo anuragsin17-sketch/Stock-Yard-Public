@@ -8286,7 +8286,7 @@
                             <div>
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Stop Loss</div>
                                 <div style="font-size:13px;font-weight:700;color:#f43f5e;margin-top:2px;" class="mono">${sl > 0 ? '₹'+sl.toFixed(2) : '<span style="color:#374151">Set below ↓</span>'}</div>
-                                ${isEditable ? `<button onclick="haptic([200]);updateTradeStatusByTicker('${t}','${ep}','Stop Loss')" style="margin-top:6px;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;border:none;cursor:pointer;width:100%;">🛑 Stop Loss</button>` : ''}
+                                ${isEditable ? `<button onclick="haptic([200]);updateTradeStatusByTicker('${t}','${ep}','Stop Loss')" style="all:unset;display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(127,29,29,0.3);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;cursor:pointer;">🛑 Stop Loss</button>` : ''}
                             </div>
                             <div style="text-align:center;">
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Entry</div>
@@ -8295,7 +8295,7 @@
                             <div style="text-align:right;">
                                 <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;">Target</div>
                                 <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px;" class="mono">${tgt > 0 ? '₹'+tgt.toFixed(2) : '<span style="color:#374151">Set below ↓</span>'}</div>
-                                ${isEditable ? `<button onclick="haptic(50);updateTradeStatusByTicker('${t}','${ep}','Target Hit');launchConfetti(event.clientX,event.clientY)" style="margin-top:6px;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;width:100%;">✅ Target Hit</button>` : ''}
+                                ${isEditable ? `<button onclick="haptic(50);updateTradeStatusByTicker('${t}','${ep}','Target Hit');launchConfetti(event.clientX,event.clientY)" style="all:unset;display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(6,95,70,0.3);border:1px solid rgba(16,185,129,0.4);color:#6ee7b7;cursor:pointer;">✅ Target Hit</button>` : ''}
                             </div>
                         </div>
                         <div style="height:6px;background:#1f2937;border-radius:3px;position:relative;">
