@@ -6300,7 +6300,7 @@
                 html += createVolumeGainerCard(stock);
             });
 
-            if (!searchFiltered && totalPages > 1) {
+            if (totalPages > 1) {
                 html += paginationControls(
                     volPage, totalPages,
                     'volPage=Math.max(1,volPage-1); displayVolumeGainerTab()',
@@ -6814,11 +6814,7 @@
                     });
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
                 if (trendPage > trendTotalPages) trendPage = 1;
-                // Apply search filter — bypasses pagination when active
-                const trendSearchFiltered = trendSearch.length >= 3
-                    ? filteredTrendStocks.filter(s => (s.ticker||'').toUpperCase().includes(trendSearch) || (s.company_name||'').toUpperCase().includes(trendSearch))
-                    : null;
-                const pagedTrendStocks = trendSearchFiltered || filteredTrendStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
+                const pagedTrendStocks = filteredTrendStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
 
                 pagedTrendStocks.forEach(stock => {
                     // Get saved entry trigger override from localStorage
@@ -6937,8 +6933,8 @@
                     `;
                 });
                 
-                // Trendline pagination controls — skip when search is active
-                if (!trendSearchFiltered && trendTotalPages > 1) {
+                // Trendline pagination controls — no search filtering in rendered HTML
+                if (trendTotalPages > 1) {
                     html += paginationControls(
                         trendPage, trendTotalPages,
                         'trendPage=Math.max(1,trendPage-1); displayTrendlineScreen()',
