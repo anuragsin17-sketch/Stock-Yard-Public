@@ -389,6 +389,13 @@
                     <span>Backtest Summary</span>
                 </div>
             </button>
+            <button id="radarPerfTab" class="pill-tab flex-shrink-0">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <span>Radar Performance</span>
+                    <span id="radarPerfCount" class="px-1.5 py-0.5 rounded-full text-xs font-bold" style="background:rgba(255,255,255,0.12);color:#94a3b8;min-width:18px;text-align:center;display:none;"></span>
+                </div>
+            </button>
         </div>
 
         <!-- Results Container -->
@@ -5196,14 +5203,15 @@
             document.getElementById('trendlineTab').addEventListener('click', () => switchTab('trendline'));
             document.getElementById('performanceTab').addEventListener('click', () => switchTab('performance'));
             document.getElementById('pastPerfTab').addEventListener('click', () => switchTab('pastperf'));
+            document.getElementById('radarPerfTab').addEventListener('click', () => switchTab('radarperf'));
 
             // Add Stock search
             setupAddStockSearch();
 
             // ─── Swipe gesture support ────────────────────────────────────────
             const swipeTarget = document.querySelector('main') || document.getElementById('resultsContainer');
-            const TAB_ORDER = ['volume', 'trendline', 'performance', 'pastperf'];
-            const TAB_BTN_IDS = { volume: 'volTab', trendline: 'trendlineTab', performance: 'performanceTab', pastperf: 'pastPerfTab' };
+            const TAB_ORDER = ['volume', 'trendline', 'performance', 'pastperf', 'radarperf'];
+            const TAB_BTN_IDS = { volume: 'volTab', trendline: 'trendlineTab', performance: 'performanceTab', pastperf: 'pastPerfTab', radarperf: 'radarPerfTab' };
             let swipeStartX = 0, swipeStartY = 0;
             swipeTarget.addEventListener('touchstart', function(e) {
                 swipeStartX = e.touches[0].clientX;
@@ -6019,6 +6027,7 @@
                 tab === 'volume' ? 'volTab' : 
                 tab === 'trendline' ? 'trendlineTab' :
                 tab === 'pastperf' ? 'pastPerfTab' :
+                tab === 'radarperf' ? 'radarPerfTab' :
                 'performanceTab'
             );
             if (activeBtn) {
@@ -6089,6 +6098,10 @@
                     const openCount = trades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
                     setTabCount('radarTabCount', openCount);
                 });
+
+            // Radar Performance count — closed trades in tradeHistory
+            const histCount = JSON.parse(localStorage.getItem('tradeHistory') || '[]').length;
+            setTabCount('radarPerfCount', histCount);
         }
         
         // ─── VOLUME GAINER TAB (new logic) ──────────────────────────────────────
@@ -6296,6 +6309,9 @@
                     return;
                 case 'pastperf':
                     displayPastPerformance();
+                    return;
+                case 'radarperf':
+                    displayRadarPerformance();
                     return;
                 default:
                     displayVolumeGainerTab();
@@ -6956,6 +6972,164 @@
                 displayPastPerformance();
             }
         };
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // RADAR PERFORMANCE TAB
+        // ═══════════════════════════════════════════════════════════════════════
+        function displayRadarPerformance() {
+            const container = document.getElementById('resultsContainer');
+            const history = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
+
+            // Update tab count badge
+            setTabCount('radarPerfCount', history.length);
+
+            if (history.length === 0) {
+                container.innerHTML = `
+                    <div style="background:#111625;border:1px solid #1f2937;border-radius:14px;padding:40px 24px;text-align:center;">
+                        <div style="font-size:48px;margin-bottom:16px;">📊</div>
+                        <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:8px;">No Closed Trades Yet</div>
+                        <div style="font-size:12px;color:#6b7280;">Mark trades as "Target Hit" or "Stop Loss" in the Radar tab to record performance here.</div>
+                    </div>`;
+                return;
+            }
+
+            // ── Calculate stats ──────────────────────────────────────────────
+            const closed = history.filter(h => h.status === 'Target Hit' || h.status === 'Stop Loss');
+            const wins   = closed.filter(h => h.status === 'Target Hit');
+            const losses = closed.filter(h => h.status === 'Stop Loss');
+            const winRate = closed.length > 0 ? (wins.length / closed.length * 100) : 0;
+            const totalPnL   = closed.reduce((s, h) => s + (parseFloat(h.pnl) || 0), 0);
+            const totalInvest= closed.reduce((s, h) => s + (parseFloat(h.entry_price || 0) * parseInt(h.quantity || 0) || 0), 0);
+            const avgWinPct  = wins.length   > 0 ? wins.reduce((s,h)=>s+(parseFloat(h.pnl_percent)||0),0)   / wins.length   : 0;
+            const avgLossPct = losses.length > 0 ? losses.reduce((s,h)=>s+(parseFloat(h.pnl_percent)||0),0) / losses.length : 0;
+            const bestTrade  = closed.reduce((b,h) => (parseFloat(h.pnl_percent)||0) > (parseFloat(b.pnl_percent)||0) ? h : b, closed[0]);
+            const worstTrade = closed.reduce((w,h) => (parseFloat(h.pnl_percent)||0) < (parseFloat(w.pnl_percent)||0) ? h : w, closed[0]);
+            const pnlColor   = totalPnL >= 0 ? '#10b981' : '#f43f5e';
+
+            // ── Build source breakdown ───────────────────────────────────────
+            const bySrc = {};
+            closed.forEach(h => {
+                const src = h.source || 'Manual';
+                if (!bySrc[src]) bySrc[src] = { wins: 0, losses: 0, pnl: 0 };
+                if (h.status === 'Target Hit') bySrc[src].wins++;
+                else bySrc[src].losses++;
+                bySrc[src].pnl += parseFloat(h.pnl) || 0;
+            });
+
+            const srcHtml = Object.entries(bySrc).map(([src, d]) => {
+                const wr = ((d.wins / (d.wins + d.losses)) * 100).toFixed(0);
+                const pc = d.pnl >= 0 ? '#10b981' : '#f43f5e';
+                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <div>
+                        <div style="font-size:12px;font-weight:600;color:#f1f5f9;">${src}</div>
+                        <div style="font-size:10px;color:#6b7280;">${d.wins}W · ${d.losses}L · ${wr}% win rate</div>
+                    </div>
+                    <div style="font-size:13px;font-weight:700;color:${pc};" class="mono">${d.pnl >= 0 ? '+' : ''}${formatINR(d.pnl, 0)}</div>
+                </div>`;
+            }).join('');
+
+            // ── Build trade rows ─────────────────────────────────────────────
+            const rows = [...history].reverse().map((h, i) => {
+                const pct  = parseFloat(h.pnl_percent) || 0;
+                const pnl  = parseFloat(h.pnl) || 0;
+                const pc   = pct >= 0 ? '#10b981' : '#f43f5e';
+                const icon = h.status === 'Target Hit' ? '✅' : '🛑';
+                const bgRow= pct >= 0 ? 'rgba(16,185,129,0.04)' : 'rgba(244,63,94,0.04)';
+                const closedDate = h.closed_at ? new Date(h.closed_at).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'2-digit'}) : '—';
+                const openedDate = h.opened_at  ? new Date(h.opened_at).toLocaleDateString('en-IN',  {day:'2-digit',month:'short',year:'2-digit'}) : '—';
+                const holdDays = (h.opened_at && h.closed_at)
+                    ? Math.round((new Date(h.closed_at) - new Date(h.opened_at)) / 86400000) : '—';
+                return `
+                <div style="background:${bgRow};border:1px solid rgba(31,41,55,0.8);border-radius:10px;padding:14px;margin-bottom:10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                        <div>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <a href="https://in.tradingview.com/chart/?symbol=NSE:${h.ticker}" target="_blank" style="font-size:15px;font-weight:700;color:#fff;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${h.ticker}</a>
+                                <span style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;background:${pct>=0?'rgba(16,185,129,0.15)':'rgba(244,63,94,0.15)'};color:${pc};">${icon} ${h.status}</span>
+                            </div>
+                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${h.source || 'Manual'} · Held ${holdDays}d · Closed ${closedDate}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:15px;font-weight:700;color:${pc};" class="mono">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>
+                            <div style="font-size:11px;color:${pc};" class="mono">${pnl >= 0 ? '+' : ''}${formatINR(pnl, 0)}</div>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                        <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:6px;padding:8px;text-align:center;">
+                            <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Entry</div>
+                            <div style="font-size:11px;font-weight:600;color:#3b82f6;" class="mono">${formatINR(h.entry_price)}</div>
+                        </div>
+                        <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:6px;padding:8px;text-align:center;">
+                            <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Exit</div>
+                            <div style="font-size:11px;font-weight:600;color:${pc};" class="mono">${formatINR(h.exit_price)}</div>
+                        </div>
+                        <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:6px;padding:8px;text-align:center;">
+                            <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Qty</div>
+                            <div style="font-size:11px;font-weight:600;color:#94a3b8;" class="mono">${h.quantity || '—'}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            container.innerHTML = `
+                <!-- ── Summary Cards ── -->
+                <div style="background:#111625;border:1px solid #1f2937;border-radius:14px;padding:20px;margin-bottom:16px;">
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;margin-bottom:14px;">📊 Radar Performance Summary</div>
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;">
+                        <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:10px;padding:14px;">
+                            <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Total P&amp;L</div>
+                            <div style="font-size:18px;font-weight:700;color:${pnlColor};" class="mono">${totalPnL >= 0 ? '+' : ''}${formatINR(totalPnL, 0)}</div>
+                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${closed.length} closed trades</div>
+                        </div>
+                        <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:10px;padding:14px;">
+                            <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Win Rate</div>
+                            <div style="font-size:18px;font-weight:700;color:${winRate>=50?'#10b981':'#f43f5e'};" class="mono">${winRate.toFixed(1)}%</div>
+                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${wins.length}W · ${losses.length}L</div>
+                        </div>
+                        <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:10px;padding:14px;">
+                            <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Avg Win</div>
+                            <div style="font-size:16px;font-weight:700;color:#10b981;" class="mono">+${avgWinPct.toFixed(2)}%</div>
+                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${wins.length} winning trades</div>
+                        </div>
+                        <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:10px;padding:14px;">
+                            <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Avg Loss</div>
+                            <div style="font-size:16px;font-weight:700;color:#f43f5e;" class="mono">${avgLossPct.toFixed(2)}%</div>
+                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${losses.length} losing trades</div>
+                        </div>
+                    </div>
+                    <!-- Best / Worst -->
+                    ${bestTrade ? `
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:10px;">
+                            <div style="font-size:9px;color:#10b981;font-weight:700;text-transform:uppercase;margin-bottom:4px;">🏆 Best Trade</div>
+                            <div style="font-size:13px;font-weight:700;color:#f1f5f9;">${bestTrade.ticker}</div>
+                            <div style="font-size:12px;font-weight:700;color:#10b981;" class="mono">+${parseFloat(bestTrade.pnl_percent).toFixed(2)}%</div>
+                        </div>
+                        <div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.2);border-radius:8px;padding:10px;">
+                            <div style="font-size:9px;color:#f43f5e;font-weight:700;text-transform:uppercase;margin-bottom:4px;">📉 Worst Trade</div>
+                            <div style="font-size:13px;font-weight:700;color:#f1f5f9;">${worstTrade.ticker}</div>
+                            <div style="font-size:12px;font-weight:700;color:#f43f5e;" class="mono">${parseFloat(worstTrade.pnl_percent).toFixed(2)}%</div>
+                        </div>
+                    </div>` : ''}
+                </div>
+
+                <!-- ── Source Breakdown ── -->
+                ${Object.keys(bySrc).length > 1 ? `
+                <div style="background:#111625;border:1px solid #1f2937;border-radius:14px;padding:20px;margin-bottom:16px;">
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">📂 By Source</div>
+                    ${srcHtml}
+                </div>` : ''}
+
+                <!-- ── Trade Log ── -->
+                <div style="background:#111625;border:1px solid #1f2937;border-radius:14px;padding:20px;margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">📋 Trade Log (${history.length})</div>
+                        <button onclick="if(confirm('Clear all closed trade history?')){localStorage.removeItem('tradeHistory');displayRadarPerformance();}" style="padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid rgba(220,38,38,0.3);cursor:pointer;">🗑️ Clear</button>
+                    </div>
+                    ${rows}
+                </div>
+            `;
+        }
         function getDateOffset(days) {
             const d = new Date();
             d.setDate(d.getDate() - days);
