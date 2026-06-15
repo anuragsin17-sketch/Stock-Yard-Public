@@ -5196,6 +5196,10 @@
             const stockParam = urlParams.get('stock');
 
             setupEventListeners();
+            // Pre-fetch volume gainer data early so Volume tab renders instantly
+            fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : []).catch(() => [])
+                .then(data => { if (Array.isArray(data)) volGainerData = data; });
             loadData().then(() => {
                 // START live price updates AFTER data is loaded
                 console.log('📊 Data loaded, starting live price updates...');
@@ -6150,18 +6154,25 @@
         async function displayVolumeGainerTab() {
             currentTab = 'volume';
             const container = document.getElementById('resultsContainer');
-            container.innerHTML = skeletonList(3);
+
+            // If already cached, render immediately without skeleton flash
+            if (!Array.isArray(volGainerData) || volGainerData.length === 0) {
+                container.innerHTML = skeletonList(3);
+            }
 
             try {
                 const resp = await fetch('./volume_gainer_watchlist.json', { cache: 'no-store' });
                 if (resp.ok) {
                     volGainerData = await resp.json();
                 } else {
-                    volGainerData = [];
+                    volGainerData = volGainerData || [];
                 }
             } catch (e) {
-                volGainerData = [];
+                volGainerData = volGainerData || [];
             }
+
+            // Don't overwrite another tab's content if user switched away during fetch
+            if (currentTab !== 'volume') return;
 
             if (!Array.isArray(volGainerData) || volGainerData.length === 0) {
                 container.innerHTML = `
