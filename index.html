@@ -395,21 +395,6 @@
                 </div>
             </button>
             <div style="flex:1;"></div>
-            <!-- Search pill -->
-            <button id="searchToggleBtn" onclick="toggleTabSearch()" class="pill-tab flex-shrink-0" style="padding:6px 8px;" title="Search">
-                <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            </button>
-        </div>
-        <!-- Search bar — hidden by default, shown below tab row -->
-        <div id="tabSearchBar" style="display:none;padding:8px 0 4px 0;">
-            <div style="display:flex;align-items:center;gap:8px;background:#111625;border:1px solid #1f2937;border-radius:8px;padding:6px 12px;">
-                <svg style="width:13px;height:13px;color:#6b7280;flex-shrink:0;" fill="none" stroke="#6b7280" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <input id="tabSearchInput" type="text" placeholder="Type 3+ chars to search..."
-                    autocomplete="off" autocorrect="off" spellcheck="false"
-                    style="flex:1;background:transparent;border:none;outline:none;font-size:12px;color:#f1f5f9;font-family:'JetBrains Mono',monospace;"
-                    oninput="onTabSearchInput(this.value)"/>
-                <button onclick="clearTabSearch()" style="all:unset;color:#6b7280;cursor:pointer;font-size:14px;line-height:1;">✕</button>
-            </div>
         </div>
 
         <!-- Results Container -->
@@ -6069,34 +6054,53 @@
         }
 
         // ── Search helpers ────────────────────────────────────────────────────
-        function toggleVolSearch() {
-            const box = document.getElementById('volSearchBox');
-            if (!box) return;
-            const hidden = box.style.display === 'none' || !box.style.display;
-            box.style.display = hidden ? 'flex' : 'none';
-            if (hidden) { box.querySelector('input').focus(); }
-            else { volSearch = ''; displayVolumeGainerTab(); }
+        let tabSearchQuery = '';
+
+        function toggleTabSearch() {
+            const bar = document.getElementById('tabSearchBar');
+            const input = document.getElementById('tabSearchInput');
+            if (!bar) return;
+            const showing = bar.style.display !== 'none';
+            bar.style.display = showing ? 'none' : 'block';
+            if (!showing) { input.focus(); }
+            else { clearTabSearch(); }
         }
-        function toggleTrendSearch() {
-            const box = document.getElementById('trendSearchBox');
-            if (!box) return;
-            const hidden = box.style.display === 'none' || !box.style.display;
-            box.style.display = hidden ? 'flex' : 'none';
-            if (hidden) { box.querySelector('input').focus(); }
-            else { trendSearch = ''; displayTrendlineScreen(); }
+
+        function onTabSearchInput(val) {
+            tabSearchQuery = val.toUpperCase();
+            volSearch = tabSearchQuery;
+            trendSearch = tabSearchQuery;
+            radarSearch = tabSearchQuery;
+            // Re-render current tab with search applied
+            if (currentTab === 'volume') displayVolumeGainerTab();
+            else if (currentTab === 'trendline') displayTrendlineScreen();
+            else if (currentTab === 'performance') displayPerformanceTracking();
         }
-        function toggleRadarSearch() {
-            const box = document.getElementById('radarSearchBox');
-            if (!box) return;
-            const hidden = box.style.display === 'none' || !box.style.display;
-            box.style.display = hidden ? 'flex' : 'none';
-            if (hidden) { box.querySelector('input').focus(); }
-            else { radarSearch = ''; displayPerformanceTracking(); }
+
+        function clearTabSearch() {
+            tabSearchQuery = ''; volSearch = ''; trendSearch = ''; radarSearch = '';
+            const input = document.getElementById('tabSearchInput');
+            const bar = document.getElementById('tabSearchBar');
+            if (input) input.value = '';
+            if (bar) bar.style.display = 'none';
+            if (currentTab === 'volume') displayVolumeGainerTab();
+            else if (currentTab === 'trendline') displayTrendlineScreen();
+            else if (currentTab === 'performance') displayPerformanceTracking();
         }
+
+        function toggleVolSearch() {}    // no-op — use global tab search
+        function toggleTrendSearch() {}  // no-op — use global tab search
+        function toggleRadarSearch() {}  // no-op — use global tab search
 
         // Switch between tabs
         function switchTab(tab) {
             currentTab = tab;
+            // Clear search when switching tabs
+            tabSearchQuery = ''; volSearch = ''; trendSearch = ''; radarSearch = '';
+            const inp = document.getElementById('tabSearchInput');
+            const bar = document.getElementById('tabSearchBar');
+            if (inp) inp.value = '';
+            if (bar) bar.style.display = 'none';
             // Stop radar live timer when leaving radar tab
             if (tab !== 'performance') stopRadarLiveTimer();
             // Reset trendline page to 1 whenever tab changes
@@ -6247,29 +6251,22 @@
             setTabCount('volTabCount', unalerted);
 
             let html = `
-            <!-- Header info -->
-            <div class="mobile-card rounded-xl p-3 mb-3" style="background:rgba(16,185,129,0.05);border-color:rgba(16,185,129,0.2);">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-xs font-semibold text-slate-300">🔥 Volume Gainer Watchlist</div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div class="text-right">
-                            <div class="text-sm font-bold" style="color:#10B981;">${unalerted} active</div>
-                            <div class="text-xs text-slate-500">${sorted.length} total</div>
-                        </div>
-                        <button onclick="toggleVolSearch()" title="Search"
-                            style="all:unset;display:flex;align-items:center;padding:4px 8px;border-radius:5px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
-                            <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div id="volSearchBox" style="display:none;align-items:center;gap:6px;margin-top:8px;">
-                    <svg style="width:13px;height:13px;color:#6b7280;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    <input type="text" placeholder="Type 3+ chars to search..." value="${volSearch}"
-                        oninput="volSearch=this.value.toUpperCase(); displayVolumeGainerTab();"
-                        style="flex:1;background:transparent;border:none;border-bottom:1px solid rgba(16,185,129,0.3);outline:none;color:#f1f5f9;font-size:12px;padding:2px 0;font-family:'JetBrains Mono',monospace;"/>
-                    ${volSearch ? `<button onclick="volSearch=''; displayVolumeGainerTab();" style="all:unset;color:#6b7280;cursor:pointer;font-size:14px;">✕</button>` : ''}
+            <!-- Volume tab action bar -->
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <button onclick="openAddStockModal('volume')"
+                    style="all:unset;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;cursor:pointer;">
+                    <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    Add Stock
+                </button>
+                <button onclick="(function(){const b=document.getElementById('volSearchWrap');const show=b.style.display==='none'||!b.style.display;b.style.display=show?'flex':'none';if(show)b.querySelector('input').focus();else{volSearch='';displayVolumeGainerTab();}})()"
+                    style="all:unset;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
+                    <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </button>
+                <div id="volSearchWrap" style="display:${volSearch?'flex':'none'};align-items:center;gap:6px;flex:1;">
+                    <input type="text" placeholder="Type 3+ chars..." value="${volSearch}" autocomplete="off"
+                        oninput="volSearch=this.value.toUpperCase();displayVolumeGainerTab();"
+                        style="flex:1;background:#111625;border:1px solid rgba(16,185,129,0.3);border-radius:5px;outline:none;color:#f1f5f9;font-size:11px;padding:4px 8px;font-family:'JetBrains Mono',monospace;"/>
+                    ${volSearch ? `<button onclick="volSearch='';displayVolumeGainerTab();" style="all:unset;color:#6b7280;cursor:pointer;font-size:14px;">✕</button>` : ''}
                 </div>
             </div>`;
 
@@ -6738,15 +6735,15 @@
                             <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                             Add Stock
                         </button>
-                        <button onclick="toggleTrendSearch()" title="Search"
+                        <button onclick="(function(){const b=document.getElementById('trendSearchWrap');const show=b.style.display==='none'||!b.style.display;b.style.display=show?'flex':'none';if(show)b.querySelector('input').focus();else{trendSearch='';trendPage=1;displayTrendlineScreen();}})()"
                             style="all:unset;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
                             <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                         </button>
-                        <div id="trendSearchBox" style="display:${trendSearch?'flex':'none'};align-items:center;gap:6px;flex:1;">
-                            <input type="text" placeholder="Type 3+ chars..." value="${trendSearch}"
-                                oninput="trendSearch=this.value.toUpperCase(); trendPage=1; displayTrendlineScreen();"
+                        <div id="trendSearchWrap" style="display:${trendSearch?'flex':'none'};align-items:center;gap:6px;flex:1;">
+                            <input type="text" placeholder="Type 3+ chars..." value="${trendSearch}" autocomplete="off"
+                                oninput="trendSearch=this.value.toUpperCase();trendPage=1;displayTrendlineScreen();"
                                 style="flex:1;background:#111625;border:1px solid rgba(16,185,129,0.3);border-radius:5px;outline:none;color:#f1f5f9;font-size:11px;padding:4px 8px;font-family:'JetBrains Mono',monospace;"/>
-                            ${trendSearch ? `<button onclick="trendSearch=''; displayTrendlineScreen();" style="all:unset;color:#6b7280;cursor:pointer;font-size:14px;">✕</button>` : ''}
+                            ${trendSearch ? `<button onclick="trendSearch='';trendPage=1;displayTrendlineScreen();" style="all:unset;color:#6b7280;cursor:pointer;font-size:14px;">✕</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -8292,11 +8289,6 @@
                         style="all:unset;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;${radarFilterState==='closed' ? 'background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.25);' : 'background:#111625;color:#9ca3af;border:1px solid #1f2937;'}">
                         Closed <span style="opacity:0.6;">${closed.length}</span>
                     </button>
-                    <!-- Search lens -->
-                    <button id="radarSearchToggle" onclick="toggleRadarSearch()"
-                        style="all:unset;display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
-                        <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    </button>
                     <div style="flex:1;"></div>
                     <button onclick="openAddTradeModal()"
                         style="all:unset;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;cursor:pointer;">
@@ -8312,7 +8304,6 @@
                     </button>
                 </div>
                 <div style="background:#111625;border:1px solid #1f2937;border-radius:14px;padding:20px;margin-bottom:16px;">
-                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;margin-bottom:14px;">Portfolio Summary</div>
                     <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;margin-bottom:14px;">Portfolio Summary</div>
                     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
                         <div style="background:rgba(8,12,20,0.4);border:1px solid rgba(31,41,55,0.6);padding:14px;border-radius:10px;">
