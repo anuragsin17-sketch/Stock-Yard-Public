@@ -7536,7 +7536,8 @@
                 const data = await resp.json();
                 const meta = data?.chart?.result?.[0]?.meta;
                 if (meta) {
-                    const pc = parseFloat(meta.previousClose || meta.chartPreviousClose || 0);
+                    // chartPreviousClose is the reliable field for prev day close
+                    const pc = parseFloat(meta.chartPreviousClose || meta.previousClose || 0);
                     if (pc > 0) { console.log(`  prev close ${ticker}: ${pc}`); return pc; }
                 }
             } catch(e) { /* silent */ }
