@@ -5196,10 +5196,6 @@
             const stockParam = urlParams.get('stock');
 
             setupEventListeners();
-            // Pre-fetch volume gainer data early so Volume tab renders instantly
-            fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
-                .then(r => r.ok ? r.json() : []).catch(() => [])
-                .then(data => { if (Array.isArray(data)) volGainerData = data; });
             loadData().then(() => {
                 // START live price updates AFTER data is loaded
                 console.log('📊 Data loaded, starting live price updates...');
@@ -5671,6 +5667,11 @@
             console.log('📱 Loading data...');
             hideError();
             
+            // Kick off volume gainer watchlist fetch in parallel — so it's ready when Volume tab renders
+            const watchlistPromise = fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : []).catch(() => [])
+                .then(data => { if (Array.isArray(data)) volGainerData = data; });
+
             try {
                 // Try to fetch updated data first
                 const response = await fetch('./data.json', {
@@ -5686,6 +5687,8 @@
                     if (fetchedData && fetchedData.timestamp) {
                         console.log('✅ Fetched fresh data from server');
                         screeningData = fetchedData;
+                        // Wait for watchlist too before rendering, so Volume tab has data ready
+                        await watchlistPromise;
                         updateUI();
                         updateStatus(true);
                         return;
@@ -5698,6 +5701,7 @@
             // Use embedded data as reliable fallback
             console.log('📦 Using embedded live data');
             screeningData = LIVE_DATA;
+            await watchlistPromise;
             updateUI();
             updateStatus(true);
         }
