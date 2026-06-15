@@ -5757,7 +5757,8 @@
             // Update timestamp
             if (screeningData.timestamp) {
                 const date = new Date(screeningData.timestamp);
-                document.getElementById('lastSync').textContent = date.toLocaleTimeString('en-IN', { 
+                const lastSyncEl = document.getElementById('lastSync');
+                if (lastSyncEl) lastSyncEl.textContent = date.toLocaleTimeString('en-IN', { 
                     hour: '2-digit', 
                     minute: '2-digit',
                     hour12: false 
