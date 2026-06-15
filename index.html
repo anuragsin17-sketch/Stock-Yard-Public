@@ -8471,6 +8471,11 @@
             const area = document.getElementById('radarCardsArea');
             if (!area) { displayPerformanceTracking(); return; }
 
+            if (radarSearch.length === 0) {
+                displayPerformanceTracking();
+                return;
+            }
+
             fetch('./radar_trades.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(serverTrades => {
@@ -8489,40 +8494,34 @@
                     });
                     trades = trades.filter(t => !t._deleted && !purged.includes(t.ticker) && !deleted.includes(t.ticker));
 
-                    const norm = t => {
-                        const ep = parseFloat(t.entry_price || t.entryTrigger || 0);
-                        const rawTarget = parseFloat(t.target || t.targetExit || 0);
-                        const rawSL = parseFloat(t.stop_loss || t.stopLoss || 0);
-                        return { ...t,
-                            entry_price: ep,
-                            target: rawTarget > 0 ? rawTarget : ep > 0 ? parseFloat((ep * 1.25).toFixed(2)) : 0,
-                            stop_loss: rawSL > 0 ? rawSL : ep > 0 ? parseFloat((ep * 0.93).toFixed(2)) : 0,
-                            current_price: parseFloat(t.current_price || t.currentPrice || ep),
-                            quantity: parseInt(t.quantity || 0),
-                            status: t.status || 'Open',
-                            source: t.source || 'Manual'
-                        };
-                    };
-                    trades = trades.filter(t => !t._deleted).map(norm);
-
-                    let filtered = radarFilterState === 'open' ? trades.filter(t => t.status === 'Open' || t.status === 'Triggered')
-                        : radarFilterState === 'closed' ? trades.filter(t => t.status !== 'Open' && t.status !== 'Triggered')
-                        : trades;
-                    if (radarSearch.length >= 1) {
-                        filtered = trades.filter(t => (t.ticker||'').toUpperCase().includes(radarSearch));
-                    }
+                    const q = radarSearch.toUpperCase();
+                    const filtered = trades.filter(t => (t.ticker||'').toUpperCase().includes(q));
 
                     if (filtered.length === 0) {
                         area.innerHTML = `<div style="padding:32px;text-align:center;color:#6b7280;font-size:13px;">No trades match "<strong style="color:#f1f5f9;">${radarSearch}</strong>"</div>`;
-                        return;
+                    } else {
+                        // Quick card summary list — avoids full re-render
+                        area.innerHTML = filtered.map(t => {
+                            const ep = parseFloat(t.entry_price || 0);
+                            const cp = parseFloat(t.current_price || ep);
+                            const pnlPct = ep > 0 ? ((cp - ep) / ep * 100) : 0;
+                            const pnlCol = pnlPct >= 0 ? '#10b981' : '#f43f5e';
+                            return `<div style="background:#111625;border:1px solid #1f2937;border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <a href="https://in.tradingview.com/chart/?symbol=NSE:${t.ticker}" target="_blank" style="font-size:15px;font-weight:700;color:#fff;text-decoration:none;">${t.ticker}</a>
+                                    <div style="font-size:11px;color:#6b7280;margin-top:2px;">${t.source||'Manual'} · ${t.status||'Open'}</div>
+                                    <div style="font-size:11px;color:#6b7280;">Entry ₹${ep.toFixed(2)}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="font-size:15px;font-weight:700;color:#06b6d4;">₹${cp.toFixed(2)}</div>
+                                    <div style="font-size:11px;font-weight:600;color:${pnlCol};">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</div>
+                                </div>
+                            </div>`;
+                        }).join('');
                     }
-
-                    // Re-render only the cards using the existing renderRadarTab function
-                    const tempContainer = document.createElement('div');
-                    renderRadarTab(tempContainer, filtered);
-                    const newArea = tempContainer.querySelector('#radarCardsArea');
-                    if (newArea) area.innerHTML = newArea.innerHTML;
-                    else area.innerHTML = tempContainer.innerHTML;
+                    // Restore search input focus
+                    const inp = document.querySelector('#radarSearchWrap input');
+                    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
                 });
         };
 
@@ -9506,8 +9505,8 @@
     </div>
 
     <!-- ─── ADD STOCK MODAL ──────────────────────────────────────────────────── -->
-    <div id="addStockModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.7);">
-        <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background: #141923; border-top: 1px solid rgba(255,255,255,0.08); max-height: 90vh; overflow-y: auto;">
+    <div id="addStockModal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background: rgba(0,0,0,0.7);">
+        <div class="w-full max-w-lg rounded-2xl p-5 pb-8 mx-4" style="background: #141923; border: 1px solid rgba(255,255,255,0.08); max-height: 90vh; overflow-y: auto;">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-bold text-slate-100">➕ Add Stock</h2>
                 <button onclick="closeAddStockModal()" class="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
@@ -9573,8 +9572,8 @@
 
 
     <!-- ─── ADD TRADE TO RADAR MODAL ─────────────────────────────────────────── -->
-    <div id="addTradeModal" class="hidden fixed inset-0 z-50 flex items-end justify-center" style="background: rgba(0,0,0,0.7);">
-        <div class="w-full max-w-lg rounded-t-2xl p-5 pb-8" style="background: #141923; border-top: 1px solid rgba(255,255,255,0.08); max-height: 90vh; overflow-y: auto;">
+    <div id="addTradeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background: rgba(0,0,0,0.7);">
+        <div class="w-full max-w-lg rounded-2xl p-5 pb-8 mx-4" style="background: #141923; border: 1px solid rgba(255,255,255,0.08); max-height: 90vh; overflow-y: auto;">
             <div class="flex items-center justify-between mb-5">
                 <h2 class="text-base font-bold text-slate-100">📡 Add Trade to Radar</h2>
                 <button onclick="closeAddTradeModal()" class="text-slate-400 hover:text-slate-200 text-xl">✕</button>
