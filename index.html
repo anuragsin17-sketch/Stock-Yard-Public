@@ -6236,7 +6236,7 @@
                         .filter(t => !purged.includes(t.ticker))
                         .filter(t => !deleted.includes(t.ticker));
                     // Only count broker-synced trades (same filter as renderRadarTab)
-                    const allowedSrc = ['Angel One', 'angel one', 'Groww', 'groww', 'LocalTest'];
+                    const allowedSrc = ['Angel One', 'angel one', 'Groww', 'groww'];
                     trades = trades.filter(t => t.order_id || t.is_angel_synced || allowedSrc.includes(t.source));
                     const openCount = trades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
                     setTabCount('radarTabCount', openCount);
@@ -8271,7 +8271,7 @@
             trades = (trades || []).filter(t => !t._deleted).map(norm);
 
             // Only show Angel One / Groww synced trades — not manual or Trendline auto-added
-            const allowedSrc = ['Angel One', 'angel one', 'Groww', 'groww', 'LocalTest'];
+            const allowedSrc = ['Angel One', 'angel one', 'Groww', 'groww'];
             trades = trades.filter(t => t.order_id || t.is_angel_synced || allowedSrc.includes(t.source));
 
             if (trades.length === 0) {
