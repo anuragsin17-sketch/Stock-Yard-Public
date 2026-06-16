@@ -6809,20 +6809,22 @@
                                         let badge = '';
                                         if (sc >= 10) {
                                             const zone = stock.patternZone || '';
-                                            let ultra = '🔥 ULTRA';
-                                            if (zone.includes('61.8%')) ultra = '🔥 61.8%+TL';
-                                            else if (zone.includes('50%')) ultra = '🔥 50%+TL';
-                                            else if (zone.includes('78.6%')) ultra = '🔥 78.6%+TL';
-                                            else if (zone.includes('100%')) ultra = '🔥 100%+TL';
-                                            badge = `<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">${ultra}</span>`;
+                                            let lbl = zone.includes('61.8') ? '🔥 61.8%+TL'
+                                                     : zone.includes('50%') || zone.includes('50.0') ? '🔥 50%+TL'
+                                                     : zone.includes('78.6') ? '🔥 78.6%+TL'
+                                                     : zone.includes('100') ? '🔥 100%+TL'
+                                                     : '🔥 ULTRA';
+                                            badge = `<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">${lbl}</span>`;
                                         } else if (sc >= 9) {
-                                            badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">⚡ 61.8% POCKET</span>';
-                                        } else if (sc >= 8) {
-                                            badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);">📊 50% POCKET</span>';
-                                        } else if (sc >= 7) {
-                                            badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);">📉 78.6% POCKET</span>';
-                                        } else if (sc >= 6) {
-                                            badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">🎯 100% ZONE</span>';
+                                            const zone = stock.patternZone || '';
+                                            let lbl = zone.includes('61.8') ? '⚡ Near 61.8%'
+                                                     : zone.includes('50%') || zone.includes('50.0') ? '⚡ Near 50%'
+                                                     : zone.includes('78.6') ? '⚡ Near 78.6%'
+                                                     : zone.includes('100') ? '⚡ Near 100%'
+                                                     : '⚡ Near Fib Level';
+                                            badge = `<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">${lbl}</span>`;
+                                        } else {
+                                            badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(107,114,128,0.1);color:#9ca3af;border:1px solid rgba(107,114,128,0.2);">📊 Monitoring</span>';
                                         }                                        return `<div style="font-size:14px;font-weight:700;color:#fbbf24;">${sc != null ? sc : '—'} <span style="color:#6b7280;font-size:11px;">/ 10</span></div>${badge}`;
                                     })()}
                                 </div>
