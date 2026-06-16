@@ -6164,9 +6164,20 @@
                 return;
             }
 
-            // Sort: unalerted first, then by gain_pct desc
+            // Sort: closest to entry zone first (smallest % distance between current price and alert_threshold)
+            // Unalerted always before alerted. Within same alert status, sort by proximity to entry.
             const sorted = [...volGainerData].sort((a, b) => {
                 if (a.alerted !== b.alerted) return a.alerted ? 1 : -1;
+                // Compute % distance from entry threshold for each stock
+                // Lower = closer to entry = more actionable
+                const aEntry = a.alert_threshold || a.prev_day_low || 0;
+                const bEntry = b.alert_threshold || b.prev_day_low || 0;
+                const aClose = a.close_price || 0;
+                const bClose = b.close_price || 0;
+                const aDist = aEntry > 0 ? Math.abs((aClose - aEntry) / aEntry * 100) : 999;
+                const bDist = bEntry > 0 ? Math.abs((bClose - bEntry) / bEntry * 100) : 999;
+                if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
+                // Tiebreak: higher gain (stronger breakout signal)
                 return (b.gain_pct || 0) - (a.gain_pct || 0);
             });
 
@@ -6702,14 +6713,43 @@
                 
                 // Trendline pagination — filter dismissed stocks first
                 const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+
+                // Fib level depth order: 100% is deepest retracement (best value), 0% is ATH
+                const fibDepthOrder = {
+                    '100.0%': 0, '78.6%': 1, '61.8%': 2, '50.0%': 3,
+                    '38.2%': 4, '23.6%': 5, '0.0%': 6,
+                    // dual-TF keys
+                    '61.8% (Both)': 2, '61.8% (Weekly)': 2, '61.8% (Monthly)': 2,
+                    '50.0% (Both)': 3, '50.0% (Weekly)': 3, '50.0% (Monthly)': 3,
+                };
+                const fibRank = (s) => {
+                    const lvl = s.fibMatchLevel || s.fibonacci_level || '';
+                    if (lvl in fibDepthOrder) return fibDepthOrder[lvl];
+                    // parse percentage from string like "Fib 61.8% ✓"
+                    const m = lvl.match(/([\d.]+)%/);
+                    if (m) {
+                        const pct = parseFloat(m[1]);
+                        if (pct >= 95)  return 0;
+                        if (pct >= 75)  return 1;
+                        if (pct >= 58)  return 2;
+                        if (pct >= 46)  return 3;
+                        if (pct >= 30)  return 4;
+                        if (pct >= 15)  return 5;
+                        return 6;
+                    }
+                    return 7; // no fib info — last
+                };
+
                 const filteredTrendStocks = trendlineStocks
                     .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker))
                     .sort((a, b) => {
-                        // Primary: confluence score (highest first = BEST ENTRY → STRONG → GOOD → WATCH)
-                        const aScore = a.confluenceScore || 0;
-                        const bScore = b.confluenceScore || 0;
-                        if (bScore !== aScore) return bScore - aScore;
-                        // Secondary: touch distance (closest first)
+                        // Primary: fib depth — 100% first, 0% last (deepest retracement = best value)
+                        const rankDiff = fibRank(a) - fibRank(b);
+                        if (rankDiff !== 0) return rankDiff;
+                        // Secondary: confluence score (higher = better within same level)
+                        const scoreDiff = (b.confluenceScore || 0) - (a.confluenceScore || 0);
+                        if (scoreDiff !== 0) return scoreDiff;
+                        // Tertiary: distance to trendline (closest first)
                         return (a.distanceRemaining || 0) - (b.distanceRemaining || 0);
                     });
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
