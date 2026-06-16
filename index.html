@@ -7810,24 +7810,33 @@
                     const screenerStock = (typeof screeningData !== 'undefined' && screeningData)
                         ? (screeningData.golden_stocks || []).concat(screeningData.volume_breakout_stocks || []).find(s => s.ticker === ticker || s.symbol === ticker)
                         : null;
+                    const entryVal = parseFloat(p.entry_price || 0);
+                    const prevEntry = existing[ticker] || {};
+                    const savedTarget = parseFloat(prevEntry.target || 0);
+                    const savedSL     = parseFloat(prevEntry.stop_loss || 0);
                     allBrokerTrades[ticker] = {
                         ticker,
                         quantity:      p.quantity      || 0,
-                        entry_price:   p.entry_price   || 0,
-                        current_price: p.current_price || p.entry_price || 0,
+                        entry_price:   entryVal,
+                        current_price: p.current_price || entryVal,
+                        target:        savedTarget > 0 ? savedTarget : (entryVal > 0 ? parseFloat((entryVal * 1.25).toFixed(2)) : 0),
+                        stop_loss:     savedSL     > 0 ? savedSL     : (entryVal > 0 ? parseFloat((entryVal * 0.93).toFixed(2)) : 0),
                         status:        'Open',
-                        source:        p.source || 'Sync',
-                        triggered_at:  existing[ticker] ? existing[ticker].triggered_at : new Date().toISOString(),
-                        week52High:    screenerStock ? (screenerStock.week_52_high || screenerStock.week52High || existing[ticker]?.week52High || null) : (existing[ticker]?.week52High || null),
-                        week52Low:     screenerStock ? (screenerStock.week_52_low  || screenerStock.week52Low  || existing[ticker]?.week52Low  || null) : (existing[ticker]?.week52Low  || null),
+                        source:        p.source || (angelPositions.includes(p) ? 'Angel One' : 'Groww'),
+                        triggered_at:  prevEntry.triggered_at || new Date().toISOString(),
+                        is_angel_synced: true,
+                        week52High:    screenerStock ? (screenerStock.week_52_high || screenerStock.week52High || prevEntry.week52High || null) : (prevEntry.week52High || null),
+                        week52Low:     screenerStock ? (screenerStock.week_52_low  || screenerStock.week52Low  || prevEntry.week52Low  || null) : (prevEntry.week52Low  || null),
                         _custom:       true
                     };
                 });
 
                 // Auto-close broker trades no longer held
-                // Only auto-close a position if the broker that owns it responded successfully
+                // Only auto-close if the relevant broker API succeeded
                 const closedTrades = {};
                 if (anySyncOk) {
+                    const tradeHistory = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
+                    let historyDirty = false;
                     Object.entries(prevBrokerTrades).forEach(([k, v]) => {
                         const isAngelPos = v.source === 'Angel One';
                         const isGrowwPos = v.source === 'Groww';
@@ -7837,15 +7846,42 @@
                             const entry = parseFloat(v.entry_price) || 0;
                             const exit  = parseFloat(v.current_price) || entry;
                             const qty   = parseInt(v.quantity) || 0;
+                            const pnl   = (exit - entry) * qty;
+                            const pnlPct = entry > 0 ? ((exit - entry) / entry * 100) : 0;
                             closedTrades[k] = {
                                 ...v, status: 'Closed', exit_price: exit,
-                                pnl: (exit - entry) * qty,
-                                pnl_percent: entry > 0 ? ((exit - entry) / entry * 100) : 0,
-                                closed_at: v.closed_at || new Date().toISOString()
+                                pnl, pnl_percent: pnlPct,
+                                closed_at: new Date().toISOString()
                             };
-                            console.log('Auto-closed:', v.ticker, '(', v.source, ')');
+                            console.log('Auto-closed:', v.ticker, '(', v.source, ') exit:', exit, 'pnl:', pnl.toFixed(2));
+
+                            // Push to tradeHistory for Radar Performance
+                            const alreadyRecorded = tradeHistory.some(h =>
+                                h.ticker === v.ticker &&
+                                h.source === v.source &&
+                                Math.abs(parseFloat(h.entry_price) - entry) < 1
+                            );
+                            if (!alreadyRecorded) {
+                                tradeHistory.unshift({
+                                    ticker:      v.ticker,
+                                    entry_price: entry,
+                                    exit_price:  exit,
+                                    quantity:    qty,
+                                    pnl,
+                                    pnl_percent: pnlPct,
+                                    status:      pnl >= 0 ? 'Target Hit' : 'Stop Loss',
+                                    source:      v.source || 'Angel One',
+                                    opened_at:   v.triggered_at || null,
+                                    closed_at:   new Date().toISOString()
+                                });
+                                historyDirty = true;
+                            }
                         }
                     });
+                    if (historyDirty) {
+                        localStorage.setItem('tradeHistory', JSON.stringify(tradeHistory));
+                        console.log('✅ Closed trades saved to Radar Performance history');
+                    }
                 }
 
                 localStorage.setItem('radarOverrides', JSON.stringify({ ...allBrokerTrades, ...closedTrades, ...manualTrades }));
