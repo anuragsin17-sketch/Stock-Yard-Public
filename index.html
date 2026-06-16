@@ -6094,23 +6094,44 @@
         }
 
         function filterCardsInPlace(query) {
-            if (currentTab === 'radar' || currentTab === 'performance') {
+            if (currentTab === 'performance') {
                 filterRadarCards(); return;
             }
-            // For volume and trendline: show/hide stock cards based on ticker match
-            const cards = document.querySelectorAll('#resultsContainer [data-ticker]');
-            if (cards.length === 0) {
-                // No data-ticker attrs — fall back to re-render only if 3+ chars or empty
-                if (query.length === 0 || query.length >= 3) {
-                    if (currentTab === 'volume') displayVolumeGainerTab();
-                    else if (currentTab === 'trendline') { trendPage = 1; displayTrendlineScreen(); }
+            // For volume and trendline: re-render with all matching stocks (bypass pagination)
+            if (currentTab === 'volume') {
+                if (query.length >= 3) {
+                    // Render all matching volume stocks without pagination
+                    const container = document.getElementById('resultsContainer');
+                    if (!container) return;
+                    const q = query.toUpperCase();
+                    const matched = (volGainerData || []).filter(s =>
+                        (s.ticker||'').toUpperCase().includes(q) || (s.company||'').toUpperCase().includes(q)
+                    );
+                    if (matched.length === 0) {
+                        container.innerHTML = `<div style="padding:32px;text-align:center;color:#6b7280;font-size:13px;">No stocks match "<strong style="color:#f1f5f9;">${query}</strong>"</div>`;
+                    } else {
+                        let html = '';
+                        matched.forEach(stock => { html += createVolumeGainerCard(stock); });
+                        container.innerHTML = html;
+                    }
+                } else if (query.length === 0) {
+                    displayVolumeGainerTab(); // restore pagination
                 }
-                return;
+            } else if (currentTab === 'trendline') {
+                if (query.length >= 3) {
+                    // Re-render trendline with search across all pages
+                    trendSearch = query;
+                    displayTrendlineScreen();
+                    // After render, restore focus
+                    setTimeout(() => {
+                        const inp = document.getElementById('persistentSearchInput');
+                        if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+                    }, 50);
+                } else if (query.length === 0) {
+                    trendSearch = '';
+                    displayTrendlineScreen();
+                }
             }
-            cards.forEach(card => {
-                const ticker = (card.dataset.ticker || '').toUpperCase();
-                card.style.display = (!query || ticker.includes(query)) ? '' : 'none';
-            });
         }
 
         // Wire the lens buttons to the persistent search bar
@@ -6814,7 +6835,10 @@
                     });
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
                 if (trendPage > trendTotalPages) trendPage = 1;
-                const pagedTrendStocks = filteredTrendStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
+                // If search active, show all matching stocks across all pages
+                const pagedTrendStocks = (trendSearch.length >= 3)
+                    ? filteredTrendStocks.filter(s => (s.ticker||'').toUpperCase().includes(trendSearch) || (s.company_name||'').toUpperCase().includes(trendSearch))
+                    : filteredTrendStocks.slice((trendPage-1)*TAB_PAGE_SIZE, trendPage*TAB_PAGE_SIZE);
 
                 pagedTrendStocks.forEach(stock => {
                     // Get saved entry trigger override from localStorage
@@ -6934,7 +6958,7 @@
                 });
                 
                 // Trendline pagination controls — no search filtering in rendered HTML
-                if (trendTotalPages > 1) {
+                if (trendTotalPages > 1 && trendSearch.length < 3) {
                     html += paginationControls(
                         trendPage, trendTotalPages,
                         'trendPage=Math.max(1,trendPage-1); displayTrendlineScreen()',
