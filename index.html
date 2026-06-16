@@ -6815,7 +6815,13 @@
                                         } else if (sc >= 8) {
                                             badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);">📊 50% POCKET</span>';
                                         } else if (sc >= 7) {
-                                            badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.2);">📈 TL TOUCH</span>';
+                                            const zone = stock.patternZone || '';
+                                            const is786 = zone.includes('78.6');
+                                            badge = is786
+                                                ? '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);">📉 78.6% POCKET</span>'
+                                                : '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.2);">📈 TL TOUCH</span>';
+                                        } else if (sc >= 6) {
+                                            badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">🎯 100% ZONE</span>';
                                         }                                        return `<div style="font-size:14px;font-weight:700;color:#fbbf24;">${sc != null ? sc : '—'} <span style="color:#6b7280;font-size:11px;">/ 10</span></div>${badge}`;
                                     })()}
                                 </div>
@@ -6844,8 +6850,12 @@
                                         if (!price || price <= 0) return '';
                                         const dist = Math.abs((entryTrigger - price) / price * 100);
                                         const isNear = dist <= 2.0;
-                                        const in618p = tf==='W' ? (p618lo>0 && price>=p618lo && price<=p618hi) : false;
-                                        const in500p = tf==='W' ? (p500lo>0 && price>=p500lo && price<=p500hi) : false;
+                                        const p786lo = fibs.pocket_786_low  || 0;
+                                        const p786hi = fibs.pocket_786_high || 0;
+                                        const p100lo = fibs.pocket_100_low  || 0;
+                                        const p100hi = fibs.pocket_100_high || 0;
+                                        const in786p = p786lo > 0 && price >= p786lo && price <= p786hi;
+                                        const in100p = p100lo > 0 && price >= p100lo && price <= p100hi;
                                         // Colour logic
                                         let style, glow = '';
                                         if (isNear) {
@@ -6853,6 +6863,10 @@
                                             glow  = ' ✓';
                                         } else if (in618p || in500p) {
                                             style = 'background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);font-weight:600;';
+                                        } else if (in786p) {
+                                            style = 'background:rgba(59,130,246,0.12);color:#60a5fa;border:1px solid rgba(59,130,246,0.35);font-weight:600;';
+                                        } else if (in100p) {
+                                            style = 'background:rgba(167,139,250,0.12);color:#a78bfa;border:1px solid rgba(167,139,250,0.35);font-weight:600;';
                                         } else if (price <= entryTrigger) {
                                             style = 'background:rgba(59,130,246,0.07);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);';
                                         } else {
@@ -6875,6 +6889,16 @@
                                         ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);font-weight:700;">⚡ 61.8% POCKET ₹${p618lo.toFixed(0)}–₹${p618hi.toFixed(0)}</span>` : '';
                                     const pocket500 = (inP500)
                                         ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);font-weight:700;">📊 50% POCKET ₹${p500lo.toFixed(0)}–₹${p500hi.toFixed(0)}</span>` : '';
+                                    const p786lo = fibs.pocket_786_low  || 0;
+                                    const p786hi = fibs.pocket_786_high || 0;
+                                    const inP786 = p786lo > 0 && entryTrigger >= p786lo && entryTrigger <= p786hi;
+                                    const pocket786 = (inP786)
+                                        ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);font-weight:700;">📉 78.6% DEEP POCKET ₹${p786lo.toFixed(0)}–₹${p786hi.toFixed(0)}</span>` : '';
+                                    const p100lo = fibs.pocket_100_low  || 0;
+                                    const p100hi = fibs.pocket_100_high || 0;
+                                    const inP100 = p100lo > 0 && entryTrigger >= p100lo && entryTrigger <= p100hi;
+                                    const pocket100 = (inP100)
+                                        ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.4);font-weight:700;">🎯 100% ZONE ₹${p100lo.toFixed(0)}–₹${p100hi.toFixed(0)}</span>` : '';
 
                                     return `
                                     <div style="margin-bottom:10px;">
@@ -6883,7 +6907,7 @@
                                             <span style="color:#a78bfa;">M</span>=Monthly(24-bar) &nbsp;
                                             <span style="color:#374151;">(green=near entry · amber=in pocket)</span>
                                         </div>
-                                        ${(pocket618 || pocket500) ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">${pocket618}${pocket500}</div>` : ''}
+                                        ${(pocket618 || pocket500 || pocket786 || pocket100) ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">${pocket618}${pocket500}${pocket786}${pocket100}</div>` : ''}
                                         <div style="display:flex;flex-wrap:wrap;gap:4px;">${pillsHtml}</div>
                                     </div>`;
                                 }
