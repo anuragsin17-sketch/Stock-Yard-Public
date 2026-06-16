@@ -5364,134 +5364,13 @@
             console.log('🟢 Index price updates started (every 15 seconds)');
         }
         
-        // Sync trades with Angel One every 5 minutes
+        // Auto-sync with Angel One & Groww every hour (silent — detects open/closed positions)
         function startTradeSync() {
-            // Initial sync
-            syncTradesFromAngelOne();
-            
-            // Set up interval for trade sync
-            setInterval(() => {
-                syncTradesFromAngelOne();
-            }, 300000);  // 5 minutes
-            
-            console.log('🟢 Trade sync started (every 5 minutes)');
-        }
-        
-        // Sync trades from Angel One API
-        async function syncTradesFromAngelOne() {
-            try {
-                console.log('🔄 Syncing trades with Angel One...');
-                
-                const response = await fetch('https://32-194-58-75.nip.io/api/sync-trades', {
-                    cache: 'no-store',
-                    headers: { },
-                    mode: 'cors'
-                });
-                
-                if (!response.ok) {
-                    console.warn('⚠️ Trade sync failed:', response.status);
-                    return;
-                }
-                
-                const result = await response.json();
-                console.log('✅ Trade sync complete:', result);
-
-                // Save Angel One positions into radarOverrides so Radar tab shows them
-                const positions = result.open_trades || [];
-                {
-                    // Tickers the user explicitly deleted or purged — do NOT re-add them on sync
-                    const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-                    const purgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                    const blockedTickers = [...deletedTickers, ...purgedTickers];
-
-                    // Preserve manual trades, capture previously synced Angel One trades
-                    const existing = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                    const manualTrades = {};
-                    const previousAngelTrades = {};
-                    Object.entries(existing).forEach(([k, v]) => {
-                        if (v.source === 'Angel One') {
-                            previousAngelTrades[k] = v;
-                        } else if (v._custom) {
-                            manualTrades[k] = v;
-                        }
-                    });
-
-                    // Build current Angel One positions (skip user-deleted/purged tickers)
-                    const angelTrades = {};
-                    const tickers = [];
-                    const liveTickers = new Set();
-                    positions.forEach(p => {
-                        const ticker = (p.ticker || p.symbol || '').replace('-EQ', '');
-                        if (!ticker || blockedTickers.includes(ticker)) return;
-                        tickers.push(ticker);
-                        liveTickers.add(ticker);
-                        // Preserve target/stop from existing override so they don't reset to 0
-                        const prev = existing[ticker] || {};
-                        const entryVal = parseFloat(p.entry_price || prev.entry_price || 0);
-                        // Use saved values first; if still 0, compute defaults: SL = 7% below, Target = 25% above entry
-                        const savedTarget = parseFloat(p.target || prev.target || prev.targetExit || 0);
-                        const savedSL     = parseFloat(p.stop_loss || prev.stop_loss || prev.stopLoss || 0);
-                        angelTrades[ticker] = {
-                            ticker,
-                            quantity:      p.quantity      || prev.quantity      || 0,
-                            entry_price:   entryVal,
-                            current_price: parseFloat(p.current_price || prev.current_price || entryVal),
-                            target:        savedTarget > 0 ? savedTarget : (entryVal > 0 ? parseFloat((entryVal * 1.25).toFixed(2)) : 0),
-                            stop_loss:     savedSL     > 0 ? savedSL     : (entryVal > 0 ? parseFloat((entryVal * 0.93).toFixed(2)) : 0),
-                            week52High:    prev.week52High  || null,
-                            week52Low:     prev.week52Low   || null,
-                            status:        'Open',
-                            source:        p.source        || prev.source        || 'Angel One',
-                            triggered_at:  prev.triggered_at || new Date().toISOString(),
-                            _custom: true
-                        };
-                    });
-
-                    // Auto-close trades no longer held in Angel One
-                    const closedTrades = {};
-                    Object.entries(previousAngelTrades).forEach(([k, v]) => {
-                        if (!liveTickers.has(v.ticker)) {
-                            const entry = parseFloat(v.entry_price) || 0;
-                            const exit = parseFloat(v.current_price) || entry;
-                            const qty = parseInt(v.quantity) || 0;
-                            closedTrades[k] = {
-                                ...v,
-                                status: 'Closed',
-                                exit_price: exit,
-                                pnl: (exit - entry) * qty,
-                                pnl_percent: entry > 0 ? ((exit - entry) / entry * 100) : 0,
-                                closed_at: v.closed_at || new Date().toISOString()
-                            };
-                            console.log('🔒 Auto-closed (sold in Angel One):', v.ticker);
-                        }
-                    });
-
-                    localStorage.setItem('radarOverrides', JSON.stringify({ ...angelTrades, ...closedTrades, ...manualTrades }));
-                    localStorage.setItem('inRadarTickers', JSON.stringify(tickers));
-                    console.log('💾 Synced', positions.length, 'open,', Object.keys(closedTrades).length, 'newly closed');
-
-                    // Enrich 52W for Angel One synced trades (they don't come with 52W data)
-                    enrich52WForTrades(angelTrades).then(enriched => {
-                        const current = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                        Object.entries(enriched).forEach(([k, t]) => {
-                            if (current[k] && t.week52High && t.week52Low) {
-                                current[k].week52High = t.week52High;
-                                current[k].week52Low  = t.week52Low;
-                            }
-                        });
-                        localStorage.setItem('radarOverrides', JSON.stringify(current));
-                        if (currentTab === 'performance') displayPerformanceTracking();
-                    });
-                }
-                
-                // Reload Radar tab if currently viewing it
-                if (currentTab === 'performance') {
-                    displayPerformanceTracking();
-                }
-                
-            } catch (error) {
-                console.log('ℹ️ Angel One sync service not available (EC2 not running?):', error.message);
-            }
+            // Initial sync after short delay (let page render first)
+            setTimeout(() => syncRadarFromAngelOne(true), 3000);
+            // Hourly background sync
+            setInterval(() => syncRadarFromAngelOne(true), 60 * 60 * 1000);
+            console.log('🟢 Auto trade sync started (every 1 hour)');
         }
         
         // Fetch live LTP from Angel One for a single stock
@@ -7767,9 +7646,11 @@
         }
 
         // Sync Radar with Angel One open positions
-        window.syncRadarFromAngelOne = function() {
+        window.syncRadarFromAngelOne = function(silent = false) {
             const container = document.getElementById('resultsContainer');
-            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Syncing with Angel One & Groww...</div>';
+            if (!silent) {
+                container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Syncing with Angel One & Groww...</div>';
+            }
 
             const deletedTickers = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
             const purgedTickers  = JSON.parse(localStorage.getItem('radarPurgedTickers')  || '[]');
@@ -7894,8 +7775,14 @@
                 if (radarBadge) radarBadge.textContent = totalOpen;
                 document.querySelectorAll('.nav-badge, [id*="radarCount"], [id*="radar-count"]').forEach(el => el.textContent = totalOpen);
 
-                // Show Radar immediately, then enrich 52W in background and re-render
-                displayPerformanceTracking();
+                // Show Radar tab if manually triggered, or just update counts if silent
+                if (!silent) {
+                    displayPerformanceTracking();
+                } else {
+                    // Silent: only update badge counts, don't navigate
+                    updateTabCounts();
+                    if (currentTab === 'performance') displayPerformanceTracking();
+                }
                 enrich52WForTrades(allBrokerTrades).then(enriched => {
                     const current = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
                     let dirty = false;
@@ -8131,97 +8018,6 @@
         }
         
         // Call /api/sync-trades endpoint from EC2 backend
-        async function syncTradesFromAngelOne() {
-            try {
-                const response = await fetch('https://32-194-58-75.nip.io/api/sync-trades', {
-                    cache: 'no-store',
-                    headers: { },
-                    mode: 'cors'
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ Synced trades from Angel One:', data);
-                    return data.open_trades || [];
-                }
-            } catch (e) {
-                console.log('ℹ️ Sync endpoint not available:', e.message);
-            }
-            return [];
-        }
-        
-        // Merge synced trades with local trades
-        function mergeSyncedTrades(localTrades, syncedTrades) {
-            if (!syncedTrades || syncedTrades.length === 0) return localTrades;
-            
-            const merged = [...localTrades];
-            syncedTrades.forEach(synced => {
-                const idx = merged.findIndex(lt => lt.ticker === synced.ticker);
-                if (idx < 0) {
-                    // New synced trade - add it
-                    merged.push({
-                        ticker: synced.ticker,
-                        entry_price: synced.entry_price,
-                        current_price: synced.current_price,
-                        quantity: synced.quantity,
-                        status: 'Open',
-                        source: 'Angel One (Manual)',
-                        triggered_at: synced.triggered_at || new Date().toISOString(),
-                        is_synced: true
-                    });
-                } else {
-                    // Update LTP from synced data
-                    merged[idx].current_price = synced.current_price;
-                    merged[idx].is_synced = true;
-                }
-            });
-            return merged;
-        }
-        
-        // Fetch live order data from Angel One
-        async function fetchAngelOneOrders() {
-            try {
-                // Try to fetch from EC2 sync service (use correct port and endpoint)
-                const response = await fetch('https://32-194-58-75.nip.io/api/sync-trades', { 
-                    cache: 'no-store', 
-                    headers: { }, 
-                    mode: 'cors' 
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ Fetched live orders from Angel One:', data);
-                    return data.open_trades || [];
-                }
-            } catch (e) {
-                console.log('ℹ️ Angel One sync service not available:', e.message);
-            }
-            return [];
-        }
-        
-        // Enrich trades with Angel One live data
-        function enrichTradesWithAngelData(trades, angelOrders) {
-            if (!angelOrders || angelOrders.length === 0) return trades;
-            
-            return trades.map(trade => {
-                const angelOrder = angelOrders.find(ao => 
-                    ao.symbol === trade.ticker || ao.ticker === trade.ticker
-                );
-                
-                if (angelOrder) {
-                    // Merge Angel One data
-                    return {
-                        ...trade,
-                        angel_order_id: angelOrder.order_id,
-                        angel_status: angelOrder.status,
-                        angel_filled_qty: angelOrder.filled_qty,
-                        angel_filled_price: angelOrder.filled_price,
-                        angel_synced_at: angelOrder.synced_at,
-                        is_angel_synced: true
-                    };
-                }
-                return trade;
-            });
-        }
-
         function mergeRadarTrades(local, server) {
             if (!server || server.length === 0) return local;
             const merged = [...local];
