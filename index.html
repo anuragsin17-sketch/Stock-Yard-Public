@@ -6285,11 +6285,11 @@
                         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Zone</div>
                         <div style="font-size:13px;font-weight:700;color:#3B82F6;" class="mono">
                             ₹<input type="number" id="vol_entry_${ticker}"
-                                value="${threshold.toFixed(2)}"
+                                value="${prevLow.toFixed(2)}"
                                 step="0.5"
                                 style="font-size:13px;font-weight:700;color:#3b82f6;background:transparent;border:none;border-bottom:1px solid rgba(59,130,246,0.3);outline:none;width:70px;font-family:'JetBrains Mono',monospace;"/>
                         </div>
-                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">prev low ₹${prevLow.toLocaleString()}</div>
+                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">prev day low</div>
                     </div>
                     <div>
                         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target +20%</div>
