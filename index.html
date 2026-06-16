@@ -6714,43 +6714,17 @@
                 // Trendline pagination — filter dismissed stocks first
                 const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
 
-                // Fib level depth order: 100% is deepest retracement (best value), 0% is ATH
-                const fibDepthOrder = {
-                    '100.0%': 0, '78.6%': 1, '61.8%': 2, '50.0%': 3,
-                    '38.2%': 4, '23.6%': 5, '0.0%': 6,
-                    // dual-TF keys
-                    '61.8% (Both)': 2, '61.8% (Weekly)': 2, '61.8% (Monthly)': 2,
-                    '50.0% (Both)': 3, '50.0% (Weekly)': 3, '50.0% (Monthly)': 3,
-                };
-                const fibRank = (s) => {
-                    const lvl = s.fibMatchLevel || s.fibonacci_level || '';
-                    if (lvl in fibDepthOrder) return fibDepthOrder[lvl];
-                    // parse percentage from string like "Fib 61.8% ✓"
-                    const m = lvl.match(/([\d.]+)%/);
-                    if (m) {
-                        const pct = parseFloat(m[1]);
-                        if (pct >= 95)  return 0;
-                        if (pct >= 75)  return 1;
-                        if (pct >= 58)  return 2;
-                        if (pct >= 46)  return 3;
-                        if (pct >= 30)  return 4;
-                        if (pct >= 15)  return 5;
-                        return 6;
-                    }
-                    return 7; // no fib info — last
-                };
-
                 const filteredTrendStocks = trendlineStocks
                     .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker))
                     .sort((a, b) => {
-                        // Primary: fib depth — 100% first, 0% last (deepest retracement = best value)
-                        const rankDiff = fibRank(a) - fibRank(b);
-                        if (rankDiff !== 0) return rankDiff;
-                        // Secondary: confluence score (higher = better within same level)
+                        // Primary: confluence score desc (10=ULTRA first, then 9, 8, 7, 5)
                         const scoreDiff = (b.confluenceScore || 0) - (a.confluenceScore || 0);
                         if (scoreDiff !== 0) return scoreDiff;
-                        // Tertiary: distance to trendline (closest first)
-                        return (a.distanceRemaining || 0) - (b.distanceRemaining || 0);
+                        // Secondary: distance to trendline asc (closest = most urgent)
+                        const distDiff = (a.distanceRemaining || 0) - (b.distanceRemaining || 0);
+                        if (Math.abs(distDiff) > 0.1) return distDiff;
+                        // Tertiary: touch count desc (stronger trendline first)
+                        return (b.wickTouches || 0) - (a.wickTouches || 0);
                     });
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
                 if (trendPage > trendTotalPages) trendPage = 1;
@@ -6851,16 +6825,79 @@
                                     ${tl52wHigh && tl52wLow ? `<div style="font-size:12px;font-weight:600;color:#e5e7eb;" class="mono">${formatINR(tl52wLow)} / ${formatINR(tl52wHigh)}</div>` : '<div style="font-size:12px;color:#6b7280;">—</div>'}
                                 </div>
                             </div>
-                            <!-- Fibonacci Levels Row -->
+                            <!-- Fibonacci Levels Row — dual W+M timeframe display -->
                             ${(() => {
-                                const fibs = stock.fibonacciLevels || stock.fibGrid || null;
-                                if (!fibs || Object.keys(fibs).length === 0) return '';
-                                const fibEntries = Object.entries(fibs).sort((a,b) => parseFloat(b[1]) - parseFloat(a[1]));
+                                const fibs = stock.fibonacciLevels || {};
+                                const wFib = fibs._weekly  || null;
+                                const mFib = fibs._monthly || null;
+                                const p618lo = fibs.pocket_618_low  || 0;
+                                const p618hi = fibs.pocket_618_high || 0;
+                                const p500lo = fibs.pocket_500_low  || 0;
+                                const p500hi = fibs.pocket_500_high || 0;
+                                const inP618 = p618lo > 0 && entryTrigger >= p618lo && entryTrigger <= p618hi;
+                                const inP500 = p500lo > 0 && entryTrigger >= p500lo && entryTrigger <= p500hi;
+
+                                // If new dual-TF data available
+                                if (wFib && mFib) {
+                                    const LEVELS = ['23.6%','38.2%','50.0%','61.8%','78.6%','100.0%'];
+
+                                    const makePill = (label, price, tf) => {
+                                        if (!price || price <= 0) return '';
+                                        const dist = Math.abs((entryTrigger - price) / price * 100);
+                                        const isNear = dist <= 2.0;
+                                        const in618p = tf==='W' ? (p618lo>0 && price>=p618lo && price<=p618hi) : false;
+                                        const in500p = tf==='W' ? (p500lo>0 && price>=p500lo && price<=p500hi) : false;
+                                        // Colour logic
+                                        let style, glow = '';
+                                        if (isNear) {
+                                            style = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.5);font-weight:700;';
+                                            glow  = ' ✓';
+                                        } else if (in618p || in500p) {
+                                            style = 'background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);font-weight:600;';
+                                        } else if (price <= entryTrigger) {
+                                            style = 'background:rgba(59,130,246,0.07);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);';
+                                        } else {
+                                            style = 'background:rgba(107,114,128,0.07);color:#6b7280;border:1px solid rgba(107,114,128,0.12);';
+                                        }
+                                        return `<span style="font-size:10px;padding:3px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${tf} ${label}: ₹${parseFloat(price).toFixed(0)}${glow}</span>`;
+                                    };
+
+                                    // Render key levels side-by-side W then M
+                                    let pillsHtml = '';
+                                    LEVELS.forEach(lvl => {
+                                        const wp = wFib[lvl];
+                                        const mp = mFib[lvl];
+                                        pillsHtml += makePill(lvl, wp, 'W');
+                                        pillsHtml += makePill(lvl, mp, 'M');
+                                    });
+
+                                    // Pocket indicators
+                                    const pocket618 = (inP618)
+                                        ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);font-weight:700;">⚡ 61.8% POCKET ₹${p618lo.toFixed(0)}–₹${p618hi.toFixed(0)}</span>` : '';
+                                    const pocket500 = (inP500)
+                                        ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);font-weight:700;">📊 50% POCKET ₹${p500lo.toFixed(0)}–₹${p500hi.toFixed(0)}</span>` : '';
+
+                                    return `
+                                    <div style="margin-bottom:10px;">
+                                        <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">
+                                            Fibonacci — <span style="color:#3b82f6;">W</span>=Weekly(52-bar) &nbsp;
+                                            <span style="color:#a78bfa;">M</span>=Monthly(24-bar) &nbsp;
+                                            <span style="color:#374151;">(green=near entry · amber=in pocket)</span>
+                                        </div>
+                                        ${(pocket618 || pocket500) ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">${pocket618}${pocket500}</div>` : ''}
+                                        <div style="display:flex;flex-wrap:wrap;gap:4px;">${pillsHtml}</div>
+                                    </div>`;
+                                }
+
+                                // Fallback: old single grid display
+                                if (!fibs || Object.keys(fibs).filter(k=>!k.startsWith('_')&&!k.startsWith('pocket')&&!k.startsWith('fib')&&!k.startsWith('Ext')).length === 0) return '';
+                                const fibEntries = Object.entries(fibs)
+                                    .filter(([k,v]) => !k.startsWith('_') && !k.startsWith('pocket') && !k.startsWith('fib') && !k.startsWith('Ext') && typeof v === 'number')
+                                    .sort((a,b) => parseFloat(b[1]) - parseFloat(a[1]));
                                 const pills = fibEntries.map(([level, price]) => {
                                     const dist = ((entryTrigger - price) / price * 100);
                                     const isNear = Math.abs(dist) <= 2.0;
                                     const isBelowEntry = price <= entryTrigger;
-                                    // Color: green if entry is at/near this fib, blue if below entry (support), grey if above
                                     const pillColor = isNear
                                         ? 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);font-weight:700;'
                                         : isBelowEntry
@@ -6871,7 +6908,7 @@
                                 }).join('');
                                 return `
                                 <div style="margin-bottom:10px;">
-                                    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">Fibonacci Levels <span style="color:#374151;font-weight:400;">(green = confluence with entry)</span></div>
+                                    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">Fibonacci Levels <span style="color:#374151;font-weight:400;">(legacy · rebuild cache for W+M)</span></div>
                                     <div style="display:flex;flex-wrap:wrap;gap:5px;">${pills}</div>
                                 </div>`;
                             })()}
