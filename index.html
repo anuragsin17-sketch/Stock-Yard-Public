@@ -6277,80 +6277,87 @@
                 }
             });
 
-            // Step 2: bulk-fetch all LTPs for visible stocks in one request
+            // Step 2: fetch live LTPs — try bulk DynamoDB first, fall back to individual get-quote
             const tickers = paged.map(s => s.ticker).filter(Boolean);
+
+            // Helper: fetch individual quote and update a stock's price
+            const fetchIndividual = (stock) => {
+                return fetch(`${EC2_API}/api/get-quote?symbol=${stock.ticker}`, { cache: 'no-store' })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data || !data.success) return;
+                        const ltp = parseFloat(data.ltp);
+                        if (!ltp || ltp <= 0) return;
+                        stock._liveLtp = ltp;
+                        const el = document.getElementById(`vol_ltp_${stock.ticker}`);
+                        if (el) {
+                            el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+                            const threshold = stock.alert_threshold || stock.prev_day_low || 0;
+                            el.style.color = ltp <= threshold ? '#10B981' : '#ffffff';
+                        }
+                    }).catch(() => {});
+            };
+
+            // Try bulk first (fast if DynamoDB LivePrices is populated)
             fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000)
                 .then(r => r.ok ? r.json() : null)
                 .then(json => {
-                    // Build ltp map — fallback to individual fetches if bulk fails
-                    const ltpMap = (json && json.success && json.prices) ? json.prices : {};
+                    const ltpMap = (json && json.success && json.prices && Object.keys(json.prices).length > 0)
+                        ? json.prices : null;
 
-                    // Update price elements with live LTP
-                    paged.forEach(stock => {
-                        const ticker = stock.ticker;
-                        const ltp = ltpMap[ticker.toUpperCase()];
-                        if (ltp && ltp > 0) {
-                            stock._liveLtp = ltp; // store for re-sort
-                            const el = document.getElementById(`vol_ltp_${ticker}`);
-                            if (el) {
-                                el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
-                                const threshold = stock.alert_threshold || stock.prev_day_low || 0;
-                                el.style.color = ltp <= threshold ? '#10B981' : '#ffffff';
-                            }
-                        }
-                    });
-
-                    // Step 3: re-sort cards by live distance to entry zone
-                    const stocksWithLive = paged.filter(s => s._liveLtp > 0);
-                    if (stocksWithLive.length < 2) return; // not enough live data to re-sort
-
-                    const container2 = document.getElementById('resultsContainer');
-                    if (!container2) return;
-
-                    // Find the card wrapper divs (data-ticker attribute)
-                    const cardEls = Array.from(container2.querySelectorAll('[data-ticker]'));
-                    if (cardEls.length < 2) return;
-
-                    // Sort by % distance from live price to entry threshold (ascending = closest first)
-                    const sortedByLive = [...paged].sort((a, b) => {
-                        if (a.alerted !== b.alerted) return a.alerted ? 1 : -1;
-                        const aEntry = a.alert_threshold || a.prev_day_low || 0;
-                        const bEntry = b.alert_threshold || b.prev_day_low || 0;
-                        const aLtp = a._liveLtp || a.close_price || 0;
-                        const bLtp = b._liveLtp || b.close_price || 0;
-                        const aDist = aEntry > 0 ? Math.abs((aLtp - aEntry) / aEntry * 100) : 999;
-                        const bDist = bEntry > 0 ? Math.abs((bLtp - bEntry) / bEntry * 100) : 999;
-                        if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
-                        return (b.gain_pct || 0) - (a.gain_pct || 0);
-                    });
-
-                    // Re-order DOM cards to match new sort order (no re-render)
-                    const cardMap = {};
-                    cardEls.forEach(el => { cardMap[el.getAttribute('data-ticker')] = el; });
-                    const parent = cardEls[0].parentNode;
-                    sortedByLive.forEach(stock => {
-                        const el = cardMap[stock.ticker];
-                        if (el) parent.appendChild(el); // move to end in order = sorted
-                    });
-                })
-                .catch(() => {
-                    // Fallback: individual fetches if bulk unavailable
-                    paged.forEach(stock => {
-                        fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${stock.ticker}`, { cache: 'no-store' })
-                            .then(r => r.ok ? r.json() : null)
-                            .then(data => {
-                                if (!data || !data.success) return;
-                                const ltp = parseFloat(data.ltp);
-                                if (!ltp || ltp <= 0) return;
+                    if (ltpMap) {
+                        // Bulk succeeded — update from DynamoDB prices
+                        paged.forEach(stock => {
+                            const ltp = ltpMap[stock.ticker.toUpperCase()];
+                            if (ltp && ltp > 0) {
+                                stock._liveLtp = ltp;
                                 const el = document.getElementById(`vol_ltp_${stock.ticker}`);
                                 if (el) {
                                     el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
-                                    const threshold = stock.alert_threshold || 0;
+                                    const threshold = stock.alert_threshold || stock.prev_day_low || 0;
                                     el.style.color = ltp <= threshold ? '#10B981' : '#ffffff';
                                 }
-                            }).catch(() => {});
-                    });
+                            }
+                        });
+                    } else {
+                        // Bulk empty — fall back to individual get-quote calls
+                        Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
+                        return;
+                    }
+                    resortByLive();
+                })
+                .catch(() => {
+                    // Bulk failed — individual fetches
+                    Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
                 });
+
+            // Re-sort cards by live distance to entry zone after prices loaded
+            function resortByLive() {
+                const stocksWithLive = paged.filter(s => s._liveLtp > 0);
+                if (stocksWithLive.length < 2) return;
+                const container2 = document.getElementById('resultsContainer');
+                if (!container2) return;
+                const cardEls = Array.from(container2.querySelectorAll('[data-ticker]'));
+                if (cardEls.length < 2) return;
+                const sortedByLive = [...paged].sort((a, b) => {
+                    if (a.alerted !== b.alerted) return a.alerted ? 1 : -1;
+                    const aEntry = a.alert_threshold || a.prev_day_low || 0;
+                    const bEntry = b.alert_threshold || b.prev_day_low || 0;
+                    const aLtp = a._liveLtp || a.close_price || 0;
+                    const bLtp = b._liveLtp || b.close_price || 0;
+                    const aDist = aEntry > 0 ? Math.abs((aLtp - aEntry) / aEntry * 100) : 999;
+                    const bDist = bEntry > 0 ? Math.abs((bLtp - bEntry) / bEntry * 100) : 999;
+                    if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
+                    return (b.gain_pct || 0) - (a.gain_pct || 0);
+                });
+                const cardMap = {};
+                cardEls.forEach(el => { cardMap[el.getAttribute('data-ticker')] = el; });
+                const parent = cardEls[0].parentNode;
+                sortedByLive.forEach(stock => {
+                    const el = cardMap[stock.ticker];
+                    if (el) parent.appendChild(el);
+                });
+            }
         }
 
         function createVolumeGainerCard(stock) {
