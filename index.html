@@ -7227,9 +7227,6 @@
                 const trigger = s.triggerPrice || 0;
                 const symbol  = s.ticker || '';
                 if (!trigger || !symbol) return;
-                // Use _liveLtp if available, else currentPrice from trendline_screen.json
-                // currentPrice in trendline_screen.json is the screener's last fetched price (valid)
-                // It is NOT equal to triggerPrice (triggerPrice = trendline level, currentPrice = market price)
                 const live = s._liveLtp || s.currentPrice || 0;
                 if (!live) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
@@ -7245,17 +7242,16 @@
                     week52High: s.week52High || null,
                     week52Low:  s.week52Low  || null,
                     fibLevel:   s.fibonacci_level || null,
+                    _raw:       s,  // full object for wicks/fib display
                 });
             });
-            // 2. Volume gainer stocks from volGainerData (same source as Volume tab — fresh from watchlist JSON)
+            // 2. Volume gainer stocks from volGainerData (same source as Volume tab)
             const vols = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData)) ? volGainerData : [];
             vols.forEach(s => {
-                // Entry = prev_day_low (same as Volume tab entry input default)
-                // Target/SL use same logic as createVolumeGainerCard
                 const prevLow  = s.prev_day_low || 0;
                 const trigger  = prevLow;
-                // Use live LTP only — close_price is the signal day close, NOT today's price
-                const live     = s._liveLtp || s.current_price || 0;
+                // _liveLtp = real-time; close_price = signal day close (approximate until LTP arrives)
+                const live     = s._liveLtp || s.close_price || 0;
                 if (!trigger || !live) return;
                 const distPct  = Math.abs((live - trigger) / trigger * 100);
                 const tgt      = s.target_price  ? parseFloat(s.target_price)  : parseFloat((trigger * 1.20).toFixed(2));
@@ -7272,6 +7268,7 @@
                     week52High: s.week_52_high || null,
                     week52Low:  s.week_52_low  || null,
                     gainPct:   s.gain_pct || null,
+                    isLiveLtp: !!s._liveLtp,
                 });
             });
             // Only show stocks within 5% — beyond 5% they belong back in source tab
@@ -7469,7 +7466,24 @@
                             </div>
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <div style="font-size:10px;color:#6b7280;">${s.fibLevel?'🔢 Fib '+s.fibLevel:s.gainPct?'📊 Signal +'+parseFloat(s.gainPct).toFixed(1)+'%':''}</div>
+                            <div style="font-size:10px;color:#6b7280;">
+                                ${s.fibLevel?'🔢 Fib '+s.fibLevel:''}
+                                ${s.gainPct?'📊 Signal +'+parseFloat(s.gainPct).toFixed(1)+'%':''}
+                                ${isTL && s._raw ? (() => {
+                                    const r = s._raw;
+                                    const wicks = r.wickTouches || r.wick_touches || 0;
+                                    const tf = r.timeframe || 'monthly';
+                                    const fibInfo = (() => {
+                                        const fibs = r.fibLevels || r.fibonacci_levels || {};
+                                        const cp = trigger;
+                                        const nearFib = Object.entries(fibs).filter(([k]) => !k.startsWith('_') && !k.startsWith('pocket')).map(([k,v]) => ({k, dist: Math.abs((cp-parseFloat(v))/parseFloat(v)*100)})).sort((a,b)=>a.dist-b.dist)[0];
+                                        return nearFib && nearFib.dist <= 3 ? `· 🔢 ${nearFib.k}` : '';
+                                    })();
+                                    return wicks ? `· 📏 ${wicks} wicks (${tf}) ${fibInfo}` : fibInfo;
+                                })() : ''}
+                                ${isTL && s._raw?.confluenceScore >= 8 ? '<span style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;">⚡ CONFLUENCE</span>' : ''}
+                                ${!s.isLiveLtp && !isTL ? '<span style="color:#6b7280;font-size:9px;"> · approx price</span>' : ''}
+                            </div>
                             <div style="display:flex;gap:6px;align-items:center;">
                                 ${isEdited ? `<button onclick="resetPlaceOrderTrigger('${s.symbol}','${s.strategy}')" style="all:unset;font-size:10px;color:#6b7280;cursor:pointer;padding:4px 8px;border:1px solid rgba(107,114,128,0.3);border-radius:5px;">↺ Reset</button>` : ''}
                                 <button onclick="showOrderModal('${s.symbol}',${trigger},${sl},${target},'${s.strategy}',${s.week52High||'null'},${s.week52Low||'null'})"
