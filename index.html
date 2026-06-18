@@ -7221,15 +7221,17 @@
 
         function buildPlaceOrderStocks() {
             const all = [];
-            // 1. Trendline stocks — ONLY from trendline_screen.json (sessionStorage)
-            // Do NOT use LIVE_DATA.golden_stocks — its current_price ≈ trendline_price (stale screener data)
+            // 1. Trendline stocks — from trendline_screen.json (sessionStorage), same as Trendline tab
             const trendStocksRaw = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
             trendStocksRaw.forEach(s => {
                 const trigger = s.triggerPrice || 0;
                 const symbol  = s.ticker || '';
-                // ONLY use _liveLtp — reject stale currentPrice from screener
-                const live    = s._liveLtp || 0;
-                if (!trigger || !live || !symbol) return;
+                if (!trigger || !symbol) return;
+                // Use _liveLtp if available, else currentPrice from trendline_screen.json
+                // currentPrice in trendline_screen.json is the screener's last fetched price (valid)
+                // It is NOT equal to triggerPrice (triggerPrice = trendline level, currentPrice = market price)
+                const live = s._liveLtp || s.currentPrice || 0;
+                if (!live) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 all.push({
                     symbol:     symbol,
@@ -7416,11 +7418,19 @@
                     const stratBadge= isTL
                         ? `<span style="background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;">📈 TRENDLINE</span>`
                         : `<span style="background:rgba(59,130,246,0.15);color:#3B82F6;border:1px solid rgba(59,130,246,0.3);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;">🔥 VOLUME</span>`;
-                    const above     = s.live >= s.trigger;
-                    const signedPct = ((s.live - s.trigger) / s.trigger * 100).toFixed(2);
-                    const distLabel = s.distPct < 0.1 ? '🟢 AT TRIGGER' : `${above?'▲+':'▼'}${signedPct}% from trigger`;
-                    const distColor = s.distPct < 0.3 ? '#10B981' : s.distPct < 0.7 ? '#F59E0B' : s.distPct <= 2.0 ? '#e2e8f0' : '#94a3b8';
-                    const border    = s.distPct <= 2.0 ? '#1f2937' : 'rgba(245,158,11,0.25)';
+                    // Load saved trigger from localStorage, fall back to computed trigger
+                    const savedKey  = `placeorder_trigger_${s.symbol}_${s.strategy}`;
+                    const savedTrig = parseFloat(localStorage.getItem(savedKey) || '0');
+                    const trigger   = savedTrig > 0 ? savedTrig : s.trigger;
+                    const isEdited  = savedTrig > 0 && savedTrig !== s.trigger;
+                    const sl        = isTL ? parseFloat((trigger * 0.92).toFixed(2)) : parseFloat((trigger * 0.95).toFixed(2));
+                    const target    = isTL ? parseFloat((trigger * 1.23).toFixed(2)) : parseFloat((trigger * 1.20).toFixed(2));
+                    const above     = s.live >= trigger;
+                    const signedPct = ((s.live - trigger) / trigger * 100).toFixed(2);
+                    const distPct2  = Math.abs(s.live - trigger) / trigger * 100;
+                    const distLabel = distPct2 < 0.1 ? '🟢 AT TRIGGER' : `${above?'▲+':'▼'}${signedPct}% from trigger`;
+                    const distColor = distPct2 < 0.3 ? '#10B981' : distPct2 < 0.7 ? '#F59E0B' : distPct2 <= 2.0 ? '#e2e8f0' : '#94a3b8';
+                    const border    = distPct2 <= 2.0 ? '#1f2937' : 'rgba(245,158,11,0.25)';
                     html += `
                     <div style="background:#111625;border:1px solid ${border};border-radius:12px;padding:16px;margin-bottom:12px;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
@@ -7439,24 +7449,34 @@
                         </div>
                         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:10px;border-radius:8px;margin-bottom:12px;">
                             <div style="text-align:center;">
-                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Trigger</div>
-                                <div style="font-size:13px;font-weight:700;color:#38BDF8;" class="mono">₹${s.trigger.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Trigger ${isEdited?'<span style="color:#f59e0b;font-size:9px;">✏️</span>':''}</div>
+                                <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+                                    <span style="font-size:12px;color:#38BDF8;">₹</span>
+                                    <input type="number" step="0.05"
+                                        id="po_trigger_${s.symbol}_${s.strategy}"
+                                        value="${trigger.toFixed(2)}"
+                                        oninput="updatePlaceOrderTrigger('${s.symbol}','${s.strategy}',this.value)"
+                                        style="font-size:13px;font-weight:700;color:#38BDF8;background:transparent;border:none;border-bottom:1px solid rgba(56,189,248,0.4);outline:none;width:80px;font-family:'JetBrains Mono',monospace;text-align:center;"/>
+                                </div>
                             </div>
                             <div style="text-align:center;">
                                 <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target ${isTL?'23%':'20%'}</div>
-                                <div style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${s.target.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                                <div id="po_target_${s.symbol}_${s.strategy}" style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${target.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                             </div>
                             <div style="text-align:center;">
                                 <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop ${isTL?'8%':'5%'}</div>
-                                <div style="font-size:13px;font-weight:700;color:#f43f5e;" class="mono">₹${s.sl.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                                <div id="po_sl_${s.symbol}_${s.strategy}" style="font-size:13px;font-weight:700;color:#f43f5e;" class="mono">₹${sl.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                             </div>
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                             <div style="font-size:10px;color:#6b7280;">${s.fibLevel?'🔢 Fib '+s.fibLevel:s.gainPct?'📊 Signal +'+parseFloat(s.gainPct).toFixed(1)+'%':''}</div>
-                            <button onclick="showOrderModal('${s.symbol}',${s.trigger},${s.sl},${s.target},'${s.strategy}',${s.week52High||'null'},${s.week52Low||'null'})"
-                                style="padding:10px 20px;border-radius:8px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;border:none;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;touch-action:manipulation;">
-                                🛒 PLACE BUY ORDER
-                            </button>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                ${isEdited ? `<button onclick="resetPlaceOrderTrigger('${s.symbol}','${s.strategy}')" style="all:unset;font-size:10px;color:#6b7280;cursor:pointer;padding:4px 8px;border:1px solid rgba(107,114,128,0.3);border-radius:5px;">↺ Reset</button>` : ''}
+                                <button onclick="showOrderModal('${s.symbol}',${trigger},${sl},${target},'${s.strategy}',${s.week52High||'null'},${s.week52Low||'null'})"
+                                    style="padding:10px 20px;border-radius:8px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;border:none;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;touch-action:manipulation;">
+                                    🛒 PLACE BUY ORDER
+                                </button>
+                            </div>
                         </div>
                     </div>`;
                 });
@@ -7498,6 +7518,28 @@
             }
 
             container.innerHTML = html;
+        }
+
+        function updatePlaceOrderTrigger(symbol, strategy, val) {
+            const v = parseFloat(val);
+            if (!v || v <= 0) return;
+            const key = `placeorder_trigger_${symbol}_${strategy}`;
+            localStorage.setItem(key, v.toFixed(2));
+            const isTL = strategy === 'Trendline';
+            const sl     = parseFloat((v * (isTL ? 0.92 : 0.95)).toFixed(2));
+            const target = parseFloat((v * (isTL ? 1.23 : 1.20)).toFixed(2));
+            const slEl  = document.getElementById(`po_sl_${symbol}_${strategy}`);
+            const tgtEl = document.getElementById(`po_target_${symbol}_${strategy}`);
+            if (slEl)  slEl.textContent  = '₹' + sl.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+            if (tgtEl) tgtEl.textContent = '₹' + target.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+            // Update Place Buy Order button to use new values
+            const btn = slEl?.closest('div[style*="border-radius:12px"]')?.querySelector('button[onclick*="showOrderModal"]');
+            if (btn) btn.setAttribute('onclick', `showOrderModal('${symbol}',${v},${sl},${target},'${strategy}',null,null)`);
+        }
+
+        function resetPlaceOrderTrigger(symbol, strategy) {
+            localStorage.removeItem(`placeorder_trigger_${symbol}_${strategy}`);
+            displayPlaceOrder();
         }
 
         function togglePlaceOrderSearch() {
