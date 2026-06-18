@@ -7221,16 +7221,14 @@
 
         function buildPlaceOrderStocks() {
             const all = [];
-            // 1. Trendline stocks — use trendlineStocks (from trendline_screen.json, same as Trendline tab)
-            // Falls back to LIVE_DATA.golden_stocks if trendline_screen.json not loaded yet
+            // 1. Trendline stocks — ONLY from trendline_screen.json (sessionStorage)
+            // Do NOT use LIVE_DATA.golden_stocks — its current_price ≈ trendline_price (stale screener data)
             const trendStocksRaw = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
-            const trendSource = trendStocksRaw.length > 0 ? trendStocksRaw : (LIVE_DATA?.golden_stocks || []);
-            trendSource.forEach(s => {
-                // trendline_screen.json uses triggerPrice; golden_stocks uses trendline_price
-                const trigger = s.triggerPrice || s.trendline_price || s.weekly_trendline_price || 0;
-                const symbol  = s.ticker || s.symbol || '';
-                // Prefer live LTP, then currentPrice (trendline_screen uses this), then current_price
-                const live    = s._liveLtp || s.currentPrice || s.current_price || 0;
+            trendStocksRaw.forEach(s => {
+                const trigger = s.triggerPrice || 0;
+                const symbol  = s.ticker || '';
+                // ONLY use _liveLtp — reject stale currentPrice from screener
+                const live    = s._liveLtp || 0;
                 if (!trigger || !live || !symbol) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 all.push({
@@ -7242,8 +7240,8 @@
                     distPct:    distPct,
                     sl:         parseFloat((trigger * 0.92).toFixed(2)),
                     target:     parseFloat((trigger * 1.23).toFixed(2)),
-                    week52High: s.week_52_high || s.week52High || null,
-                    week52Low:  s.week_52_low  || s.week52Low  || null,
+                    week52High: s.week52High || null,
+                    week52Low:  s.week52Low  || null,
                     fibLevel:   s.fibonacci_level || null,
                 });
             });
@@ -7281,9 +7279,24 @@
         function displayPlaceOrder() {
             const container = document.getElementById('resultsContainer');
 
-            // Only show persistent search bar if already active (user clicked 🔍)
+            // Only show persistent search bar if already active
             const bar = document.getElementById('persistentSearchBar');
             if (bar && !placeOrderSearch) bar.style.display = 'none';
+
+            // If trendline_screen.json not loaded yet, load it first then render
+            const trendCached = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+            if (trendCached.length === 0) {
+                container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Loading signals...</div>`;
+                fetch('./trendline_screen.json', { cache: 'no-store' })
+                    .then(r => r.ok ? r.json() : []).catch(() => [])
+                    .then(stocks => {
+                        if (Array.isArray(stocks) && stocks.length > 0) {
+                            sessionStorage.setItem('trendlineStocks', JSON.stringify(stocks));
+                        }
+                        if (currentTab === 'placeorder') displayPlaceOrder();
+                    });
+                return;
+            }
 
             placeOrderAllStocks = buildPlaceOrderStocks();
 
