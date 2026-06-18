@@ -5959,7 +5959,7 @@
             }
 
             const target   = parseFloat((entry * 1.20).toFixed(2));
-            const stopLoss = parseFloat((entry * 0.92).toFixed(2));
+            const stopLoss = parseFloat((entry * 0.95).toFixed(2));
             showOrderModal(symbol, entry, stopLoss, target, 'Volume');
         };
 
@@ -6394,7 +6394,7 @@
             const prevLow      = stock.prev_day_low || 0;
             const threshold    = stock.alert_threshold || prevLow;
             const targetPrice  = stock.target_price  || round2(prevLow * 1.20);
-            const slPrice      = stock.sl_price       || round2(prevLow * 0.93);
+            const slPrice      = stock.sl_price       || round2(prevLow * 0.95);
             const addedDate    = stock.added_date || '';
             const closePrice   = stock.close_price || 0;
             const alerted      = stock.alerted || false;
@@ -6437,7 +6437,7 @@
                     <div>
                         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target +20%</div>
                         <div style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${targetPrice.toLocaleString()}</div>
-                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">SL ₹${slPrice.toLocaleString()} (-7%)</div>
+                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">SL ₹${slPrice.toLocaleString()} (-5%)</div>
                     </div>
                     <div>
                         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Signal Close</div>
@@ -6466,7 +6466,7 @@
                 return;
             }
             const target   = preTarget || round2(entry * 1.20);
-            const stopLoss = preSL     || round2(entry * 0.93);
+            const stopLoss = preSL     || round2(entry * 0.95);
             showOrderModal(ticker, entry, stopLoss, target, 'VolumeGainer');
         };
 
@@ -7252,7 +7252,7 @@
                     trigger:   trigger,
                     live:      live,
                     distPct:   distPct,
-                    sl:        parseFloat((trigger * 0.93).toFixed(2)),
+                    sl:        parseFloat((trigger * 0.95).toFixed(2)),
                     target:    parseFloat((trigger * 1.20).toFixed(2)),
                     week52High: s.week_52_high || null,
                     week52Low:  s.week_52_low  || null,
@@ -7350,7 +7350,7 @@
                                 <div style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${s.target.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                             </div>
                             <div style="text-align:center;">
-                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop ${isTL?'8%':'7%'}</div>
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop ${isTL?'8%':'5%'}</div>
                                 <div style="font-size:13px;font-weight:700;color:#f43f5e;" class="mono">₹${s.sl.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                             </div>
                         </div>
