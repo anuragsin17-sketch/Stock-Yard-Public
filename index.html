@@ -7246,11 +7246,15 @@
             // 2. Volume gainer stocks from volGainerData (same source as Volume tab — fresh from watchlist JSON)
             const vols = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData)) ? volGainerData : [];
             vols.forEach(s => {
-                const trigger = s.alert_threshold || s.prev_day_low || 0;
-                // Use live LTP first (injected by background updater), then close price
-                const live    = s._liveLtp || s.close_price || 0;
+                // Entry = prev_day_low (same as Volume tab entry input default)
+                // Target/SL use same logic as createVolumeGainerCard
+                const prevLow  = s.prev_day_low || 0;
+                const trigger  = prevLow;
+                const live     = s._liveLtp || s.close_price || 0;
                 if (!trigger || !live) return;
-                const distPct = Math.abs((live - trigger) / trigger * 100);
+                const distPct  = Math.abs((live - trigger) / trigger * 100);
+                const tgt      = s.target_price  ? parseFloat(s.target_price)  : parseFloat((trigger * 1.20).toFixed(2));
+                const sl       = s.sl_price      ? parseFloat(s.sl_price)      : parseFloat((trigger * 0.95).toFixed(2));
                 all.push({
                     symbol:    s.ticker || s.symbol || '',
                     company:   s.company || s.company_name || s.ticker || '',
@@ -7258,8 +7262,8 @@
                     trigger:   trigger,
                     live:      live,
                     distPct:   distPct,
-                    sl:        parseFloat((trigger * 0.95).toFixed(2)),
-                    target:    parseFloat((trigger * 1.20).toFixed(2)),
+                    sl:        sl,
+                    target:    tgt,
                     week52High: s.week_52_high || null,
                     week52Low:  s.week_52_low  || null,
                     gainPct:   s.gain_pct || null,
