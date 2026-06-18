@@ -5547,31 +5547,50 @@
         }
         
         // Load data (try fetch first, fallback to embedded)
+        const EC2_API = 'https://32-194-58-75.nip.io';
+
         async function loadData() {
             console.log('📱 Loading data...');
             hideError();
-            
-            // Kick off volume gainer watchlist fetch in parallel — so it's ready when Volume tab renders
+
+            // Kick off volume gainer watchlist fetch in parallel
             const watchlistPromise = fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(data => { if (Array.isArray(data)) volGainerData = data; });
 
+            // Try EC2 DynamoDB API first (faster, always fresh)
             try {
-                // Try to fetch updated data first
-                const response = await fetch('./data.json', {
-                    method: 'GET',
-                    headers: { 'Cache-Control': 'no-cache' },
-                    cache: 'no-store'
-                });
-                
+                const resp = await fetch(`${EC2_API}/api/signals?type=VOLUME`, { cache: 'no-store' });
+                if (resp.ok) {
+                    const json = await resp.json();
+                    if (json.success && json.data) {
+                        const volumeStocks = json.data.volume || [];
+                        console.log(`✅ DynamoDB: ${volumeStocks.length} volume signals`);
+                        screeningData = {
+                            timestamp: new Date().toISOString(),
+                            volume_breakout_stocks: volumeStocks,
+                            golden_stocks: LIVE_DATA?.golden_stocks || [],
+                            diagnostics: { total_stocks_processed: volumeStocks.length, volume_breakout_matches: volumeStocks.length }
+                        };
+                        await watchlistPromise;
+                        updateUI();
+                        updateStatus(true);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ EC2 API unavailable, falling back to JSON:', e.message);
+            }
+
+            // Fallback: fetch data.json from GitHub Pages CDN
+            try {
+                const response = await fetch('./data.json', { method: 'GET', headers: { 'Cache-Control': 'no-cache' }, cache: 'no-store' });
                 if (response.ok) {
                     const text = await response.text();
                     const fetchedData = JSON.parse(text.trim().replace(/^\uFEFF/, ''));
-                    
                     if (fetchedData && fetchedData.timestamp) {
-                        console.log('✅ Fetched fresh data from server');
+                        console.log('✅ Fetched fresh data from CDN');
                         screeningData = fetchedData;
-                        // Wait for watchlist too before rendering, so Volume tab has data ready
                         await watchlistPromise;
                         updateUI();
                         updateStatus(true);
@@ -5579,10 +5598,10 @@
                     }
                 }
             } catch (error) {
-                console.log('⚠️ Fetch failed, using embedded data:', error.message);
+                console.log('⚠️ CDN fetch failed, using embedded data:', error.message);
             }
-            
-            // Use embedded data as reliable fallback
+
+            // Final fallback: embedded LIVE_DATA
             console.log('📦 Using embedded live data');
             screeningData = LIVE_DATA;
             await watchlistPromise;
@@ -6587,18 +6606,32 @@
             
             container.innerHTML = skeletonList(4);
             
+            let trendlineStocks = null;
+
+            // Try EC2 DynamoDB API first
             try {
-                const response = await fetch('./trendline_screen.json', {
-                    method: 'GET',
-                    headers: { 'Cache-Control': 'no-cache' },
-                    cache: 'no-store'
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to load trendline data');
+                const resp = await fetch(`${EC2_API}/api/signals?type=TRENDLINE`, { cache: 'no-store' });
+                if (resp.ok) {
+                    const json = await resp.json();
+                    if (json.success && json.data?.trendline?.length) {
+                        trendlineStocks = json.data.trendline;
+                        console.log(`✅ DynamoDB trendline: ${trendlineStocks.length} stocks`);
+                    }
                 }
-                
-                const trendlineStocks = await response.json();
+            } catch(e) {
+                console.log('⚠️ EC2 trendline fetch failed, falling back to JSON');
+            }
+
+            // Fallback to JSON file
+            if (!trendlineStocks) {
+                try {
+                    const response = await fetch('./trendline_screen.json', { method: 'GET', headers: { 'Cache-Control': 'no-cache' }, cache: 'no-store' });
+                    if (!response.ok) throw new Error('Failed to load trendline data');
+                    trendlineStocks = await response.json();
+                } catch(e) {
+                    trendlineStocks = [];
+                }
+            }
                 
                 // ─── Cache 52W data from trendline_screen.json into sessionStorage
                 // so get52WData() can find it for Radar tab (Angel One synced stocks etc.)
@@ -7631,10 +7664,21 @@
             const container = document.getElementById('resultsContainer');
             container.innerHTML = skeletonList(3);
 
-            fetch('./radar_trades.json', { cache: 'no-store' })
-                .then(r => r.ok ? r.json() : [])
-                .catch(() => [])
-                .then(serverTrades => {
+            // Try EC2 DynamoDB API first, fallback to JSON file
+            const fetchTrades = fetch(`${EC2_API}/api/radar`, { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : null)
+                .then(json => {
+                    if (json && json.success && Array.isArray(json.trades) && json.trades.length > 0) {
+                        console.log(`✅ DynamoDB radar: ${json.trades.length} trades`);
+                        return json.trades;
+                    }
+                    throw new Error('DynamoDB radar empty or unavailable');
+                })
+                .catch(() => fetch('./radar_trades.json', { cache: 'no-store' })
+                    .then(r => r.ok ? r.json() : [])
+                    .catch(() => []));
+
+            fetchTrades.then(serverTrades => {
                     // Cache open server tickers so isTickerInRadar() works correctly
                     const serverTickers = (serverTrades || [])
                         .filter(t => t.status === 'Open' || t.status === 'Triggered')
@@ -8006,8 +8050,26 @@
             if (openTrades.length === 0) return [];
             
             console.log(`🔄 Fetching live LTP for ${openTrades.length} open trades...`);
-            
-            // Fetch live LTP (EC2) + prev close (Yahoo) in parallel for each trade
+
+            // Try bulk prices endpoint first (1 request instead of N)
+            try {
+                const tickers = openTrades.map(t => t.ticker || t.symbol).filter(Boolean);
+                const resp = await fetch(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' });
+                if (resp.ok) {
+                    const json = await resp.json();
+                    if (json.success && json.prices && Object.keys(json.prices).length > 0) {
+                        console.log(`✅ Bulk prices: ${Object.keys(json.prices).length} tickers`);
+                        return tickers.map(ticker => {
+                            const ltp = json.prices[ticker.toUpperCase()];
+                            return ltp ? { ticker, ltp, open: 0, close: 0, timestamp: new Date().toISOString() } : null;
+                        }).filter(Boolean);
+                    }
+                }
+            } catch(e) {
+                console.log('⚠️ Bulk prices failed, falling back to individual fetches');
+            }
+
+            // Fallback: fetch individually
             const quotePromises = openTrades.map(trade => {
                 const ticker = trade.ticker || trade.symbol;
                 return Promise.all([
