@@ -5995,6 +5995,7 @@
             // Re-render current tab without search
             if (currentTab === 'volume') displayVolumeGainerTab();
             else if (currentTab === 'trendline') { trendPage = 1; displayTrendlineScreen(); }
+            else if (currentTab === 'placeorder') { placeOrderSearch = ''; placeOrderPage = 1; displayPlaceOrder(); }
             else if (currentTab === 'performance') displayPerformanceTracking();
         }
 
@@ -6045,6 +6046,14 @@
                     trendSearch = '';
                     displayTrendlineScreen();
                 }
+            } else if (currentTab === 'placeorder') {
+                placeOrderSearch = query;
+                placeOrderPage = 1;
+                displayPlaceOrder();
+                setTimeout(() => {
+                    const inp = document.getElementById('persistentSearchInput');
+                    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+                }, 50);
             }
         }
 
@@ -7198,11 +7207,11 @@
         let perfTradesData = null; // full trade-level data from backtest_trades.json
 
         // ═══════════════════════════════════════════════════════════════════════
-        // PLACE ORDER TAB — stocks near trigger price (within ±1%)
+        // PLACE ORDER TAB — stocks near trigger price (within ±5%)
         // Sources: Trendline (trendline_price) + Volume (radar_trigger_price)
+        // >5% away → removed from this tab, shown in source tab
         // ═══════════════════════════════════════════════════════════════════════
         let placeOrderPage = 1;
-        const PLACE_ORDER_PAGE_SIZE = 10;
         let placeOrderSearch = '';
         let placeOrderAllStocks = [];   // cached merged list
 
@@ -7216,17 +7225,17 @@
                 if (!trigger || !live) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 all.push({
-                    symbol:       s.symbol,
-                    company:      s.company_name || s.symbol,
-                    strategy:     'Trendline',
-                    trigger:      trigger,
-                    live:         live,
-                    distPct:      distPct,
-                    sl:           parseFloat((trigger * 0.92).toFixed(2)),
-                    target:       parseFloat((trigger * 1.23).toFixed(2)),
-                    week52High:   s.week_52_high || null,
-                    week52Low:    s.week_52_low  || null,
-                    fibLevel:     s.fibonacci_level || null,
+                    symbol:     s.symbol,
+                    company:    s.company_name || s.symbol,
+                    strategy:   'Trendline',
+                    trigger:    trigger,
+                    live:       live,
+                    distPct:    distPct,
+                    sl:         parseFloat((trigger * 0.92).toFixed(2)),
+                    target:     parseFloat((trigger * 1.23).toFixed(2)),
+                    week52High: s.week_52_high || null,
+                    week52Low:  s.week_52_low  || null,
+                    fibLevel:   s.fibonacci_level || null,
                 });
             });
             // 2. Volume gainer stocks from screeningData
@@ -7250,60 +7259,165 @@
                     gainPct:   s.breakout_price_change || null,
                 });
             });
-            // Sort by closest to trigger first
-            return all.sort((a, b) => a.distPct - b.distPct);
+            // Only show stocks within 5% — beyond 5% they belong back in source tab
+            return all.filter(s => s.distPct <= 5.0).sort((a, b) => a.distPct - b.distPct);
         }
 
-        function renderPlaceOrderTab(container, allStocks, page, query) {
-            // Filter by search — when searching, show all matching stocks regardless of distance
-            const filtered = query.length >= 2
-                ? allStocks.filter(s => s.symbol.toLowerCase().includes(query.toLowerCase()) || s.company.toLowerCase().includes(query.toLowerCase()))
-                : allStocks;
+        function displayPlaceOrder() {
+            const container = document.getElementById('resultsContainer');
 
-            // When no search: split into ≤1% (ready) and 1-3% (watching)
-            // When searching: show all matches with distance info
-            const nearTrigger = query.length >= 2 ? filtered : filtered.filter(s => s.distPct <= 1.0);
-            const watching    = query.length >= 2 ? [] : filtered.filter(s => s.distPct > 1.0 && s.distPct <= 3.0);
+            // Show persistent search bar with 🔍 button
+            const bar = document.getElementById('persistentSearchBar');
+            if (bar) bar.style.display = 'block';
 
-            const totalPages = Math.max(1, Math.ceil(nearTrigger.length / PLACE_ORDER_PAGE_SIZE));
-            const safePage   = Math.min(page, totalPages);
-            const paged      = nearTrigger.slice((safePage-1)*PLACE_ORDER_PAGE_SIZE, safePage*PLACE_ORDER_PAGE_SIZE);
+            placeOrderAllStocks = buildPlaceOrderStocks();
+
+            const q = placeOrderSearch.toUpperCase();
+            // Apply search — filter by symbol/company
+            const filtered = q.length >= 2
+                ? placeOrderAllStocks.filter(s => s.symbol.toUpperCase().includes(q) || s.company.toUpperCase().includes(q))
+                : placeOrderAllStocks;
+
+            // Split: ≤1% = ready, 1-5% = approaching (shown below when no search)
+            const ready      = q.length >= 2 ? filtered : filtered.filter(s => s.distPct <= 1.0);
+            const approaching = q.length >= 2 ? [] : filtered.filter(s => s.distPct > 1.0);
+
+            const totalPages = Math.max(1, Math.ceil(ready.length / TAB_PAGE_SIZE));
+            if (placeOrderPage > totalPages) placeOrderPage = 1;
+            const paged = q.length >= 2 ? ready : ready.slice((placeOrderPage-1)*TAB_PAGE_SIZE, placeOrderPage*TAB_PAGE_SIZE);
 
             // Update badge
-            setTabCount('placeOrderTabCount', nearTrigger.length);
+            setTabCount('placeOrderTabCount', ready.length);
 
             let html = `
-            <!-- Search bar -->
-            <div style="display:flex;align-items:center;gap:8px;background:#111625;border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:6px 12px;margin-bottom:12px;">
-                <svg style="width:13px;height:13px;flex-shrink:0;" fill="none" stroke="#6b7280" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <input id="placeOrderSearchInput" type="text" placeholder="Search symbol or company..." value="${query}"
-                    autocomplete="off" autocorrect="off" spellcheck="false"
-                    oninput="placeOrderSearch=this.value; placeOrderPage=1; renderPlaceOrderTab(document.getElementById('resultsContainer'), placeOrderAllStocks, 1, this.value);"
-                    style="flex:1;background:transparent;border:none;outline:none;font-size:12px;color:#f1f5f9;font-family:'JetBrains Mono',monospace;"/>
-                ${query ? `<button onclick="placeOrderSearch=''; placeOrderPage=1; document.getElementById('placeOrderSearchInput').value=''; renderPlaceOrderTab(document.getElementById('resultsContainer'), placeOrderAllStocks, 1, '');" style="all:unset;color:#6b7280;cursor:pointer;font-size:14px;">✕</button>` : ''}
-            </div>
-
-            <!-- Header summary -->
-            <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                 <div>
-                    <div style="font-size:13px;font-weight:700;color:#34d399;">
-                        ${query.length >= 2
-                            ? `🔍 ${nearTrigger.length} result${nearTrigger.length!==1?'s':''} for "${query}"`
-                            : `🎯 ${nearTrigger.length} stocks within ±1% of entry trigger`}
+                    <div style="font-size:13px;font-weight:700;color:${q.length>=2?'#38BDF8':'#34d399'};">
+                        ${q.length >= 2
+                            ? `🔍 ${ready.length} result${ready.length!==1?'s':''} for "${placeOrderSearch}"`
+                            : `🎯 ${ready.length} within ±1% of trigger`}
                     </div>
-                    <div style="font-size:11px;color:#6b7280;margin-top:2px;">Trendline + Volume signals combined · Live price vs trigger price</div>
+                    <div style="font-size:11px;color:#6b7280;margin-top:1px;">Trendline + Volume · ${q.length<2?approaching.length+' approaching (1–5%) · ':''}stocks >5% return to source tab</div>
                 </div>
-                <div style="text-align:right;">
-                    ${query.length < 2 ? `<div style="font-size:11px;color:#6b7280;">👁 ${watching.length} watching (1–3%)</div>` : ''}
-                </div>
+                <button onclick="togglePlaceOrderSearch()"
+                    style="all:unset;display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;font-size:11px;font-weight:600;">
+                    <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    Search
+                </button>
             </div>`;
 
-            if (nearTrigger.length === 0) {
+            if (ready.length === 0) {
                 html += `<div style="background:#111625;border:1px solid #1f2937;border-radius:12px;padding:40px;text-align:center;">
-                    <div style="font-size:40px;margin-bottom:12px;">${query.length >= 2 ? '🔍' : '📡'}</div>
-                    <div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:6px;">${query.length >= 2 ? 'No results for "'+query+'"' : 'No stocks at trigger right now'}</div>
-                    <div style="font-size:12px;color:#6b7280;">${query.length >= 2 ? 'Try a different symbol or company name.' : 'Stocks appear here when live price is within 1% of the trendline or volume retest entry price.'}</div>
+                    <div style="font-size:40px;margin-bottom:12px;">${q.length>=2?'🔍':'📡'}</div>
+                    <div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:6px;">${q.length>=2?'No results for "'+placeOrderSearch+'"':'No stocks at trigger right now'}</div>
+                    <div style="font-size:12px;color:#6b7280;">${q.length>=2?'Try a different symbol or company name.':'Stocks appear here when live price is within 1% of the trendline or volume entry trigger.'}</div>
                 </div>`;
+            } else {
+                paged.forEach(s => {
+                    const isTL      = s.strategy === 'Trendline';
+                    const stratBadge= isTL
+                        ? `<span style="background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;">📈 TRENDLINE</span>`
+                        : `<span style="background:rgba(59,130,246,0.15);color:#3B82F6;border:1px solid rgba(59,130,246,0.3);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;">🔥 VOLUME</span>`;
+                    const above     = s.live >= s.trigger;
+                    const signedPct = ((s.live - s.trigger) / s.trigger * 100).toFixed(2);
+                    const distLabel = s.distPct < 0.1 ? '🟢 AT TRIGGER' : `${above?'▲+':'▼'}${signedPct}% from trigger`;
+                    const distColor = s.distPct < 0.3 ? '#10B981' : s.distPct < 0.7 ? '#F59E0B' : s.distPct <= 1.0 ? '#e2e8f0' : '#94a3b8';
+                    const border    = s.distPct <= 1.0 ? '#1f2937' : 'rgba(245,158,11,0.25)';
+                    html += `
+                    <div style="background:#111625;border:1px solid ${border};border-radius:12px;padding:16px;margin-bottom:12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                            <div>
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                    <a href="https://in.tradingview.com/chart/?symbol=NSE:${s.symbol}" target="_blank"
+                                        style="font-size:16px;font-weight:700;color:#fff;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${s.symbol}</a>
+                                    ${stratBadge}
+                                </div>
+                                <div style="font-size:11px;color:#6b7280;">${s.company}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:18px;font-weight:700;color:#fff;" class="mono">₹${s.live.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                                <div style="font-size:11px;font-weight:700;color:${distColor};">${distLabel}</div>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:10px;border-radius:8px;margin-bottom:12px;">
+                            <div style="text-align:center;">
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Trigger</div>
+                                <div style="font-size:13px;font-weight:700;color:#38BDF8;" class="mono">₹${s.trigger.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target ${isTL?'23%':'20%'}</div>
+                                <div style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${s.target.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop ${isTL?'8%':'7%'}</div>
+                                <div style="font-size:13px;font-weight:700;color:#f43f5e;" class="mono">₹${s.sl.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div style="font-size:10px;color:#6b7280;">${s.fibLevel?'🔢 Fib '+s.fibLevel:s.gainPct?'📊 Signal +'+parseFloat(s.gainPct).toFixed(1)+'%':''}</div>
+                            <button onclick="showOrderModal('${s.symbol}',${s.trigger},${s.sl},${s.target},'${s.strategy}',${s.week52High||'null'},${s.week52Low||'null'})"
+                                style="padding:10px 20px;border-radius:8px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;border:none;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;touch-action:manipulation;">
+                                🛒 PLACE BUY ORDER
+                            </button>
+                        </div>
+                    </div>`;
+                });
+            }
+
+            // Pagination (same style as trendline, hidden when searching)
+            if (q.length < 2) {
+                html += paginationControls(
+                    placeOrderPage, totalPages,
+                    'placeOrderPage=Math.max(1,placeOrderPage-1); displayPlaceOrder()',
+                    `placeOrderPage=Math.min(${totalPages},placeOrderPage+1); displayPlaceOrder()`,
+                    (p) => `placeOrderPage=${p}; displayPlaceOrder()`
+                );
+            }
+
+            // Approaching section (1–5%) when no search
+            if (q.length < 2 && approaching.length > 0) {
+                html += `
+                <div style="margin-top:16px;">
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;">📡 ${approaching.length} approaching (1–5% away)</div>
+                    ${approaching.slice(0, 8).map(s => {
+                        const isTL = s.strategy === 'Trendline';
+                        const c = isTL ? '#10B981' : '#3B82F6';
+                        const signed = ((s.live - s.trigger) / s.trigger * 100).toFixed(2);
+                        return `<div style="background:rgba(17,22,37,0.7);border:1px solid rgba(31,41,55,0.6);border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <span style="font-size:13px;font-weight:700;color:#e2e8f0;">${s.symbol}</span>
+                                <span style="margin-left:6px;font-size:9px;font-weight:700;color:${c};">${isTL?'TL':'VOL'}</span>
+                                <div style="font-size:10px;color:#6b7280;margin-top:1px;">${s.company}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:12px;font-weight:600;color:#fff;" class="mono">₹${s.live.toLocaleString('en-IN',{minimumFractionDigits:2})}</div>
+                                <div style="font-size:10px;color:#F59E0B;">${s.live>=s.trigger?'▲+':'▼'}${signed}% · trigger ₹${s.trigger.toLocaleString('en-IN',{minimumFractionDigits:2})}</div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                    ${approaching.length > 8 ? `<div style="font-size:11px;color:#6b7280;text-align:center;padding:6px;">+${approaching.length-8} more approaching</div>` : ''}
+                </div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function togglePlaceOrderSearch() {
+            const bar = document.getElementById('persistentSearchBar');
+            const inp = document.getElementById('persistentSearchInput');
+            if (!bar) return;
+            if (bar.style.display === 'none' || bar.style.display === '') {
+                bar.style.display = 'block';
+                if (inp) { inp.value = placeOrderSearch; inp.focus(); }
+            } else {
+                bar.style.display = 'none';
+                placeOrderSearch = '';
+                placeOrderPage = 1;
+                displayPlaceOrder();
+            }
+        }
+
             } else {
                 paged.forEach(s => {
                     const isTL   = s.strategy === 'Trendline';
@@ -7397,16 +7511,6 @@
 
             container.innerHTML = html;
         }
-
-        function displayPlaceOrder() {
-            const container = document.getElementById('resultsContainer');
-            container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">Loading signals...</div>`;
-            // Rebuild stock list from current live data
-            placeOrderAllStocks = buildPlaceOrderStocks();
-            renderPlaceOrderTab(container, placeOrderAllStocks, placeOrderPage, placeOrderSearch);
-        }
-
-
 
         async function displayPastPerformance() {
             const container = document.getElementById('resultsContainer');
