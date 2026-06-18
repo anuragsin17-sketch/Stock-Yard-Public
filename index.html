@@ -7258,9 +7258,8 @@
                 const distPctAbs = Math.abs(distPct);
                 const tgt     = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
                 const sl      = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.93).toFixed(2));
-                // Show if stock is within 20% above entry (approaching retest) or at/near entry
-                // Exclude if too far above (>20%) — won't retrace soon
-                if (distPct > 20 || distPct < -7) return;
+                // Only show when live price is within ±2% of signal day low (retest zone = entry)
+                if (distPctAbs > 2.0) return;
                 all.push({
                     symbol:    s.ticker || '',
                     company:   s.company || s.ticker || '',
