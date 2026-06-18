@@ -7391,20 +7391,25 @@
                 : stratFiltered;
 
             // Split: ≤2% = ready, 2-5% = approaching
-            const ready      = q.length >= 2 ? filtered : filtered.filter(s => s.distPct <= 2.0);
-            const approaching = q.length >= 2 ? [] : filtered.filter(s => s.distPct > 2.0);
+            // When Volume filter is active, show all volume stocks (LTP pending ones included)
+            const ready      = q.length >= 2 ? filtered : (
+                placeOrderFilter === 'Volume'
+                    ? filtered
+                    : filtered.filter(s => s.distPct <= 2.0)
+            );
+            const approaching = (q.length >= 2 || placeOrderFilter === 'Volume') ? [] : filtered.filter(s => s.distPct > 2.0);
 
             const totalPages = Math.max(1, Math.ceil(ready.length / TAB_PAGE_SIZE));
             if (placeOrderPage > totalPages) placeOrderPage = 1;
             const paged = q.length >= 2 ? ready : ready.slice((placeOrderPage-1)*TAB_PAGE_SIZE, placeOrderPage*TAB_PAGE_SIZE);
 
-            // Count per strategy for badges
+            // Count per strategy for badges — volume shows all stocks, trendline shows ≤2% only
             const allReady  = placeOrderAllStocks.filter(s => s.distPct <= 2.0);
             const tlCount   = allReady.filter(s => s.strategy === 'Trendline').length;
-            const volCount  = allReady.filter(s => s.strategy === 'Volume').length;
+            const volCount  = placeOrderAllStocks.filter(s => s.strategy === 'Volume').length;
 
-            // Update badge
-            setTabCount('placeOrderTabCount', allReady.length);
+            // Update badge — count all stocks within 5% (includes volume pending LTP)
+            setTabCount('placeOrderTabCount', placeOrderAllStocks.length);
 
             let html = `
             <!-- Strategy filter pills + search icon — all inline, same row -->
