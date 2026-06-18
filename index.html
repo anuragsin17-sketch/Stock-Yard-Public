@@ -6115,37 +6115,54 @@
                     setTabCount('trendTabCount', tlCount);
                 });
 
-            // Radar count — use same dedup logic as displayPerformanceTracking
-            fetch('./radar_trades.json', { cache: 'no-store' })
-                .then(r => r.ok ? r.json() : []).catch(() => [])
-                .then(serverTrades => {
-                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                    const purged  = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                    const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-
-                    let trades = (serverTrades || []).map(trade => {
-                        const key = trade.order_id || trade.ticker;
-                        if (overrides[key]) return { ...trade, ...overrides[key] };
-                        return trade;
-                    });
-                    Object.values(overrides).forEach(ov => {
-                        if (ov._custom) {
-                            const alreadyIn = trades.find(t =>
-                                (ov.order_id && t.order_id === ov.order_id) ||
-                                (!ov.order_id && t.ticker === ov.ticker)
-                            );
-                            if (!alreadyIn) trades.push(ov);
-                        }
-                    });
-                    trades = trades
-                        .filter(t => !t._deleted)
-                        .filter(t => !purged.includes(t.ticker))
-                        .filter(t => !deleted.includes(t.ticker));
-                    // Only count broker-synced trades (same filter as renderRadarTab)
-                    const allowedSrc = ['Angel One', 'angel one', 'Groww', 'groww'];
-                    trades = trades.filter(t => t.order_id || t.is_angel_synced || allowedSrc.includes(t.source));
-                    const openCount = trades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
-                    setTabCount('radarTabCount', openCount);
+            // Radar count — use EC2 DynamoDB API with fallback to JSON
+            fetchWithTimeout(`${EC2_API}/api/radar?status=Open`, { cache: 'no-store' }, 4000)
+                .then(r => r.ok ? r.json() : null)
+                .then(json => {
+                    if (json && json.success && Array.isArray(json.trades)) {
+                        const purged  = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                        const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+                        const tombstones = JSON.parse(localStorage.getItem('radarServerTombstones') || '{}');
+                        const openCount = json.trades.filter(t =>
+                            (t.status === 'Open' || t.status === 'Triggered') &&
+                            !purged.includes(t.ticker) &&
+                            !deleted.includes(t.ticker) &&
+                            !tombstones[t.order_id || t.ticker]
+                        ).length;
+                        setTabCount('radarTabCount', openCount);
+                        return;
+                    }
+                    throw new Error('DynamoDB unavailable');
+                })
+                .catch(() => {
+                    // Fallback to JSON file
+                    fetch('./radar_trades.json', { cache: 'no-store' })
+                        .then(r => r.ok ? r.json() : []).catch(() => [])
+                        .then(serverTrades => {
+                            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+                            const purged  = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                            const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
+                            let trades = (serverTrades || []).map(trade => {
+                                const key = trade.order_id || trade.ticker;
+                                if (overrides[key]) return { ...trade, ...overrides[key] };
+                                return trade;
+                            });
+                            Object.values(overrides).forEach(ov => {
+                                if (ov._custom) {
+                                    const alreadyIn = trades.find(t =>
+                                        (ov.order_id && t.order_id === ov.order_id) ||
+                                        (!ov.order_id && t.ticker === ov.ticker)
+                                    );
+                                    if (!alreadyIn) trades.push(ov);
+                                }
+                            });
+                            trades = trades
+                                .filter(t => !t._deleted)
+                                .filter(t => !purged.includes(t.ticker))
+                                .filter(t => !deleted.includes(t.ticker));
+                            const openCount = trades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
+                            setTabCount('radarTabCount', openCount);
+                        });
                 });
 
             // Radar Performance count — closed trades in tradeHistory
@@ -7041,7 +7058,7 @@
                                 }).join('');
                                 return `
                                 <div style="margin-bottom:10px;">
-                                    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">Fibonacci Levels <span style="color:#374151;font-weight:400;">(legacy · rebuild cache for W+M)</span></div>
+                                    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">Fibonacci Levels</div>
                                     <div style="display:flex;flex-wrap:wrap;gap:5px;">${pills}</div>
                                 </div>`;
                             })()}
