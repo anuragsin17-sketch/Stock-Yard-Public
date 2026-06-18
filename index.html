@@ -7268,9 +7268,10 @@
         function displayPlaceOrder() {
             const container = document.getElementById('resultsContainer');
 
-            // Show persistent search bar
+            // Only show persistent search bar if already active (user clicked 🔍)
+            // Don't force-show it on every render
             const bar = document.getElementById('persistentSearchBar');
-            if (bar) bar.style.display = 'block';
+            if (bar && !placeOrderSearch) bar.style.display = 'none';
 
             placeOrderAllStocks = buildPlaceOrderStocks();
 
