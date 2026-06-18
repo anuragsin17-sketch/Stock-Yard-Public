@@ -5549,6 +5549,14 @@
         // Load data (try fetch first, fallback to embedded)
         const EC2_API = 'https://32-194-58-75.nip.io';
 
+        // Fetch with timeout helper — prevents EC2 slowness from blocking app load
+        function fetchWithTimeout(url, options = {}, timeoutMs = 4000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            return fetch(url, { ...options, signal: controller.signal })
+                .finally(() => clearTimeout(timer));
+        }
+
         async function loadData() {
             console.log('📱 Loading data...');
             hideError();
@@ -5558,9 +5566,9 @@
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(data => { if (Array.isArray(data)) volGainerData = data; });
 
-            // Try EC2 DynamoDB API first (faster, always fresh)
+            // Try EC2 DynamoDB API first (4s timeout — won't block app if EC2 is slow)
             try {
-                const resp = await fetch(`${EC2_API}/api/signals?type=VOLUME`, { cache: 'no-store' });
+                const resp = await fetchWithTimeout(`${EC2_API}/api/signals?type=VOLUME`, { cache: 'no-store' }, 4000);
                 if (resp.ok) {
                     const json = await resp.json();
                     if (json.success && json.data) {
@@ -6610,7 +6618,7 @@
 
             // Try EC2 DynamoDB API first
             try {
-                const resp = await fetch(`${EC2_API}/api/signals?type=TRENDLINE`, { cache: 'no-store' });
+                const resp = await fetchWithTimeout(`${EC2_API}/api/signals?type=TRENDLINE`, { cache: 'no-store' }, 4000);
                 if (resp.ok) {
                     const json = await resp.json();
                     if (json.success && json.data?.trendline?.length) {
@@ -7665,7 +7673,7 @@
             container.innerHTML = skeletonList(3);
 
             // Try EC2 DynamoDB API first, fallback to JSON file
-            const fetchTrades = fetch(`${EC2_API}/api/radar`, { cache: 'no-store' })
+            const fetchTrades = fetchWithTimeout(`${EC2_API}/api/radar`, { cache: 'no-store' }, 4000)
                 .then(r => r.ok ? r.json() : null)
                 .then(json => {
                     if (json && json.success && Array.isArray(json.trades) && json.trades.length > 0) {
