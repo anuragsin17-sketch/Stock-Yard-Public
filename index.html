@@ -7243,17 +7243,17 @@
                     fibLevel:   s.fibonacci_level || null,
                 });
             });
-            // 2. Volume gainer stocks from screeningData
-            const vols = (typeof screeningData !== 'undefined' && screeningData?.volume_breakout_stocks) ? screeningData.volume_breakout_stocks : [];
+            // 2. Volume gainer stocks from volGainerData (same source as Volume tab — fresh from watchlist JSON)
+            const vols = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData)) ? volGainerData : [];
             vols.forEach(s => {
-                const trigger = s.radar_trigger_price || s.breakout_low || 0;
-                // Prefer live LTP injected by background price updater, fall back to screener price
-                const live    = s._liveLtp || s.current_price || 0;
+                const trigger = s.alert_threshold || s.prev_day_low || 0;
+                // Use live LTP first (injected by background updater), then close price
+                const live    = s._liveLtp || s.close_price || 0;
                 if (!trigger || !live) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 all.push({
-                    symbol:    s.symbol,
-                    company:   s.company_name || s.symbol,
+                    symbol:    s.ticker || s.symbol || '',
+                    company:   s.company || s.company_name || s.ticker || '',
                     strategy:  'Volume',
                     trigger:   trigger,
                     live:      live,
@@ -7262,7 +7262,7 @@
                     target:    parseFloat((trigger * 1.20).toFixed(2)),
                     week52High: s.week_52_high || null,
                     week52Low:  s.week_52_low  || null,
-                    gainPct:   s.breakout_price_change || null,
+                    gainPct:   s.gain_pct || null,
                 });
             });
             // Only show stocks within 5% — beyond 5% they belong back in source tab
