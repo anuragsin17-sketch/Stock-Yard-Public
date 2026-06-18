@@ -485,8 +485,8 @@
                 </button>
                 <button id="spotlightTakeTrade" onclick="spotlightTakeTrade()"
                     class="py-3 rounded-xl text-sm font-semibold touch-btn"
-                    style="background: linear-gradient(135deg,#065F46,#047857); color: #fff;">
-                    📥 Take Trade
+                    style="background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;letter-spacing:0.5px;font-weight:700;text-transform:uppercase;border:none;">
+                    PLACE BUY ORDER
                 </button>
             </div>
         </div>
@@ -6305,8 +6305,8 @@
                 <div style="display:flex;justify-content:flex-end;margin-top:4px;">
                     <button onclick="takeVolumeGainerTrade('${ticker}','${company.replace(/'/g,"\\'")}',${targetPrice},${slPrice})"
                         class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
-                        style="background:linear-gradient(135deg,#065F46,#047857);color:#fff;min-width:90px;">
-                        📥 Take Trade
+                        style="background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;min-width:90px;letter-spacing:0.5px;font-weight:700;text-transform:uppercase;border:none;">
+                        PLACE BUY ORDER
                     </button>
                 </div>
             </div>`;
@@ -6491,8 +6491,8 @@
                         <div style="display:flex;gap:8px;align-items:center;">
                             <div style="flex:1;">${radarStatus}</div>
                             <button onclick="takeVolumeTrade('${stock.symbol}', '${stock.company_name}')"
-                                style="padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;">
-                                📥 Take Trade
+                                style="padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;border:none;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;">
+                                PLACE BUY ORDER
                             </button>
                         </div>
                     `;
@@ -6697,8 +6697,8 @@
                                     <div class="flex items-center space-x-2">
                                         <button onclick="takeManualTrade(${idx})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
-                                            style="background: linear-gradient(135deg, #065F46, #047857); color: #fff; min-width: 90px;">
-                                            📥 Take Trade
+                                            style="background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;min-width:90px;letter-spacing:0.5px;font-weight:700;text-transform:uppercase;border:none;">
+                                            PLACE BUY ORDER
                                         </button>
                                         <button onclick="removeManualStock(${idx})"
                                             class="py-2 px-3 rounded-lg text-xs touch-btn"
@@ -6945,8 +6945,8 @@
                                     style="padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.2);cursor:pointer;"
                                     title="Dismiss">🗑️</button>
                                 <button onclick="haptic(50); takeTrade('${stock.ticker}', ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0}, ${tl52wHigh || 'null'}, ${tl52wLow || 'null'})"
-                                    style="padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;">
-                                    📥 Take Trade
+                                    style="padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;border:none;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;">
+                                    PLACE BUY ORDER
                                 </button>
                             </div>
                         </div>
