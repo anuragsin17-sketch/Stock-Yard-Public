@@ -7248,30 +7248,37 @@
             // 2. Volume gainer stocks from volGainerData (same source as Volume tab)
             const vols = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData)) ? volGainerData : [];
             vols.forEach(s => {
+                // Entry trigger = signal day LOW (prev_day_low)
+                // Stock gained 10%+ that day — we wait for it to pull back to this level
                 const trigger = s.prev_day_low || 0;
-                // Prefer live LTP, fall back to current_price / close_price from the stock object
+                // Prefer live LTP, fall back to close_price from the stock object
                 const live    = s._liveLtp || s.current_price || s.currentPrice || s.close_price || s.ltp || 0;
                 if (!trigger || !live) return;
-                const distPct = Math.abs((live - trigger) / trigger * 100);
+                const distPct    = (live - trigger) / trigger * 100;  // signed: positive = above entry
+                const distPctAbs = Math.abs(distPct);
                 const tgt     = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
-                const sl      = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.95).toFixed(2));
+                const sl      = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.93).toFixed(2));
+                // Show if stock is within 20% above entry (approaching retest) or at/near entry
+                // Exclude if too far above (>20%) — won't retrace soon
+                if (distPct > 20 || distPct < -7) return;
                 all.push({
                     symbol:    s.ticker || '',
                     company:   s.company || s.ticker || '',
                     strategy:  'Volume',
                     trigger:   trigger,
                     live:      live,
-                    distPct:   distPct,
+                    distPct:   distPctAbs,   // for sorting (closest to entry first)
+                    distRaw:   distPct,      // signed, for display label
                     sl:        sl,
                     target:    tgt,
                     week52High: s.week_52_high || null,
                     week52Low:  s.week_52_low  || null,
                     gainPct:   s.gain_pct || null,
-                    isLiveLtp: true,
+                    isLiveLtp: !!s._liveLtp,
                 });
             });
-            // Only show stocks within 5% — beyond 5% they belong back in source tab
-            return all.filter(s => s.distPct <= 5.0).sort((a, b) => a.distPct - b.distPct);
+            // Trendline: show within 5% of trigger. Volume: already filtered above (0-20% above entry)
+            return all.filter(s => s.strategy === 'Trendline' ? s.distPct <= 5.0 : true).sort((a, b) => a.distPct - b.distPct);
         }
 
         function displayPlaceOrder() {
