@@ -9561,42 +9561,44 @@
             const track = document.getElementById('pnlTickerTrack');
             if (!bar || !track) return;
             try {
-                const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-                // Build ticker items from open trades
+                const overrides   = JSON.parse(localStorage.getItem('radarOverrides')        || '{}');
+                const purged      = JSON.parse(localStorage.getItem('radarPurgedTickers')    || '[]');
+                const deleted     = JSON.parse(localStorage.getItem('radarDeletedTickers')   || '[]');
+                const tombstones  = JSON.parse(localStorage.getItem('radarServerTombstones') || '{}');
+                // Also check which tickers are currently visible in Radar (server-confirmed open)
+                const serverTickers = JSON.parse(localStorage.getItem('radarServerTickers')  || '[]');
+                const blocked = new Set([...purged, ...deleted]);
+
                 const items = [];
                 Object.values(overrides).forEach(ov => {
                     if (ov._deleted) return;
                     const ticker = ov.ticker || ov.symbol;
                     if (!ticker) return;
-                    if (purged.includes(ticker) || deleted.includes(ticker)) return;
+                    if (blocked.has(ticker)) return;
+                    // Skip if tombstoned
+                    const key = ov.order_id || ticker;
+                    if (tombstones[key]) return;
                     const status = ov.status || 'Open';
                     if (status !== 'Open' && status !== 'Triggered') return;
-                    const ep = parseFloat(ov.entry_price || ov.entryTrigger || 0);
-                    const cp = parseFloat(ov.current_price || ov.currentPrice || ep);
+                    // If server has synced and this ticker is NOT in server's open list → skip
+                    if (serverTickers.length > 0 && !serverTickers.includes(ticker)) return;
+                    const ep  = parseFloat(ov.entry_price || ov.entryTrigger || 0);
+                    const cp  = parseFloat(ov.current_price || ov.currentPrice || ep);
                     const qty = parseInt(ov.quantity || 1);
                     if (ep <= 0) return;
-                    const pnl = (cp - ep) * qty;
+                    const pnl    = (cp - ep) * qty;
                     const pnlPct = ((cp - ep) / ep * 100).toFixed(2);
-                    const sign = pnl >= 0 ? '+' : '';
-                    const col = pnl >= 0 ? '#10B981' : '#DC2626';
+                    const sign   = pnl >= 0 ? '+' : '';
+                    const col    = pnl >= 0 ? '#10B981' : '#DC2626';
                     items.push(`<span class="ticker-item" style="color:${col};">${ticker} ${sign}₹${Math.abs(pnl).toLocaleString('en-IN',{maximumFractionDigits:0})} (${sign}${pnlPct}%)</span><span class="ticker-item" style="color:rgba(148,163,184,0.4);">|</span>`);
                 });
-                if (items.length === 0) {
-                    bar.style.display = 'none';
-                    return;
-                }
+                if (items.length === 0) { bar.style.display = 'none'; return; }
                 bar.style.display = 'flex';
-                // Duplicate for seamless loop
                 const content = items.join('');
                 track.innerHTML = content + content;
-                // Adjust animation duration based on content length
                 const duration = Math.max(20, items.length * 5);
                 track.style.animationDuration = duration + 's';
-            } catch(e) {
-                // silently ignore
-            }
+            } catch(e) { /* silently ignore */ }
         }
         setInterval(updatePnlTickerBar, 60000);
         // Call after app load
