@@ -8753,25 +8753,39 @@
 
         // Update trade field by ticker
         window.updateTradeFieldByTicker = function(ticker, entryPrice, field, value) {
-            fetch('./radar_trades.json', { cache: 'no-store' })
-                .then(r => r.ok ? r.json() : [])
-                .catch(() => [])
-                .then(serverTrades => {
-                    const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                    let trade = serverTrades.find(t => t.ticker === ticker && Math.abs(parseFloat(t.entry_price) - parseFloat(entryPrice)) < 0.01);
-                    if (!trade) {
-                        trade = Object.values(overrides).find(ov => ov.ticker === ticker && ov._custom);
-                    }
-                    if (trade) {
-                        const numValue = parseFloat(value) || 0;
-                        const changes = { [field]: numValue };
-                        if (field === 'entry_price') changes.entryTrigger = numValue;
-                        else if (field === 'target') changes.targetExit = numValue;
-                        else if (field === 'stop_loss') changes.stopLoss = numValue;
-                        saveTradeOverride(trade, changes);
-                        displayPerformanceTracking();
-                    }
-                });
+            const numValue = parseFloat(value) || 0;
+            if (!numValue || numValue <= 0) return;
+
+            // Build the changes object — always save under both field naming conventions
+            const changes = { [field]: numValue };
+            if (field === 'entry_price') { changes.entryTrigger = numValue; changes.entry_price = numValue; }
+            else if (field === 'target')    { changes.targetExit = numValue; changes.target = numValue; }
+            else if (field === 'stop_loss') { changes.stopLoss = numValue; changes.stop_loss = numValue; }
+
+            // Save to overrides using ticker as key (simpler, more reliable than order_id lookup)
+            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+
+            // Find the existing override key for this ticker (could be order_id or ticker)
+            let key = ticker; // default to ticker
+            for (const k of Object.keys(overrides)) {
+                if (overrides[k] && overrides[k].ticker === ticker) {
+                    key = k;
+                    break;
+                }
+            }
+
+            overrides[key] = { ...(overrides[key] || { ticker }), ...changes };
+            localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+            console.log(`✅ Saved ${field}=${numValue} for ${ticker} (key=${key})`);
+
+            // Also push to DynamoDB via EC2 if available (persists across devices)
+            fetchWithTimeout(`${EC2_API}/api/radar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticker, ...changes, status: overrides[key].status || 'Open' })
+            }, 4000).catch(() => {}); // silent — localStorage is the source of truth
+
+            displayPerformanceTracking();
         };
 
         // Delete from Radar → return ticker back to Trendline pool
