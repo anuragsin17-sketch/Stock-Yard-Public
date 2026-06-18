@@ -7221,25 +7221,29 @@
 
         function buildPlaceOrderStocks() {
             const all = [];
-            // 1. Trendline stocks from LIVE_DATA.golden_stocks
-            const golden = (typeof LIVE_DATA !== 'undefined' && LIVE_DATA?.golden_stocks) ? LIVE_DATA.golden_stocks : [];
-            golden.forEach(s => {
-                const trigger = s.trendline_price || s.weekly_trendline_price || 0;
-                // Prefer live LTP injected by background price updater
-                const live    = s._liveLtp || s.current_price || 0;
-                if (!trigger || !live) return;
+            // 1. Trendline stocks — use trendlineStocks (from trendline_screen.json, same as Trendline tab)
+            // Falls back to LIVE_DATA.golden_stocks if trendline_screen.json not loaded yet
+            const trendStocksRaw = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+            const trendSource = trendStocksRaw.length > 0 ? trendStocksRaw : (LIVE_DATA?.golden_stocks || []);
+            trendSource.forEach(s => {
+                // trendline_screen.json uses triggerPrice; golden_stocks uses trendline_price
+                const trigger = s.triggerPrice || s.trendline_price || s.weekly_trendline_price || 0;
+                const symbol  = s.ticker || s.symbol || '';
+                // Prefer live LTP, then currentPrice (trendline_screen uses this), then current_price
+                const live    = s._liveLtp || s.currentPrice || s.current_price || 0;
+                if (!trigger || !live || !symbol) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 all.push({
-                    symbol:     s.symbol,
-                    company:    s.company_name || s.symbol,
+                    symbol:     symbol,
+                    company:    s.company_name || s.companyName || symbol,
                     strategy:   'Trendline',
                     trigger:    trigger,
                     live:       live,
                     distPct:    distPct,
                     sl:         parseFloat((trigger * 0.92).toFixed(2)),
                     target:     parseFloat((trigger * 1.23).toFixed(2)),
-                    week52High: s.week_52_high || null,
-                    week52Low:  s.week_52_low  || null,
+                    week52High: s.week_52_high || s.week52High || null,
+                    week52Low:  s.week_52_low  || s.week52Low  || null,
                     fibLevel:   s.fibonacci_level || null,
                 });
             });
@@ -7283,35 +7287,41 @@
 
             placeOrderAllStocks = buildPlaceOrderStocks();
 
-            // Kick off background LTP fetch for volume stocks that don't have live price yet
+            // Kick off background LTP fetch for stocks missing live prices
+            const trendStocksRaw = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+            const tlMissingLTP   = trendStocksRaw.filter(s => !s._liveLtp && (s.triggerPrice || 0) > 0);
             const volStocksMissingLTP = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData))
                 ? volGainerData.filter(s => !s._liveLtp && s.prev_day_low > 0)
                 : [];
-            if (volStocksMissingLTP.length > 0) {
-                const tickers = volStocksMissingLTP.map(s => s.ticker).filter(Boolean);
-                // Try bulk first
+            const allMissing = [
+                ...tlMissingLTP.map(s => ({ obj: s, ticker: s.ticker, type: 'tl' })),
+                ...volStocksMissingLTP.map(s => ({ obj: s, ticker: s.ticker, type: 'vol' }))
+            ].filter(x => x.ticker);
+
+            if (allMissing.length > 0) {
+                const tickers = allMissing.map(x => x.ticker);
                 fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000)
                     .then(r => r.ok ? r.json() : null)
                     .then(json => {
                         const ltpMap = (json && json.success && json.prices && Object.keys(json.prices).length > 0)
                             ? json.prices : null;
                         if (ltpMap) {
-                            volStocksMissingLTP.forEach(s => {
-                                const ltp = ltpMap[s.ticker.toUpperCase()];
-                                if (ltp && ltp > 0) s._liveLtp = ltp;
+                            allMissing.forEach(x => {
+                                const ltp = ltpMap[x.ticker.toUpperCase()];
+                                if (ltp && ltp > 0) x.obj._liveLtp = ltp;
                             });
+                            // Persist updated trendline stocks back to sessionStorage
+                            if (tlMissingLTP.length > 0) sessionStorage.setItem('trendlineStocks', JSON.stringify(trendStocksRaw));
                         } else {
-                            // Fall back to individual fetches for stocks still missing
-                            return Promise.allSettled(volStocksMissingLTP.slice(0,10).map(s =>
-                                fetch(`${EC2_API}/api/get-quote?symbol=${s.ticker}`, { cache: 'no-store' })
+                            return Promise.allSettled(allMissing.slice(0, 15).map(x =>
+                                fetch(`${EC2_API}/api/get-quote?symbol=${x.ticker}`, { cache: 'no-store' })
                                     .then(r => r.ok ? r.json() : null)
-                                    .then(data => { if (data?.success && data.ltp > 0) s._liveLtp = parseFloat(data.ltp); })
+                                    .then(data => { if (data?.success && data.ltp > 0) x.obj._liveLtp = parseFloat(data.ltp); })
                                     .catch(() => {})
                             ));
                         }
                     })
                     .then(() => {
-                        // Re-render Place Order tab with fresh prices if still on this tab
                         if (currentTab === 'placeorder') {
                             placeOrderAllStocks = buildPlaceOrderStocks();
                             renderPlaceOrderContent(container);
