@@ -6225,6 +6225,12 @@
             // Fetch live LTP for each visible stock
             paged.forEach(stock => {
                 const ticker = stock.ticker;
+                // Show static price immediately as fallback so it's never blank
+                const el = document.getElementById(`vol_ltp_${ticker}`);
+                if (el && stock.close_price > 0) {
+                    el.textContent = '₹' + parseFloat(stock.close_price).toLocaleString('en-IN', {maximumFractionDigits:2});
+                    el.style.color = '#94a3b8'; // grey = static/stale
+                }
                 fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${ticker}`, { cache: 'no-store' })
                     .then(r => r.ok ? r.json() : null)
                     .then(data => {
@@ -6234,7 +6240,7 @@
                         const el = document.getElementById(`vol_ltp_${ticker}`);
                         if (el) {
                             el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
-                            // Colour based on vs entry zone
+                            // Colour based on vs entry zone — white = live
                             const threshold = stock.alert_threshold || 0;
                             el.style.color = ltp <= threshold ? '#10B981' : '#ffffff';
                         }
