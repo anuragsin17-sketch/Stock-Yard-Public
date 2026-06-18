@@ -7662,6 +7662,7 @@
         }
 
         let perfCapital = 500000; // default ₹5,00,000 total capital
+        let perfSlotsOverride = 0; // 0 = auto (capital ÷ 50K), >0 = manual override
         // Default to 10 years on first load
         if (!perfDateFrom) { perfYears = 10; perfDateFrom = getDateOffset(10*365); }
 
@@ -7669,9 +7670,9 @@
         // Filters a flat trade list so that at most (capital/50000) trades
         // are ever open concurrently. Trades are taken chronologically;
         // if all slots are occupied the trade is skipped.
-        function simulateWithCapital(trades, capital) {
+        function simulateWithCapital(trades, capital, slotsOverride) {
             const POSITION_SIZE = 50000;
-            const maxSlots = Math.max(1, Math.floor(capital / POSITION_SIZE));
+            const maxSlots = slotsOverride > 0 ? slotsOverride : Math.max(1, Math.floor(capital / POSITION_SIZE));
             const slots = new Array(maxSlots).fill(null); // null = free, Date = occupied until
             const taken = [];
             const sorted = [...trades].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
@@ -7771,6 +7772,17 @@
                         </div>
                         <div class="text-xs mt-1" style="color:#6b7280;">Slots: ${Math.max(1,Math.floor(perfCapital/50000))}</div>
                     </div>
+                    <div style="flex-shrink:0;">
+                        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">🔢 Slots (max concurrent)</div>
+                        <input id="perfSlotsInput" type="number" min="1" max="500" step="1"
+                            value="${perfSlotsOverride > 0 ? perfSlotsOverride : Math.max(1,Math.floor(perfCapital/50000))}"
+                            placeholder="Auto"
+                            onchange="perfSlotsOverride=Math.max(1,parseInt(this.value)||0); this.value=perfSlotsOverride||'';"
+                            oninput="perfSlotsOverride=Math.max(1,parseInt(this.value)||0);"
+                            class="w-full px-2 py-1.5 rounded-lg text-xs mono outline-none"
+                            style="background:rgba(30,41,59,0.9);border:1px solid rgba(6,95,70,0.5);color:#34d399;width:80px;"/>
+                        <div class="text-xs mt-1" style="color:#6b7280;">${perfSlotsOverride > 0 ? '✏️ custom' : 'auto = ÷₹50K'}</div>
+                    </div>
                     <div style="flex:1;">
                         <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">📅 Period</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
@@ -7797,6 +7809,8 @@
                 // Restore capital input
                 const capInp = document.getElementById('perfCapitalInput');
                 if (capInp) capInp.value = perfCapital;
+                const slotsInpPre = document.getElementById('perfSlotsInput');
+                if (slotsInpPre) slotsInpPre.value = perfSlotsOverride > 0 ? perfSlotsOverride : Math.max(1, Math.floor(perfCapital/50000));
                 return;
             }
 
@@ -7818,7 +7832,8 @@
                 return true;
             });
             // Apply capital-aware slot simulation — skip trades when capital exhausted
-            const filteredTrades = simulateWithCapital(dateFiltTrades, perfCapital);
+            const effectiveSlots = perfSlotsOverride > 0 ? perfSlotsOverride : Math.max(1, Math.floor(perfCapital/50000));
+            const filteredTrades = simulateWithCapital(dateFiltTrades, perfCapital, effectiveSlots);
 
             if (!s && filteredTrades.length === 0) {
                 container.innerHTML = html + `<div class="mobile-card rounded-xl p-6 text-center text-slate-400">No data for ${perfTargetPct}% target.</div>`;
@@ -7878,7 +7893,7 @@
             const pnlColor = actualPnl >= 0 ? '#10B981' : '#DC2626';
             const pfColor  = parseFloat(pf_val) >= 3 ? '#10B981' : parseFloat(pf_val) >= 1.5 ? '#D97706' : '#DC2626';
             const capLabel = perfCapital >= 100000 ? (perfCapital/100000).toFixed(1).replace('.0','')+'L' : (perfCapital/1000)+'K';
-            const slotsCount = Math.max(1, Math.floor(perfCapital/50000));
+            const slotsCount = perfSlotsOverride > 0 ? perfSlotsOverride : Math.max(1, Math.floor(perfCapital/50000));
             const skippedCount = dateFiltTrades.length - filteredTrades.length;
             const periodLabel = perfDateFrom ? `${perfDateFrom} → ${perfDateTo||'now'}` : 'All (10yr)';
 
@@ -8006,7 +8021,7 @@
                                 if (toTs   && ts2 > toTs)   return false;
                                 return true;
                             });
-                            const tTrades = simulateWithCapital(tDateFilt, perfCapital);
+                            const tTrades = simulateWithCapital(tDateFilt, perfCapital, effectiveSlots);
                             if (tTrades.length === 0) return '';
                             const tCompleted = tTrades.filter(tr => tr.outcome !== 'OPEN');
                             const tWins      = tCompleted.filter(tr => tr.pnl_pct > 0);
@@ -8087,6 +8102,8 @@
             container.innerHTML = html;
             const inp = document.getElementById('perfCapitalInput');
             if (inp) inp.value = perfCapital;
+            const slotsInp = document.getElementById('perfSlotsInput');
+            if (slotsInp) slotsInp.value = perfSlotsOverride > 0 ? perfSlotsOverride : Math.max(1, Math.floor(perfCapital/50000));
         } // end renderTargetSweepPerformance
 
         // Global filter state for Radar tab
