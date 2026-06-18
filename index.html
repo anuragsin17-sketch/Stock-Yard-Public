@@ -5446,6 +5446,7 @@
                 if (stock) {
                     const oldPrice = stock.current_price;
                     stock.current_price = newPrice;
+                    stock._liveLtp = newPrice;  // for Place Order tab
                     
                     // Recalculate distance percentages
                     if (stock.radar_trigger_price) {
@@ -5465,6 +5466,7 @@
                 if (stock) {
                     const oldPrice = stock.current_price;
                     stock.current_price = newPrice;
+                    stock._liveLtp = newPrice;  // for Place Order tab
                     
                     // Also update the trendlineData if it exists
                     const trendlineStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
@@ -7223,7 +7225,8 @@
             const golden = (typeof LIVE_DATA !== 'undefined' && LIVE_DATA?.golden_stocks) ? LIVE_DATA.golden_stocks : [];
             golden.forEach(s => {
                 const trigger = s.trendline_price || s.weekly_trendline_price || 0;
-                const live    = s.current_price || 0;
+                // Prefer live LTP injected by background price updater
+                const live    = s._liveLtp || s.current_price || 0;
                 if (!trigger || !live) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 all.push({
@@ -7244,7 +7247,8 @@
             const vols = (typeof screeningData !== 'undefined' && screeningData?.volume_breakout_stocks) ? screeningData.volume_breakout_stocks : [];
             vols.forEach(s => {
                 const trigger = s.radar_trigger_price || s.breakout_low || 0;
-                const live    = s.current_price || 0;
+                // Prefer live LTP injected by background price updater, fall back to screener price
+                const live    = s._liveLtp || s.current_price || 0;
                 if (!trigger || !live) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 all.push({
