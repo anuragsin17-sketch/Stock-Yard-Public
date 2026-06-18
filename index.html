@@ -7284,16 +7284,26 @@
 
             // If trendline_screen.json not loaded yet, load it first then render
             const trendCached = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
-            if (trendCached.length === 0) {
+            const volCached   = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData) && volGainerData.length > 0);
+
+            if (trendCached.length === 0 || !volCached) {
                 container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Loading signals...</div>`;
-                fetch('./trendline_screen.json', { cache: 'no-store' })
-                    .then(r => r.ok ? r.json() : []).catch(() => [])
-                    .then(stocks => {
-                        if (Array.isArray(stocks) && stocks.length > 0) {
-                            sessionStorage.setItem('trendlineStocks', JSON.stringify(stocks));
-                        }
-                        if (currentTab === 'placeorder') displayPlaceOrder();
-                    });
+                const fetches = [];
+                if (trendCached.length === 0) {
+                    fetches.push(
+                        fetch('./trendline_screen.json', { cache: 'no-store' })
+                            .then(r => r.ok ? r.json() : []).catch(() => [])
+                            .then(stocks => { if (Array.isArray(stocks) && stocks.length > 0) sessionStorage.setItem('trendlineStocks', JSON.stringify(stocks)); })
+                    );
+                }
+                if (!volCached) {
+                    fetches.push(
+                        fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
+                            .then(r => r.ok ? r.json() : []).catch(() => [])
+                            .then(data => { if (Array.isArray(data)) volGainerData = data; })
+                    );
+                }
+                Promise.all(fetches).then(() => { if (currentTab === 'placeorder') displayPlaceOrder(); });
                 return;
             }
 
@@ -7467,22 +7477,20 @@
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                             <div style="font-size:10px;color:#6b7280;">
-                                ${s.fibLevel?'🔢 Fib '+s.fibLevel:''}
                                 ${s.gainPct?'📊 Signal +'+parseFloat(s.gainPct).toFixed(1)+'%':''}
                                 ${isTL && s._raw ? (() => {
                                     const r = s._raw;
-                                    const wicks = r.wickTouches || r.wick_touches || 0;
-                                    const tf = r.timeframe || 'monthly';
-                                    const fibInfo = (() => {
-                                        const fibs = r.fibLevels || r.fibonacci_levels || {};
-                                        const cp = trigger;
-                                        const nearFib = Object.entries(fibs).filter(([k]) => !k.startsWith('_') && !k.startsWith('pocket')).map(([k,v]) => ({k, dist: Math.abs((cp-parseFloat(v))/parseFloat(v)*100)})).sort((a,b)=>a.dist-b.dist)[0];
-                                        return nearFib && nearFib.dist <= 3 ? `· 🔢 ${nearFib.k}` : '';
-                                    })();
-                                    return wicks ? `· 📏 ${wicks} wicks (${tf}) ${fibInfo}` : fibInfo;
+                                    const wicks  = r.wickTouches || 0;
+                                    const tf     = r.timeframe || 'monthly';
+                                    const fibLvl = r.fibMatchLevel || '';
+                                    const fibPx  = r.fibMatchPrice ? ' ₹'+parseFloat(r.fibMatchPrice).toFixed(0) : '';
+                                    const parts  = [];
+                                    if (wicks) parts.push('📏 '+wicks+' wicks ('+tf+')');
+                                    if (fibLvl) parts.push('🔢 '+fibLvl+fibPx);
+                                    return parts.join(' · ');
                                 })() : ''}
-                                ${isTL && s._raw?.confluenceScore >= 8 ? '<span style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;">⚡ CONFLUENCE</span>' : ''}
-                                ${!s.isLiveLtp && !isTL ? '<span style="color:#6b7280;font-size:9px;"> · approx price</span>' : ''}
+                                ${isTL && s._raw?.confluenceScore >= 8 ? ' <span style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;">⚡</span>' : ''}
+                                ${!s.isLiveLtp && !isTL ? '<span style="color:#6b7280;font-size:9px;"> · ~price</span>' : ''}
                             </div>
                             <div style="display:flex;gap:6px;align-items:center;">
                                 ${isEdited ? `<button onclick="resetPlaceOrderTrigger('${s.symbol}','${s.strategy}')" style="all:unset;font-size:10px;color:#6b7280;cursor:pointer;padding:4px 8px;border:1px solid rgba(107,114,128,0.3);border-radius:5px;">↺ Reset</button>` : ''}
