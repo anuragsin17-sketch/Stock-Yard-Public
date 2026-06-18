@@ -7303,22 +7303,20 @@
             setTabCount('placeOrderTabCount', allReady.length);
 
             let html = `
-            <!-- Strategy filter pills + search button — same style as trendline tab header -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
-                <div style="display:flex;gap:6px;align-items:center;">
-                    <button onclick="placeOrderFilter='all'; placeOrderPage=1; displayPlaceOrder();"
-                        style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${placeOrderFilter==='all'?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.1)'};background:${placeOrderFilter==='all'?'rgba(16,185,129,0.15)':'rgba(30,41,59,0.8)'};color:${placeOrderFilter==='all'?'#34d399':'#94a3b8'};">
-                        All <span style="opacity:0.7;">${allReady.length}</span>
-                    </button>
-                    <button onclick="placeOrderFilter='Trendline'; placeOrderPage=1; displayPlaceOrder();"
-                        style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${placeOrderFilter==='Trendline'?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.1)'};background:${placeOrderFilter==='Trendline'?'rgba(16,185,129,0.15)':'rgba(30,41,59,0.8)'};color:${placeOrderFilter==='Trendline'?'#10B981':'#94a3b8'};">
-                        📈 Trendline <span style="opacity:0.7;">${tlCount}</span>
-                    </button>
-                    <button onclick="placeOrderFilter='Volume'; placeOrderPage=1; displayPlaceOrder();"
-                        style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${placeOrderFilter==='Volume'?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'};background:${placeOrderFilter==='Volume'?'rgba(59,130,246,0.15)':'rgba(30,41,59,0.8)'};color:${placeOrderFilter==='Volume'?'#3B82F6':'#94a3b8'};">
-                        🔥 Volume <span style="opacity:0.7;">${volCount}</span>
-                    </button>
-                </div>
+            <!-- Strategy filter pills + search icon — all inline, same row -->
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                <button onclick="placeOrderFilter='all'; placeOrderPage=1; displayPlaceOrder();"
+                    style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${placeOrderFilter==='all'?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.1)'};background:${placeOrderFilter==='all'?'rgba(16,185,129,0.15)':'rgba(30,41,59,0.8)'};color:${placeOrderFilter==='all'?'#34d399':'#94a3b8'};">
+                    All <span style="opacity:0.7;">${allReady.length}</span>
+                </button>
+                <button onclick="placeOrderFilter='Trendline'; placeOrderPage=1; displayPlaceOrder();"
+                    style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${placeOrderFilter==='Trendline'?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.1)'};background:${placeOrderFilter==='Trendline'?'rgba(16,185,129,0.15)':'rgba(30,41,59,0.8)'};color:${placeOrderFilter==='Trendline'?'#10B981':'#94a3b8'};">
+                    📈 Trendline <span style="opacity:0.7;">${tlCount}</span>
+                </button>
+                <button onclick="placeOrderFilter='Volume'; placeOrderPage=1; displayPlaceOrder();"
+                    style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${placeOrderFilter==='Volume'?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'};background:${placeOrderFilter==='Volume'?'rgba(59,130,246,0.15)':'rgba(30,41,59,0.8)'};color:${placeOrderFilter==='Volume'?'#3B82F6':'#94a3b8'};">
+                    🔥 Volume <span style="opacity:0.7;">${volCount}</span>
+                </button>
                 <button onclick="togglePlaceOrderSearch()"
                     style="all:unset;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
                     <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
