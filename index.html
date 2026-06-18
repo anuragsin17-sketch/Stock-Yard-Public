@@ -7251,8 +7251,8 @@
                 const prevLow  = s.prev_day_low || 0;
                 const trigger  = prevLow;
                 // Use live LTP only — close_price is the signal day close, NOT today's price
-                const live     = s._liveLtp || s.current_price || trigger;
-                if (!trigger) return;
+                const live     = s._liveLtp || s.current_price || 0;
+                if (!trigger || !live) return;
                 const distPct  = Math.abs((live - trigger) / trigger * 100);
                 const tgt      = s.target_price  ? parseFloat(s.target_price)  : parseFloat((trigger * 1.20).toFixed(2));
                 const sl       = s.sl_price      ? parseFloat(s.sl_price)      : parseFloat((trigger * 0.95).toFixed(2));
@@ -7278,11 +7278,52 @@
             const container = document.getElementById('resultsContainer');
 
             // Only show persistent search bar if already active (user clicked 🔍)
-            // Don't force-show it on every render
             const bar = document.getElementById('persistentSearchBar');
             if (bar && !placeOrderSearch) bar.style.display = 'none';
 
             placeOrderAllStocks = buildPlaceOrderStocks();
+
+            // Kick off background LTP fetch for volume stocks that don't have live price yet
+            const volStocksMissingLTP = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData))
+                ? volGainerData.filter(s => !s._liveLtp && s.prev_day_low > 0)
+                : [];
+            if (volStocksMissingLTP.length > 0) {
+                const tickers = volStocksMissingLTP.map(s => s.ticker).filter(Boolean);
+                // Try bulk first
+                fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(json => {
+                        const ltpMap = (json && json.success && json.prices && Object.keys(json.prices).length > 0)
+                            ? json.prices : null;
+                        if (ltpMap) {
+                            volStocksMissingLTP.forEach(s => {
+                                const ltp = ltpMap[s.ticker.toUpperCase()];
+                                if (ltp && ltp > 0) s._liveLtp = ltp;
+                            });
+                        } else {
+                            // Fall back to individual fetches for stocks still missing
+                            return Promise.allSettled(volStocksMissingLTP.slice(0,10).map(s =>
+                                fetch(`${EC2_API}/api/get-quote?symbol=${s.ticker}`, { cache: 'no-store' })
+                                    .then(r => r.ok ? r.json() : null)
+                                    .then(data => { if (data?.success && data.ltp > 0) s._liveLtp = parseFloat(data.ltp); })
+                                    .catch(() => {})
+                            ));
+                        }
+                    })
+                    .then(() => {
+                        // Re-render Place Order tab with fresh prices if still on this tab
+                        if (currentTab === 'placeorder') {
+                            placeOrderAllStocks = buildPlaceOrderStocks();
+                            renderPlaceOrderContent(container);
+                        }
+                    })
+                    .catch(() => {});
+            }
+
+            renderPlaceOrderContent(container);
+        }
+
+        function renderPlaceOrderContent(container) {
 
             const q = placeOrderSearch.toUpperCase();
 
