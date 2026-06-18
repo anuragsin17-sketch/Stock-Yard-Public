@@ -7291,6 +7291,27 @@
             const trendCached = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
             const volCached   = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData) && volGainerData.length > 0);
 
+            // Always refresh live prices from DynamoDB into volGainerData when entering Place Order tab
+            // (volGainerData may be loaded but _liveLtp never injected if user came from Volume tab)
+            if (volCached && trendCached.length > 0) {
+                const volMissingLtp = volGainerData.filter(s => !s._liveLtp);
+                if (volMissingLtp.length > 0) {
+                    const tickers = volGainerData.map(s => s.ticker).filter(Boolean);
+                    fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(json => {
+                            if (json && json.success && json.prices) {
+                                volGainerData.forEach(s => {
+                                    const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                    if (ltp && ltp > 0) s._liveLtp = ltp;
+                                });
+                            }
+                            if (currentTab === 'placeorder') { placeOrderAllStocks = buildPlaceOrderStocks(); renderPlaceOrderContent(container); }
+                        })
+                        .catch(() => {});
+                }
+            }
+
             if (trendCached.length === 0 || !volCached) {
                 container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Loading signals...</div>`;
 
