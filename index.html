@@ -7248,32 +7248,10 @@
             // 2. Volume gainer stocks from volGainerData (same source as Volume tab)
             const vols = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData)) ? volGainerData : [];
             vols.forEach(s => {
-                const prevLow  = s.prev_day_low || 0;
-                const trigger  = prevLow;
-                if (!trigger) return;
-                // Only use _liveLtp — close_price is signal day close (always >> trigger, gives wrong distPct)
-                // Show volume stocks in approaching section until LTP arrives
-                const live = s._liveLtp || 0;
-                if (!live) {
-                    // No live price yet — include with distPct=3.0 (shows in approaching, not ready)
-                    const tgt = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
-                    const sl  = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.95).toFixed(2));
-                    all.push({
-                        symbol:    s.ticker || '',
-                        company:   s.company || s.ticker || '',
-                        strategy:  'Volume',
-                        trigger:   trigger,
-                        live:      trigger,  // show trigger as live placeholder
-                        distPct:   3.0,       // placeholder — will update after LTP fetch
-                        sl:        sl,
-                        target:    tgt,
-                        week52High: s.week_52_high || null,
-                        week52Low:  s.week_52_low  || null,
-                        gainPct:   s.gain_pct || null,
-                        isLiveLtp: false,
-                    });
-                    return;
-                }
+                const trigger = s.prev_day_low || 0;
+                // Only use _liveLtp — close_price is signal day close (always >> trigger)
+                const live    = s._liveLtp || 0;
+                if (!trigger || !live) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 const tgt     = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
                 const sl      = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.95).toFixed(2));
@@ -7391,25 +7369,20 @@
                 : stratFiltered;
 
             // Split: ≤2% = ready, 2-5% = approaching
-            // When Volume filter is active, show all volume stocks (LTP pending ones included)
-            const ready      = q.length >= 2 ? filtered : (
-                placeOrderFilter === 'Volume'
-                    ? filtered
-                    : filtered.filter(s => s.distPct <= 2.0)
-            );
-            const approaching = (q.length >= 2 || placeOrderFilter === 'Volume') ? [] : filtered.filter(s => s.distPct > 2.0);
+            const ready      = q.length >= 2 ? filtered : filtered.filter(s => s.distPct <= 2.0);
+            const approaching = q.length >= 2 ? [] : filtered.filter(s => s.distPct > 2.0);
 
             const totalPages = Math.max(1, Math.ceil(ready.length / TAB_PAGE_SIZE));
             if (placeOrderPage > totalPages) placeOrderPage = 1;
             const paged = q.length >= 2 ? ready : ready.slice((placeOrderPage-1)*TAB_PAGE_SIZE, placeOrderPage*TAB_PAGE_SIZE);
 
-            // Count per strategy for badges — volume shows all stocks, trendline shows ≤2% only
+            // Count per strategy for badges — both use ≤2% threshold
             const allReady  = placeOrderAllStocks.filter(s => s.distPct <= 2.0);
             const tlCount   = allReady.filter(s => s.strategy === 'Trendline').length;
-            const volCount  = placeOrderAllStocks.filter(s => s.strategy === 'Volume').length;
+            const volCount  = allReady.filter(s => s.strategy === 'Volume').length;
 
-            // Update badge — count all stocks within 5% (includes volume pending LTP)
-            setTabCount('placeOrderTabCount', placeOrderAllStocks.length);
+            // Update badge
+            setTabCount('placeOrderTabCount', allReady.length);
 
             let html = `
             <!-- Strategy filter pills + search icon — all inline, same row -->
