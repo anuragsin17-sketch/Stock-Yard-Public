@@ -7250,15 +7250,36 @@
             vols.forEach(s => {
                 const prevLow  = s.prev_day_low || 0;
                 const trigger  = prevLow;
-                // _liveLtp = real-time; close_price = signal day close (approximate until LTP arrives)
-                const live     = s._liveLtp || s.close_price || 0;
-                if (!trigger || !live) return;
-                const distPct  = Math.abs((live - trigger) / trigger * 100);
-                const tgt      = s.target_price  ? parseFloat(s.target_price)  : parseFloat((trigger * 1.20).toFixed(2));
-                const sl       = s.sl_price      ? parseFloat(s.sl_price)      : parseFloat((trigger * 0.95).toFixed(2));
+                if (!trigger) return;
+                // Only use _liveLtp — close_price is signal day close (always >> trigger, gives wrong distPct)
+                // Show volume stocks in approaching section until LTP arrives
+                const live = s._liveLtp || 0;
+                if (!live) {
+                    // No live price yet — include with distPct=3.0 (shows in approaching, not ready)
+                    const tgt = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
+                    const sl  = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.95).toFixed(2));
+                    all.push({
+                        symbol:    s.ticker || '',
+                        company:   s.company || s.ticker || '',
+                        strategy:  'Volume',
+                        trigger:   trigger,
+                        live:      trigger,  // show trigger as live placeholder
+                        distPct:   3.0,       // placeholder — will update after LTP fetch
+                        sl:        sl,
+                        target:    tgt,
+                        week52High: s.week_52_high || null,
+                        week52Low:  s.week_52_low  || null,
+                        gainPct:   s.gain_pct || null,
+                        isLiveLtp: false,
+                    });
+                    return;
+                }
+                const distPct = Math.abs((live - trigger) / trigger * 100);
+                const tgt     = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
+                const sl      = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.95).toFixed(2));
                 all.push({
-                    symbol:    s.ticker || s.symbol || '',
-                    company:   s.company || s.company_name || s.ticker || '',
+                    symbol:    s.ticker || '',
+                    company:   s.company || s.ticker || '',
                     strategy:  'Volume',
                     trigger:   trigger,
                     live:      live,
@@ -7268,7 +7289,7 @@
                     week52High: s.week_52_high || null,
                     week52Low:  s.week_52_low  || null,
                     gainPct:   s.gain_pct || null,
-                    isLiveLtp: !!s._liveLtp,
+                    isLiveLtp: true,
                 });
             });
             // Only show stocks within 5% — beyond 5% they belong back in source tab
