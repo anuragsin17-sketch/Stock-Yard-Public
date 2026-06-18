@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260618180000 -->
+    <!-- BUILD: 20260619100000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -7249,8 +7249,8 @@
             const vols = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData)) ? volGainerData : [];
             vols.forEach(s => {
                 const trigger = s.prev_day_low || 0;
-                // Only use _liveLtp — close_price is signal day close (always >> trigger)
-                const live    = s._liveLtp || 0;
+                // Prefer live LTP, fall back to current_price / close_price from the stock object
+                const live    = s._liveLtp || s.current_price || s.currentPrice || s.close_price || s.ltp || 0;
                 if (!trigger || !live) return;
                 const distPct = Math.abs((live - trigger) / trigger * 100);
                 const tgt     = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
