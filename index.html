@@ -7036,14 +7036,6 @@
                         })
                         .catch(() => {});
                 });
-            } catch (error) {
-                container.innerHTML = `
-                    <div class="mobile-card rounded-xl p-6 text-center">
-                        <div class="text-red-400 mb-2">⚠️ Error Loading Trendline Data</div>
-                        <div class="text-xs text-slate-500">${error.message}</div>
-                    </div>
-                `;
-            }
         }
         
         // ─── PAST PERFORMANCE TAB ────────────────────────────────────────────────
