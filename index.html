@@ -7249,16 +7249,16 @@
             const vols = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData)) ? volGainerData : [];
             vols.forEach(s => {
                 // Entry trigger = signal day LOW (prev_day_low)
-                // Stock gained 10%+ that day — we wait for it to pull back to this level
                 const trigger = s.prev_day_low || 0;
-                // Prefer live LTP, fall back to close_price from the stock object
-                const live    = s._liveLtp || s.current_price || s.currentPrice || s.close_price || s.ltp || 0;
-                if (!trigger || !live) return;
-                const distPct    = (live - trigger) / trigger * 100;  // signed: positive = above entry
+                // Only use _liveLtp — close_price is signal day close (always 10%+ above entry)
+                // and would incorrectly filter out stocks at entry zone
+                const live = s._liveLtp || 0;
+                if (!trigger || !live) return;  // skip until live price is fetched
+                const distPct    = (live - trigger) / trigger * 100;
                 const distPctAbs = Math.abs(distPct);
-                const tgt     = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
-                const sl      = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.93).toFixed(2));
-                // Only show when live price is within ±2% of signal day low (retest zone = entry)
+                const tgt = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
+                const sl  = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.93).toFixed(2));
+                // Show only within ±2% of signal day low
                 if (distPctAbs > 2.0) return;
                 all.push({
                     symbol:    s.ticker || '',
@@ -7266,14 +7266,14 @@
                     strategy:  'Volume',
                     trigger:   trigger,
                     live:      live,
-                    distPct:   distPctAbs,   // for sorting (closest to entry first)
-                    distRaw:   distPct,      // signed, for display label
+                    distPct:   distPctAbs,
+                    distRaw:   distPct,
                     sl:        sl,
                     target:    tgt,
                     week52High: s.week_52_high || null,
                     week52Low:  s.week_52_low  || null,
                     gainPct:   s.gain_pct || null,
-                    isLiveLtp: !!s._liveLtp,
+                    isLiveLtp: true,
                 });
             });
             // Trendline: show within 5% of trigger. Volume: already filtered above (0-20% above entry)
@@ -7293,7 +7293,9 @@
             // ── Always fetch live prices for ALL stocks before rendering ──────
             // This ensures volume stocks get _liveLtp even when loaded from Volume tab
             // where _liveLtp was never set. Show loading until prices arrive.
-            const volNeedsLtp = volCached && volGainerData.some(s => !s._liveLtp);
+            // Always refresh ALL volume LTPs when entering Place Order tab
+            // close_price fallback is wrong (signal day close >> entry), so live price is mandatory
+            const volNeedsLtp = volCached;  // always fetch fresh
             const tlNeedsLtp  = trendCached.length > 0 && trendCached.some(s => !s._liveLtp);
 
             if ((volNeedsLtp || tlNeedsLtp) && trendCached.length > 0 && volCached) {
