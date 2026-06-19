@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260619120000 -->
+    <!-- BUILD: 20260619130000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -9069,6 +9069,10 @@
 
             const open   = trades.filter(t => t.status === 'Open' || t.status === 'Triggered');
             const closed = trades.filter(t => t.status !== 'Open' && t.status !== 'Triggered');
+
+            // ── Always sync badge to match exactly what is shown as "Open" ──
+            setTabCount('radarTabCount', open.length);
+
             let displayTrades = radarFilterState === 'open' ? open : radarFilterState === 'closed' ? closed : trades;
             // Apply search filter (3+ chars, bypasses filter state)
             if (radarSearch.length >= 3) {
