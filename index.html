@@ -332,12 +332,12 @@
                     <a href="https://in.tradingview.com/chart/?symbol=NSE:NIFTY" target="_blank"
                         style="display:flex;align-items:center;gap:4px;text-decoration:none;background:#111625;border:1px solid #1f2937;padding:3px 8px;border-radius:5px;">
                         <span style="color:#6b7280;font-size:9px;font-weight:700;">NIFTY</span>
-                        <span id="nifty50Price" class="mono" style="color:#34d399;font-size:10px;font-weight:600;">--</span>
+                        <span id="nifty50Price" class="mono" style="font-size:10px;font-weight:600;color:#34d399;">--</span>
                     </a>
                     <a href="https://in.tradingview.com/chart/?symbol=BSE:SENSEX" target="_blank"
                         style="display:flex;align-items:center;gap:4px;text-decoration:none;background:#111625;border:1px solid #1f2937;padding:3px 8px;border-radius:5px;">
                         <span style="color:#6b7280;font-size:9px;font-weight:700;">SENSEX</span>
-                        <span id="sensexPrice" class="mono" style="color:#34d399;font-size:10px;font-weight:600;">--</span>
+                        <span id="sensexPrice" class="mono" style="font-size:10px;font-weight:600;color:#34d399;">--</span>
                     </a>
                 </div>
                 <!-- Right: status only -->
@@ -5539,10 +5539,10 @@
                     if (prevClose && prevClose > 0) {
                         const pct = ((price - prevClose) / prevClose) * 100;
                         el.textContent = `${price.toFixed(0)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
-                        el.className = `text-xs font-semibold mono ${pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+                        el.style.color = pct >= 0 ? '#34d399' : '#f87171';
                     } else {
                         el.textContent = `${price.toFixed(0)}`;
-                        el.className = 'text-xs font-semibold mono text-emerald-400';
+                        el.style.color = '#34d399';
                     }
                 }
 
