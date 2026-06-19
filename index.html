@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260619100000 -->
+    <!-- BUILD: 20260619120000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -6192,10 +6192,30 @@
             const histCount = JSON.parse(localStorage.getItem('tradeHistory') || '[]').length;
             setTabCount('radarPerfCount', histCount);
 
-            // Place Order count — stocks within ±1% of trigger
+            // Place Order count — count volume stocks within ±10% of trigger (using live or close price)
+            // and trendline stocks within -10% to +2%. Use close_price/currentPrice as fallback
+            // so the badge shows a real estimate even before live prices are fetched.
             try {
-                const poStocks = buildPlaceOrderStocks().filter(s => s.distPct <= 1.0);
-                setTabCount('placeOrderTabCount', poStocks.length);
+                let poCount = 0;
+                // Trendline stocks
+                const trendStocksForCount = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+                trendStocksForCount.forEach(s => {
+                    const trigger = s.triggerPrice || 0;
+                    const live = s._liveLtp || s.currentPrice || 0;
+                    if (!trigger || !live) return;
+                    const distPct = (live - trigger) / trigger * 100;
+                    if (distPct >= -10.0 && distPct <= 2.0) poCount++;
+                });
+                // Volume stocks — use _liveLtp if available, else skip (don't use close_price which is always >10% above entry)
+                const volForCount = (volGainerData || []);
+                volForCount.forEach(s => {
+                    const trigger = s.prev_day_low || 0;
+                    const live = s._liveLtp || 0;
+                    if (!trigger || !live) return;
+                    const distPct = (live - trigger) / trigger * 100;
+                    if (distPct >= -10.0 && distPct <= 2.0) poCount++;
+                });
+                setTabCount('placeOrderTabCount', poCount);
             } catch(e) {}
 
         }
@@ -7335,6 +7355,8 @@
                         if (currentTab === 'placeorder') {
                             placeOrderAllStocks = buildPlaceOrderStocks();
                             renderPlaceOrderContent(container);
+                            // Sync tab badge now that live prices are loaded
+                            setTabCount('placeOrderTabCount', placeOrderAllStocks.length);
                         }
                     });
                 return;  // wait for prices before rendering
@@ -8350,8 +8372,8 @@
             if (slotsInp) slotsInp.value = perfSlotsOverride > 0 ? perfSlotsOverride : Math.max(1, Math.floor(perfCapital/50000));
         } // end renderTargetSweepPerformance
 
-        // Global filter state for Radar tab
-        let radarFilterState = 'all'; // 'open', 'closed', 'all'
+        // Global filter state for Radar tab — default to 'open' so clicking Radar shows open trades
+        let radarFilterState = 'open'; // 'open', 'closed', 'all'
 
         // Push open Radar trades (with user-set SL/target) to backend for real-time SL/Target alerts
         function pushRadarToBackend(trades) {
