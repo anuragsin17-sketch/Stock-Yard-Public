@@ -7867,17 +7867,18 @@
                     </div>
                     <!-- Best / Worst -->
                     ${bestTrade ? `
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="display:grid;grid-template-columns:${(worstTrade && worstTrade.ticker !== bestTrade.ticker) || (worstTrade && parseFloat(worstTrade.pnl_percent) < 0) ? '1fr 1fr' : '1fr'};gap:10px;">
                         <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:10px;">
                             <div style="font-size:9px;color:#10b981;font-weight:700;text-transform:uppercase;margin-bottom:4px;">🏆 Best Trade</div>
                             <div style="font-size:13px;font-weight:700;color:#f1f5f9;">${bestTrade.ticker}</div>
                             <div style="font-size:12px;font-weight:700;color:#10b981;" class="mono">+${parseFloat(bestTrade.pnl_percent).toFixed(2)}%</div>
                         </div>
+                        ${(worstTrade && worstTrade.ticker !== bestTrade.ticker) || (worstTrade && parseFloat(worstTrade.pnl_percent) < 0) ? `
                         <div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.2);border-radius:8px;padding:10px;">
                             <div style="font-size:9px;color:#f43f5e;font-weight:700;text-transform:uppercase;margin-bottom:4px;">📉 Worst Trade</div>
                             <div style="font-size:13px;font-weight:700;color:#f1f5f9;">${worstTrade.ticker}</div>
                             <div style="font-size:12px;font-weight:700;color:#f43f5e;" class="mono">${parseFloat(worstTrade.pnl_percent).toFixed(2)}%</div>
-                        </div>
+                        </div>` : ''}
                     </div>` : ''}
                 </div>
 
