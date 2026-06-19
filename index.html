@@ -7287,29 +7287,47 @@
             const bar = document.getElementById('persistentSearchBar');
             if (bar && !placeOrderSearch) bar.style.display = 'none';
 
-            // If trendline_screen.json not loaded yet, load it first then render
             const trendCached = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
             const volCached   = (typeof volGainerData !== 'undefined' && Array.isArray(volGainerData) && volGainerData.length > 0);
 
-            // Always refresh live prices from DynamoDB into volGainerData when entering Place Order tab
-            // (volGainerData may be loaded but _liveLtp never injected if user came from Volume tab)
-            if (volCached && trendCached.length > 0) {
-                const volMissingLtp = volGainerData.filter(s => !s._liveLtp);
-                if (volMissingLtp.length > 0) {
-                    const tickers = volGainerData.map(s => s.ticker).filter(Boolean);
-                    fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000)
-                        .then(r => r.ok ? r.json() : null)
-                        .then(json => {
-                            if (json && json.success && json.prices) {
-                                volGainerData.forEach(s => {
-                                    const ltp = json.prices[(s.ticker || '').toUpperCase()];
-                                    if (ltp && ltp > 0) s._liveLtp = ltp;
-                                });
-                            }
-                            if (currentTab === 'placeorder') { placeOrderAllStocks = buildPlaceOrderStocks(); renderPlaceOrderContent(container); }
-                        })
-                        .catch(() => {});
-                }
+            // ── Always fetch live prices for ALL stocks before rendering ──────
+            // This ensures volume stocks get _liveLtp even when loaded from Volume tab
+            // where _liveLtp was never set. Show loading until prices arrive.
+            const volNeedsLtp = volCached && volGainerData.some(s => !s._liveLtp);
+            const tlNeedsLtp  = trendCached.length > 0 && trendCached.some(s => !s._liveLtp);
+
+            if ((volNeedsLtp || tlNeedsLtp) && trendCached.length > 0 && volCached) {
+                container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Fetching live prices...</div>`;
+
+                const allTickers = [
+                    ...volGainerData.filter(s => !s._liveLtp).map(s => s.ticker),
+                    ...trendCached.filter(s => !s._liveLtp).map(s => s.ticker)
+                ].filter(Boolean);
+
+                fetchWithTimeout(`${EC2_API}/api/prices?tickers=${allTickers.join(',')}`, { cache: 'no-store' }, 8000)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(json => {
+                        if (json && json.success && json.prices) {
+                            volGainerData.forEach(s => {
+                                const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                if (ltp && ltp > 0) s._liveLtp = ltp;
+                            });
+                            const tlStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+                            tlStocks.forEach(s => {
+                                const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                if (ltp && ltp > 0) s._liveLtp = ltp;
+                            });
+                            sessionStorage.setItem('trendlineStocks', JSON.stringify(tlStocks));
+                        }
+                    })
+                    .catch(() => {})
+                    .finally(() => {
+                        if (currentTab === 'placeorder') {
+                            placeOrderAllStocks = buildPlaceOrderStocks();
+                            renderPlaceOrderContent(container);
+                        }
+                    });
+                return;  // wait for prices before rendering
             }
 
             if (trendCached.length === 0 || !volCached) {
