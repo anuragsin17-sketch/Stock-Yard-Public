@@ -7229,20 +7229,26 @@
                 if (!trigger || !symbol) return;
                 const live = s._liveLtp || s.currentPrice || 0;
                 if (!live) return;
-                const distPct = Math.abs((live - trigger) / trigger * 100);
+                // signed distance: negative = below trigger, positive = above trigger
+                const distPct    = (live - trigger) / trigger * 100;
+                const distPctAbs = Math.abs(distPct);
+                // Show within -10% to +2% of trigger
+                if (distPct < -10.0 || distPct > 2.0) return;
+                const ps = s.positionSizing || {};
                 all.push({
                     symbol:     symbol,
                     company:    s.company_name || s.companyName || symbol,
                     strategy:   'Trendline',
                     trigger:    trigger,
                     live:       live,
-                    distPct:    distPct,
-                    sl:         parseFloat((trigger * 0.92).toFixed(2)),
-                    target:     parseFloat((trigger * 1.23).toFixed(2)),
+                    distPct:    distPctAbs,
+                    distRaw:    distPct,
+                    sl:         ps.strictStopLoss  || parseFloat((trigger * 0.92).toFixed(2)),
+                    target:     ps.pivotTargetExit || parseFloat((trigger * 1.23).toFixed(2)),
                     week52High: s.week52High || null,
                     week52Low:  s.week52Low  || null,
                     fibLevel:   s.fibonacci_level || null,
-                    _raw:       s,  // full object for wicks/fib display
+                    _raw:       s,
                 });
             });
             // 2. Volume gainer stocks from volGainerData (same source as Volume tab)
@@ -7258,8 +7264,10 @@
                 const distPctAbs = Math.abs(distPct);
                 const tgt = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
                 const sl  = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.93).toFixed(2));
-                // Show only within ±2% of signal day low
-                if (distPctAbs > 2.0) return;
+                // Show within -10% to +2% of trigger
+                // -10% = stock dropped below entry (still worth watching)
+                // +2%  = stock is just above entry (ready to buy)
+                if (distPct < -10.0 || distPct > 2.0) return;
                 all.push({
                     symbol:    s.ticker || '',
                     company:   s.company || s.ticker || '',
@@ -7276,8 +7284,8 @@
                     isLiveLtp: true,
                 });
             });
-            // Trendline: show within 5% of trigger. Volume: already filtered above (0-20% above entry)
-            return all.filter(s => s.strategy === 'Trendline' ? s.distPct <= 5.0 : true).sort((a, b) => a.distPct - b.distPct);
+            // Both strategies already filtered above (-10% to +2%)
+            return all.sort((a, b) => a.distPct - b.distPct);
         }
 
         function displayPlaceOrder() {
@@ -7442,18 +7450,19 @@
                 ? stratFiltered.filter(s => s.symbol.toUpperCase().includes(q) || s.company.toUpperCase().includes(q))
                 : stratFiltered;
 
-            // Split: ≤2% = ready, 2-5% = approaching
-            const ready      = q.length >= 2 ? filtered : filtered.filter(s => s.distPct <= 2.0);
-            const approaching = q.length >= 2 ? [] : filtered.filter(s => s.distPct > 2.0);
+            // All stocks are already filtered -10% to +2% — show all as "ready"
+            // distPct is absolute, so sort closest to trigger first
+            const ready       = filtered;
+            const approaching = [];
 
             const totalPages = Math.max(1, Math.ceil(ready.length / TAB_PAGE_SIZE));
             if (placeOrderPage > totalPages) placeOrderPage = 1;
             const paged = q.length >= 2 ? ready : ready.slice((placeOrderPage-1)*TAB_PAGE_SIZE, placeOrderPage*TAB_PAGE_SIZE);
 
-            // Count per strategy for badges — both use ≤2% threshold
-            const allReady  = placeOrderAllStocks.filter(s => s.distPct <= 2.0);
-            const tlCount   = allReady.filter(s => s.strategy === 'Trendline').length;
-            const volCount  = allReady.filter(s => s.strategy === 'Volume').length;
+            // Count per strategy for badges
+            const allReady = placeOrderAllStocks;
+            const tlCount  = allReady.filter(s => s.strategy === 'Trendline').length;
+            const volCount = allReady.filter(s => s.strategy === 'Volume').length;
 
             // Update badge
             setTabCount('placeOrderTabCount', allReady.length);
@@ -8767,9 +8776,20 @@
                     const json = await resp.json();
                     if (json.success && json.prices && Object.keys(json.prices).length > 0) {
                         console.log(`✅ Bulk prices: ${Object.keys(json.prices).length} tickers`);
+                        // Fetch prev close for all tickers in parallel for Day P&L
+                        const prevCloseMap = {};
+                        await Promise.allSettled(tickers.map(ticker =>
+                            fetchPrevClose(ticker).then(pc => { if (pc > 0) prevCloseMap[ticker] = pc; })
+                        ));
                         return tickers.map(ticker => {
                             const ltp = json.prices[ticker.toUpperCase()];
-                            return ltp ? { ticker, ltp, open: 0, close: 0, timestamp: new Date().toISOString() } : null;
+                            return ltp ? {
+                                ticker,
+                                ltp,
+                                open: 0,
+                                close: prevCloseMap[ticker] || 0,  // yesterday's close for Day P&L
+                                timestamp: new Date().toISOString()
+                            } : null;
                         }).filter(Boolean);
                     }
                 }
