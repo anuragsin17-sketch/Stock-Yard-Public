@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260619130000 -->
+    <!-- BUILD: 20260619140000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -6124,6 +6124,28 @@
             }
         }
 
+        // ── Shared helper: compute radar open count from localStorage
+        //    Uses the EXACT same merge logic as displayPerformanceTracking
+        //    so badge always matches what the tab shows.
+        function getRadarOpenCount() {
+            const overrides     = JSON.parse(localStorage.getItem('radarOverrides')       || '{}');
+            const tombstones    = JSON.parse(localStorage.getItem('radarServerTombstones') || '{}');
+            const purged        = JSON.parse(localStorage.getItem('radarPurgedTickers')   || '[]');
+            const deleted       = JSON.parse(localStorage.getItem('radarDeletedTickers')  || '[]');
+            const allowedSrc    = ['Angel One', 'angel one', 'Groww', 'groww'];
+
+            // Build the same trades list as displayPerformanceTracking
+            let trades = Object.entries(overrides)
+                .filter(([key]) => !tombstones[key])
+                .map(([, ov]) => ov)
+                .filter(t => !t._deleted)
+                .filter(t => !purged.includes(t.ticker))
+                .filter(t => !deleted.includes(t.ticker))
+                .filter(t => t.order_id || t.is_angel_synced || allowedSrc.includes(t.source));
+
+            return trades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
+        }
+
         function updateTabCounts() {
             // Volume count — unalerted watchlist entries
             const volCount = (volGainerData || []).filter(s => !s.alerted).length;
@@ -6138,84 +6160,39 @@
                     setTabCount('trendTabCount', tlCount);
                 });
 
-            // Radar count — use EC2 DynamoDB API with fallback to JSON
-            fetchWithTimeout(`${EC2_API}/api/radar?status=Open`, { cache: 'no-store' }, 4000)
-                .then(r => r.ok ? r.json() : null)
-                .then(json => {
-                    if (json && json.success && Array.isArray(json.trades)) {
-                        const purged  = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                        const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-                        const tombstones = JSON.parse(localStorage.getItem('radarServerTombstones') || '{}');
-                        const openCount = json.trades.filter(t =>
-                            (t.status === 'Open' || t.status === 'Triggered') &&
-                            !purged.includes(t.ticker) &&
-                            !deleted.includes(t.ticker) &&
-                            !tombstones[t.order_id || t.ticker]
-                        ).length;
-                        setTabCount('radarTabCount', openCount);
-                        return;
-                    }
-                    throw new Error('DynamoDB unavailable');
-                })
-                .catch(() => {
-                    // Fallback to JSON file
-                    fetch('./radar_trades.json', { cache: 'no-store' })
-                        .then(r => r.ok ? r.json() : []).catch(() => [])
-                        .then(serverTrades => {
-                            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
-                            const purged  = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                            const deleted = JSON.parse(localStorage.getItem('radarDeletedTickers') || '[]');
-                            let trades = (serverTrades || []).map(trade => {
-                                const key = trade.order_id || trade.ticker;
-                                if (overrides[key]) return { ...trade, ...overrides[key] };
-                                return trade;
-                            });
-                            Object.values(overrides).forEach(ov => {
-                                if (ov._custom) {
-                                    const alreadyIn = trades.find(t =>
-                                        (ov.order_id && t.order_id === ov.order_id) ||
-                                        (!ov.order_id && t.ticker === ov.ticker)
-                                    );
-                                    if (!alreadyIn) trades.push(ov);
-                                }
-                            });
-                            trades = trades
-                                .filter(t => !t._deleted)
-                                .filter(t => !purged.includes(t.ticker))
-                                .filter(t => !deleted.includes(t.ticker));
-                            const openCount = trades.filter(t => t.status === 'Open' || t.status === 'Triggered').length;
-                            setTabCount('radarTabCount', openCount);
-                        });
-                });
+            // Radar count — sync from localStorage using same merge as displayPerformanceTracking
+            setTabCount('radarTabCount', getRadarOpenCount());
 
             // Radar Performance count — closed trades in tradeHistory
             const histCount = JSON.parse(localStorage.getItem('tradeHistory') || '[]').length;
             setTabCount('radarPerfCount', histCount);
 
-            // Place Order count — count volume stocks within ±10% of trigger (using live or close price)
-            // and trendline stocks within -10% to +2%. Use close_price/currentPrice as fallback
-            // so the badge shows a real estimate even before live prices are fetched.
+            // Place Order count — use cached placeOrderAllStocks if available (populated on tab visit),
+            // otherwise estimate from trendline stocks + volume stocks with live prices.
             try {
-                let poCount = 0;
-                // Trendline stocks
-                const trendStocksForCount = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
-                trendStocksForCount.forEach(s => {
-                    const trigger = s.triggerPrice || 0;
-                    const live = s._liveLtp || s.currentPrice || 0;
-                    if (!trigger || !live) return;
-                    const distPct = (live - trigger) / trigger * 100;
-                    if (distPct >= -10.0 && distPct <= 2.0) poCount++;
-                });
-                // Volume stocks — use _liveLtp if available, else skip (don't use close_price which is always >10% above entry)
-                const volForCount = (volGainerData || []);
-                volForCount.forEach(s => {
-                    const trigger = s.prev_day_low || 0;
-                    const live = s._liveLtp || 0;
-                    if (!trigger || !live) return;
-                    const distPct = (live - trigger) / trigger * 100;
-                    if (distPct >= -10.0 && distPct <= 2.0) poCount++;
-                });
-                setTabCount('placeOrderTabCount', poCount);
+                if (placeOrderAllStocks && placeOrderAllStocks.length > 0) {
+                    // Already computed with live prices — most accurate
+                    setTabCount('placeOrderTabCount', placeOrderAllStocks.length);
+                } else {
+                    // Estimate from available data
+                    let poCount = 0;
+                    const trendStocksForCount = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+                    trendStocksForCount.forEach(s => {
+                        const trigger = s.triggerPrice || 0;
+                        const live = s._liveLtp || s.currentPrice || 0;
+                        if (!trigger || !live) return;
+                        const distPct = (live - trigger) / trigger * 100;
+                        if (distPct >= -10.0 && distPct <= 2.0) poCount++;
+                    });
+                    (volGainerData || []).forEach(s => {
+                        const trigger = s.prev_day_low || 0;
+                        const live = s._liveLtp || 0;
+                        if (!trigger || !live) return;
+                        const distPct = (live - trigger) / trigger * 100;
+                        if (distPct >= -10.0 && distPct <= 2.0) poCount++;
+                    });
+                    if (poCount > 0) setTabCount('placeOrderTabCount', poCount);
+                }
             } catch(e) {}
 
         }
@@ -8676,11 +8653,8 @@
                 localStorage.setItem('inRadarTickers', JSON.stringify([...liveTickers]));
                 console.log('Synced', Object.keys(allBrokerTrades).length, 'open,', Object.keys(closedTrades).length, 'closed');
 
-                // Update Radar tab badge count
-                const radarBadge = document.querySelector('[data-tab="radar"] .tab-badge, .radar-count');
-                const totalOpen = Object.values({...allBrokerTrades, ...manualTrades}).filter(t => t.status === 'Open').length;
-                if (radarBadge) radarBadge.textContent = totalOpen;
-                document.querySelectorAll('.nav-badge, [id*="radarCount"], [id*="radar-count"]').forEach(el => el.textContent = totalOpen);
+                // Update Radar tab badge — use same helper as updateTabCounts
+                setTabCount('radarTabCount', getRadarOpenCount());
 
                 // Show Radar tab if manually triggered, or just update counts if silent
                 if (!silent) {
