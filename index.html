@@ -6257,53 +6257,39 @@
                 return (b.added_date || '').localeCompare(a.added_date || '');
             });
 
-            // ── Filter: only apply -10% to +4% zone filter when live prices are available ──
-            // close_price is signal day close (always >10% above entry) — can't use for distance
-            // If no live prices yet, kick off a fetch then re-render
+            // ── Filter: fetch live LTPs, apply -10% to +4% filter, then render ──
             const hasLivePrices = volGainerData.some(s => s._liveLtp > 0);
 
             if (!hasLivePrices) {
-                // Fetch live LTPs for all stocks, then re-render
                 const tickers = volGainerData.map(s => s.ticker).filter(Boolean);
-                if (tickers.length > 0) {
-                    fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 8000)
-                        .then(r => r.ok ? r.json() : null)
-                        .then(json => {
-                            if (json && json.success && json.prices) {
-                                volGainerData.forEach(s => {
-                                    const ltp = json.prices[(s.ticker || '').toUpperCase()];
-                                    if (ltp && ltp > 0) s._liveLtp = parseFloat(ltp);
-                                });
-                            }
-                            // Fallback: individual get-quote for any still missing
-                            const stillMissing = volGainerData.filter(s => !s._liveLtp);
-                            return Promise.allSettled(
-                                stillMissing.slice(0, 30).map(s =>
-                                    fetch(`${EC2_API}/api/get-quote?symbol=${s.ticker}`, { cache: 'no-store' })
-                                        .then(r => r.ok ? r.json() : null)
-                                        .then(d => { if (d?.success && d.ltp > 0) s._liveLtp = parseFloat(d.ltp); })
-                                        .catch(() => {})
-                                )
-                            );
-                        })
-                        .catch(() => {})
-                        .finally(() => {
-                            if (currentTab === 'volume') displayVolumeGainerTab();
-                        });
-                }
-                // Show skeleton while fetching
-                container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Fetching live prices...</div>`;
-                return;
+                fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 6000)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(json => {
+                        if (json && json.success && json.prices) {
+                            volGainerData.forEach(s => {
+                                const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                if (ltp > 0) s._liveLtp = parseFloat(ltp);
+                            });
+                        }
+                    })
+                    .catch(() => {})
+                    .finally(() => {
+                        if (currentTab === 'volume') displayVolumeGainerTab();
+                    });
+                // Show all stocks immediately while prices load, no filter yet
             }
 
-            const filtered = sorted.filter(s => {
-                const entry = s.prev_day_low || 0;
-                if (entry <= 0) return false;
-                const ltp = s._liveLtp || 0;
-                if (ltp <= 0) return false;
-                const distPct = (ltp - entry) / entry * 100;
-                return distPct >= -10 && distPct <= 4;
-            });
+            // Apply filter only if we have live prices; else show everything sorted by date
+            const filtered = volGainerData.some(s => s._liveLtp > 0)
+                ? sorted.filter(s => {
+                    const entry = s.prev_day_low || 0;
+                    if (entry <= 0) return false;
+                    const ltp = s._liveLtp || 0;
+                    if (ltp <= 0) return true;  // no price yet — show it
+                    const distPct = (ltp - entry) / entry * 100;
+                    return distPct >= -10 && distPct <= 4;
+                  })
+                : sorted;  // no live prices at all — show everything
 
             // Paginate
             const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE);
