@@ -6871,30 +6871,15 @@
                             </div>
                         </div>
                     `;
-                    // Fetch 52-week high/low and compute Fib levels asynchronously
-                    (function(symbol, divId) {
-                        fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${symbol}`, { signal: AbortSignal.timeout(8000) })
-                            .then(r => r.json())
-                            .then(data => {
-                                const el = document.getElementById(divId);
-                                if (!el) return;
-                                const high = parseFloat(data.week_52_high || data.high_52 || 0);
-                                const low  = parseFloat(data.week_52_low  || data.low_52  || 0);
-                                if (high > 0 && low > 0) {
-                                    const range = high - low;
-                                    const f382 = (high - range * 0.382).toFixed(0);
-                                    const f500 = (high - range * 0.500).toFixed(0);
-                                    const f618 = (high - range * 0.618).toFixed(0);
-                                    el.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${parseFloat(f382).toLocaleString()} | 50%: ₹${parseFloat(f500).toLocaleString()} | 61.8%: ₹${parseFloat(f618).toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${high.toLocaleString()} | L: ₹${low.toLocaleString()}</span>`;
-                                } else {
-                                    el.textContent = 'Fib: — (quote unavailable)';
-                                }
-                            })
-                            .catch(() => {
-                                const el = document.getElementById(divId);
-                                if (el) el.textContent = 'Fib: — (offline)';
-                            });
-                    })(ms.symbol, fibDivId);
+                    // Show stored static Fib levels (fetched once at save time)
+                    const fibEl = document.getElementById(fibDivId);
+                    if (fibEl) {
+                        if (ms.fib382 && ms.fib618) {
+                            fibEl.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${ms.fib382.toLocaleString()} | 50%: ₹${ms.fib500.toLocaleString()} | 61.8%: ₹${ms.fib618.toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${ms.week52High.toLocaleString()} | L: ₹${ms.week52Low.toLocaleString()}</span>`;
+                        } else {
+                            fibEl.textContent = 'Fib: — (re-add stock to fetch)';
+                        }
+                    }
                 });
                 
                 // Trendline pagination — filter dismissed stocks first
@@ -9766,29 +9751,44 @@
                 return;
             }
 
-            const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-            manualStocks.unshift({ symbol, companyName, currentPrice, entryTrigger, targetExit, stopLoss, positionSize, addedAt: new Date().toISOString() });
-            localStorage.setItem('manualStocks', JSON.stringify(manualStocks));
+            const stockEntry = { symbol, companyName, currentPrice, entryTrigger, targetExit, stopLoss, positionSize, addedAt: new Date().toISOString() };
 
-            closeAddStockModal();
-
-            // Refresh opportunities count (volume + trendline + manual)
-            const volumeCount = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
-            const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-            fetch('./trendline_screen.json', { cache: 'no-store' })
-                .then(r => r.ok ? r.json() : [])
-                .catch(() => [])
-                .then(tl => {
-                    const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
-                    const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
-                    const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                    const tlFiltered = Array.isArray(tl) ? tl.filter(s => !dismissed.includes(s.ticker) && !inRadar.includes(s.ticker) && !purged.includes(s.ticker)).length : 0;
-                    if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent=
-                        (volumeCount + tlFiltered + updatedManual.length).toLocaleString();
+            // Fetch 52W H/L once at save time and store statically
+            fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${symbol}`, { signal: AbortSignal.timeout(8000) })
+                .then(r => r.json())
+                .then(data => {
+                    const high = parseFloat(data.week_52_high || data.high_52 || 0);
+                    const low  = parseFloat(data.week_52_low  || data.low_52  || 0);
+                    if (high > 0 && low > 0) {
+                        const range = high - low;
+                        stockEntry.fib382 = Math.round(high - range * 0.382);
+                        stockEntry.fib500 = Math.round(high - range * 0.500);
+                        stockEntry.fib618 = Math.round(high - range * 0.618);
+                        stockEntry.week52High = high;
+                        stockEntry.week52Low  = low;
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                    manualStocks.unshift(stockEntry);
+                    localStorage.setItem('manualStocks', JSON.stringify(manualStocks));
+                    closeAddStockModal();
+                    const volumeCount = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
+                    const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                    fetch('./trendline_screen.json', { cache: 'no-store' })
+                        .then(r => r.ok ? r.json() : [])
+                        .catch(() => [])
+                        .then(tl => {
+                            const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+                            const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+                            const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                            const tlFiltered = Array.isArray(tl) ? tl.filter(s => !dismissed.includes(s.ticker) && !inRadar.includes(s.ticker) && !purged.includes(s.ticker)).length : 0;
+                            if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent=
+                                (volumeCount + tlFiltered + updatedManual.length).toLocaleString();
+                        });
+                    switchTab('trendline');
                 });
-
-            // Switch to trendline tab to show the saved stock
-            switchTab('trendline');
         };
 
         window.removeManualStock = function(idx) {
