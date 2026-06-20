@@ -6856,7 +6856,7 @@
                                         <div><div class="text-xs text-slate-500">Stop Loss</div><div class="text-sm font-bold mono" style="color: #DC2626;">₹${parseFloat(ms.stopLoss).toLocaleString()}</div></div>
                                         <div><div class="text-xs text-slate-500">Position</div><div class="text-sm font-bold mono" style="color: #A78BFA;">₹${parseFloat(ms.positionSize).toLocaleString()}</div></div>
                                     </div>
-                                    <div id="${fibDivId}" class="text-xs text-slate-500 mono mb-3">Fib: loading…</div>
+                                    <div id="${fibDivId}" class="text-xs text-slate-500 mono mb-3">—</div>
                                     <div class="flex items-center space-x-2">
                                         <button onclick="takeManualTrade(${idx})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
@@ -6872,14 +6872,18 @@
                         </div>
                     `;
                     // Show stored static Fib levels (fetched once at save time)
-                    const fibEl = document.getElementById(fibDivId);
-                    if (fibEl) {
-                        if (ms.fib382 && ms.fib618) {
-                            fibEl.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${ms.fib382.toLocaleString()} | 50%: ₹${ms.fib500.toLocaleString()} | 61.8%: ₹${ms.fib618.toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${ms.week52High.toLocaleString()} | L: ₹${ms.week52Low.toLocaleString()}</span>`;
-                        } else {
-                            fibEl.textContent = 'Fib: — (re-add stock to fetch)';
-                        }
-                    }
+                    // Note: DOM update deferred via setTimeout since html hasn't been inserted yet
+                    (function(divId, fibData) {
+                        setTimeout(() => {
+                            const el = document.getElementById(divId);
+                            if (!el) return;
+                            if (fibData.fib382 && fibData.fib618) {
+                                el.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${fibData.fib382.toLocaleString()} | 50%: ₹${fibData.fib500.toLocaleString()} | 61.8%: ₹${fibData.fib618.toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${fibData.week52High.toLocaleString()} | L: ₹${fibData.week52Low.toLocaleString()}</span>`;
+                            } else {
+                                el.textContent = 'Fib: — (delete & re-add to fetch)';
+                            }
+                        }, 50);
+                    })(fibDivId, ms);
                 });
                 
                 // Trendline pagination — filter dismissed stocks first
