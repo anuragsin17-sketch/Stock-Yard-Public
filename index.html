@@ -6241,8 +6241,46 @@
                 return;
             }
 
-            // Sort: nearest to entry first using pre-computed dist_pct from DB
-            // Stocks with in_entry_zone=true always have ltp + dist_pct stored
+            // ── Filter using pre-computed in_entry_zone+ltp from DB ──────────────
+            // Only apply DB flag filter if ALL stocks have it set (monitor has run on full list)
+            // If partial (monitor ran on old smaller list), fetch LTPs for missing ones first
+            const withFlag    = volGainerData.filter(s => s.in_entry_zone !== undefined);
+            const withoutFlag = volGainerData.filter(s => s.in_entry_zone === undefined);
+            const allFlagged  = withoutFlag.length === 0;
+
+            if (!allFlagged) {
+                // Some records missing flag — fetch LTPs for them and compute flag client-side
+                const tickers = withoutFlag.map(s => s.ticker).filter(Boolean);
+                if (tickers.length > 0) {
+                    fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 6000)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(json => {
+                            withoutFlag.forEach(s => {
+                                const ltp = json?.prices?.[(s.ticker || '').toUpperCase()] || 0;
+                                const entry = s.prev_day_low || 0;
+                                if (ltp > 0 && entry > 0) {
+                                    const dist = (ltp - entry) / entry * 100;
+                                    s.ltp           = parseFloat(ltp);
+                                    s._liveLtp      = parseFloat(ltp);
+                                    s.dist_pct      = round2(dist);
+                                    s.in_entry_zone = dist >= -10 && dist <= 4;
+                                } else {
+                                    // No price available — mark as unknown, hide from zone filter
+                                    s.in_entry_zone = false;
+                                    s.dist_pct      = 999;
+                                }
+                            });
+                        })
+                        .catch(() => {
+                            // On failure mark all missing as false so we don't block render
+                            withoutFlag.forEach(s => { s.in_entry_zone = false; s.dist_pct = 999; });
+                        })
+                        .finally(() => { if (currentTab === 'volume') displayVolumeGainerTab(); });
+                }
+                // While fetching, show only the ones we already have flags for
+            }
+
+            // Sort nearest entry first
             const sorted = [...volGainerData].sort((a, b) => {
                 const aDist = Math.abs(a.dist_pct ?? 999);
                 const bDist = Math.abs(b.dist_pct ?? 999);
@@ -6250,47 +6288,21 @@
                 return (b.added_date || '').localeCompare(a.added_date || '');
             });
 
-            // ── Filter: use pre-computed in_entry_zone flag from DB (set by monitor every 30min) ──
-            // If flag exists on any record, use it. Otherwise fall back to client-side LTP fetch.
-            const hasPreComputedZone = volGainerData.some(s => s.in_entry_zone !== undefined);
-
-            const filtered = hasPreComputedZone
-                ? sorted.filter(s => s.in_entry_zone === true)
-                : sorted;  // flag not yet set — show all until next monitor run
-
-            // If no pre-computed flags AND no live prices, kick off background fetch then re-render
-            if (!hasPreComputedZone && !volGainerData.some(s => s._liveLtp > 0)) {
-                const tickers = volGainerData.map(s => s.ticker).filter(Boolean);
-                fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 6000)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(json => {
-                        if (json && json.success && json.prices) {
-                            volGainerData.forEach(s => {
-                                const ltp = json.prices[(s.ticker || '').toUpperCase()];
-                                if (ltp > 0) {
-                                    s._liveLtp  = parseFloat(ltp);
-                                    const entry = s.prev_day_low || 0;
-                                    if (entry > 0) {
-                                        const dist = (ltp - entry) / entry * 100;
-                                        s.dist_pct      = round2(dist);
-                                        s.in_entry_zone = dist >= -10 && dist <= 4;
-                                        s.ltp           = parseFloat(ltp);
-                                    }
-                                }
-                            });
-                        }
-                    })
-                    .catch(() => {})
-                    .finally(() => { if (currentTab === 'volume') displayVolumeGainerTab(); });
-            }
+            // Filter: show only in_entry_zone = true
+            // While still fetching for some (allFlagged=false), show what we have with flags
+            const filtered = sorted.filter(s => s.in_entry_zone === true);
 
             // Paginate
             const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE);
             if (volPage > totalPages) volPage = 1;
             const paged = filtered.slice((volPage-1)*TAB_PAGE_SIZE, volPage*TAB_PAGE_SIZE);
 
-            // Update count badge — number of stocks in the entry zone
+            // Update count badge — stocks currently in entry zone
             setTabCount('volTabCount', filtered.length);
+
+            const statusNote = !allFlagged
+                ? `<div style="font-size:10px;color:#6b7280;margin-bottom:8px;">⏳ Fetching live prices for ${withoutFlag.length} stocks...</div>`
+                : `<div style="font-size:10px;color:#6b7280;margin-bottom:8px;">✅ ${filtered.length} stocks in entry zone (-10% to +4%) · ${volGainerData.length} total watching</div>`;
 
             // No search filtering in rendered HTML — persistent search bar handles it
             const displayList = paged;
@@ -6308,6 +6320,7 @@
 
             // Render: action bar → cards area → pagination at bottom
             container.innerHTML = `
+                ${statusNote}
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
                     <button onclick="openAddStockModal('volume')"
                         style="all:unset;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;cursor:pointer;">
