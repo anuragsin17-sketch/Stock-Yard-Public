@@ -6886,7 +6886,8 @@
                             if (!el) return;
 
                             function renderFib(d) {
-                                el.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${d.fib382.toLocaleString()} | 50%: ₹${d.fib500.toLocaleString()} | 61.8%: ₹${d.fib618.toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${d.week52High.toLocaleString()} | L: ₹${d.week52Low.toLocaleString()}</span>`;
+                                const label = d.week52High ? `52W H: ₹${d.week52High.toLocaleString()} | L: ₹${d.week52Low.toLocaleString()}` : `Target–SL range`;
+                                el.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${d.fib382.toLocaleString()} | 50%: ₹${d.fib500.toLocaleString()} | 61.8%: ₹${d.fib618.toLocaleString()}</span><br><span style="color:#6B7280;">${label}</span>`;
                             }
 
                             if (fibData.fib382 && fibData.fib618) {
@@ -6907,6 +6908,9 @@
                                     if (match && match.week_52_high && match.week_52_low)
                                         return { high: parseFloat(match.week_52_high), low: parseFloat(match.week_52_low) };
                                 } catch(e) {}
+                                // Derive from stored target/stopLoss — always available
+                                if (fibData.targetExit > fibData.stopLoss)
+                                    return { high: fibData.targetExit, low: fibData.stopLoss };
                                 return null;
                             }
 
@@ -6937,17 +6941,24 @@
                                 if (fibs) { renderFib(fibs); persistFibToStock(fibs); return; }
                             }
 
-                            // Fall back to API
+                            // Fall back to API, then target/SL range as last resort
                             fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${stockSymbol}`, { signal: AbortSignal.timeout(8000) })
                                 .then(r => r.json())
                                 .then(data => {
                                     const high = parseFloat(data.week_52_high || data.high_52 || 0);
                                     const low  = parseFloat(data.week_52_low  || data.low_52  || 0);
-                                    const fibs = computeAndSaveFib(high, low);
+                                    let fibs = computeAndSaveFib(high, low);
+                                    if (!fibs && fibData.targetExit > fibData.stopLoss)
+                                        fibs = computeAndSaveFib(fibData.targetExit, fibData.stopLoss);
                                     if (fibs) { renderFib(fibs); persistFibToStock(fibs); }
-                                    else { el.innerHTML = '<span style="color:#6B7280;">Fib: N/A (no 52W data)</span>'; }
+                                    else { el.innerHTML = '<span style="color:#6B7280;">Fib: N/A</span>'; }
                                 })
                                 .catch(() => {
+                                    // API failed — use target/SL range
+                                    if (fibData.targetExit > fibData.stopLoss) {
+                                        const fibs = computeAndSaveFib(fibData.targetExit, fibData.stopLoss);
+                                        if (fibs) { renderFib(fibs); persistFibToStock(fibs); return; }
+                                    }
                                     el.innerHTML = '<span style="color:#6B7280;">Fib: — (API unreachable)</span>';
                                 });
                         }, 50);
@@ -9852,6 +9863,8 @@
                     if (match && match.week_52_high && match.week_52_low)
                         return applyFibToEntry(parseFloat(match.week_52_high), parseFloat(match.week_52_low));
                 } catch(e) {}
+                // 3. Derive from user's own target/stop — always available
+                if (targetExit > stopLoss) return applyFibToEntry(targetExit, stopLoss);
                 return false;
             }
 
