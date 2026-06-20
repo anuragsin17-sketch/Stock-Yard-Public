@@ -6179,14 +6179,14 @@
                     const trendStocksForCount = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
                     trendStocksForCount.forEach(s => {
                         const trigger = s.triggerPrice || 0;
-                        const live = s._liveLtp || s.currentPrice || 0;
+                        const live = s._liveLtp || s.currentPrice || s.ltp || 0;
                         if (!trigger || !live) return;
                         const distPct = (live - trigger) / trigger * 100;
                         if (distPct >= -10.0 && distPct <= 2.0) poCount++;
                     });
                     (volGainerData || []).forEach(s => {
                         const trigger = s.prev_day_low || 0;
-                        const live = s._liveLtp || 0;
+                        const live = s._liveLtp || s.current_price || s.ltp || s.currentPrice || 0;
                         if (!trigger || !live) return;
                         const distPct = (live - trigger) / trigger * 100;
                         if (distPct >= -10.0 && distPct <= 2.0) poCount++;
