@@ -6241,31 +6241,38 @@
                 return;
             }
 
-            // Sort: closest to entry zone first (smallest % distance between current price and alert_threshold)
-            // Unalerted always before alerted. Within same alert status, sort by proximity to entry.
+            // Sort: nearest LTP to prev_day_low first (entry price = prev_day_low)
+            // Secondary: newer added_date first (more recent signals on top if equal distance)
             const sorted = [...volGainerData].sort((a, b) => {
-                if (a.alerted !== b.alerted) return a.alerted ? 1 : -1;
-                // Compute % distance from entry threshold for each stock
-                // Lower = closer to entry = more actionable
-                const aEntry = a.alert_threshold || a.prev_day_low || 0;
-                const bEntry = b.alert_threshold || b.prev_day_low || 0;
-                const aClose = a.close_price || 0;
-                const bClose = b.close_price || 0;
-                const aDist = aEntry > 0 ? Math.abs((aClose - aEntry) / aEntry * 100) : 999;
-                const bDist = bEntry > 0 ? Math.abs((bClose - bEntry) / bEntry * 100) : 999;
+                const aEntry = a.prev_day_low || 0;
+                const bEntry = b.prev_day_low || 0;
+                const aPrice = a._liveLtp || a.close_price || 0;
+                const bPrice = b._liveLtp || b.close_price || 0;
+                const aDist  = aEntry > 0 ? Math.abs((aPrice - aEntry) / aEntry * 100) : 999;
+                const bDist  = bEntry > 0 ? Math.abs((bPrice - bEntry) / bEntry * 100) : 999;
                 if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
-                // Tiebreak: higher gain (stronger breakout signal)
-                return (b.gain_pct || 0) - (a.gain_pct || 0);
+                // Tiebreak: newer date first
+                return (b.added_date || '').localeCompare(a.added_date || '');
+            });
+
+            // ── Filter: only show stocks where LTP is within -10% to +4% of prev_day_low ──
+            // Use live LTP if available, fall back to close_price
+            const filtered = sorted.filter(s => {
+                const entry = s.prev_day_low || 0;
+                if (entry <= 0) return false;
+                const price = s._liveLtp || s.close_price || 0;
+                if (price <= 0) return false;
+                const distPct = (price - entry) / entry * 100;
+                return distPct >= -10 && distPct <= 4;
             });
 
             // Paginate
-            const totalPages = Math.ceil(sorted.length / TAB_PAGE_SIZE);
+            const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE);
             if (volPage > totalPages) volPage = 1;
-            const paged = sorted.slice((volPage-1)*TAB_PAGE_SIZE, volPage*TAB_PAGE_SIZE);
+            const paged = filtered.slice((volPage-1)*TAB_PAGE_SIZE, volPage*TAB_PAGE_SIZE);
 
-            // Update count badge
-            const unalerted = sorted.filter(s => !s.alerted).length;
-            setTabCount('volTabCount', unalerted);
+            // Update count badge — number of stocks in the entry zone
+            setTabCount('volTabCount', filtered.length);
 
             // No search filtering in rendered HTML — persistent search bar handles it
             const displayList = paged;
@@ -6323,10 +6330,16 @@
                         if (!ltp || ltp <= 0) return;
                         stock._liveLtp = ltp;
                         const el = document.getElementById(`vol_ltp_${stock.ticker}`);
+                        const distEl = document.getElementById(`vol_dist_${stock.ticker}`);
                         if (el) {
                             el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
-                            const threshold = stock.alert_threshold || stock.prev_day_low || 0;
-                            el.style.color = ltp <= threshold ? '#10B981' : '#ffffff';
+                            const entry = stock.prev_day_low || 0;
+                            const distPct = entry > 0 ? ((ltp - entry) / entry * 100) : null;
+                            if (distEl && distPct !== null) {
+                                distEl.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(1) + '% from entry';
+                                distEl.style.color = Math.abs(distPct) <= 2 ? '#10B981' : distPct < 0 ? '#f59e0b' : '#94a3b8';
+                            }
+                            el.style.color = (entry > 0 && ltp <= entry * 1.02) ? '#10B981' : '#ffffff';
                         }
                     }).catch(() => {});
             };
@@ -6345,10 +6358,16 @@
                             if (ltp && ltp > 0) {
                                 stock._liveLtp = ltp;
                                 const el = document.getElementById(`vol_ltp_${stock.ticker}`);
+                                const distEl = document.getElementById(`vol_dist_${stock.ticker}`);
                                 if (el) {
                                     el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
-                                    const threshold = stock.alert_threshold || stock.prev_day_low || 0;
-                                    el.style.color = ltp <= threshold ? '#10B981' : '#ffffff';
+                                    const entry = stock.prev_day_low || 0;
+                                    const distPct = entry > 0 ? ((ltp - entry) / entry * 100) : null;
+                                    if (distEl && distPct !== null) {
+                                        distEl.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(1) + '% from entry';
+                                        distEl.style.color = Math.abs(distPct) <= 2 ? '#10B981' : distPct < 0 ? '#f59e0b' : '#94a3b8';
+                                    }
+                                    el.style.color = (entry > 0 && ltp <= entry * 1.02) ? '#10B981' : '#ffffff';
                                 }
                             }
                         });
@@ -6364,32 +6383,48 @@
                     Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
                 });
 
-            // Re-sort cards by live distance to entry zone after prices loaded
+            // Re-sort AND re-filter cards by live distance to entry after prices loaded
             function resortByLive() {
-                const stocksWithLive = paged.filter(s => s._liveLtp > 0);
-                if (stocksWithLive.length < 2) return;
+                // Re-filter with live prices
+                const liveFiltered = paged.filter(s => {
+                    const entry = s.prev_day_low || 0;
+                    if (entry <= 0) return true; // keep if no entry
+                    const price = s._liveLtp || s.close_price || 0;
+                    if (price <= 0) return true;
+                    const distPct = (price - entry) / entry * 100;
+                    return distPct >= -10 && distPct <= 4;
+                });
+
                 const cardsArea = document.getElementById('vol-cards-area');
                 if (!cardsArea) return;
-                const cardEls = Array.from(cardsArea.querySelectorAll('[data-ticker]'));
-                if (cardEls.length < 2) return;
-                const sortedByLive = [...paged].sort((a, b) => {
-                    if (a.alerted !== b.alerted) return a.alerted ? 1 : -1;
-                    const aEntry = a.alert_threshold || a.prev_day_low || 0;
-                    const bEntry = b.alert_threshold || b.prev_day_low || 0;
-                    const aLtp = a._liveLtp || a.close_price || 0;
-                    const bLtp = b._liveLtp || b.close_price || 0;
-                    const aDist = aEntry > 0 ? Math.abs((aLtp - aEntry) / aEntry * 100) : 999;
-                    const bDist = bEntry > 0 ? Math.abs((bLtp - bEntry) / bEntry * 100) : 999;
+
+                // Hide cards outside zone
+                paged.forEach(s => {
+                    const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
+                    if (!el) return;
+                    const inZone = liveFiltered.some(f => f.ticker === s.ticker);
+                    el.style.display = inZone ? '' : 'none';
+                });
+
+                // Re-sort visible cards by distance to entry
+                const sortedByLive = [...liveFiltered].sort((a, b) => {
+                    const aEntry = a.prev_day_low || 0;
+                    const bEntry = b.prev_day_low || 0;
+                    const aLtp   = a._liveLtp || a.close_price || 0;
+                    const bLtp   = b._liveLtp || b.close_price || 0;
+                    const aDist  = aEntry > 0 ? Math.abs((aLtp - aEntry) / aEntry * 100) : 999;
+                    const bDist  = bEntry > 0 ? Math.abs((bLtp - bEntry) / bEntry * 100) : 999;
                     if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
-                    return (b.gain_pct || 0) - (a.gain_pct || 0);
+                    return (b.added_date || '').localeCompare(a.added_date || '');
                 });
-                const cardMap = {};
-                cardEls.forEach(el => { cardMap[el.getAttribute('data-ticker')] = el; });
-                const parent = cardsArea; // use vol-cards-area directly
+
                 sortedByLive.forEach(stock => {
-                    const el = cardMap[stock.ticker];
-                    if (el) parent.appendChild(el);
+                    const el = cardsArea.querySelector(`[data-ticker="${stock.ticker}"]`);
+                    if (el) cardsArea.appendChild(el);
                 });
+
+                // Update badge with live-filtered count
+                setTabCount('volTabCount', liveFiltered.length);
             }
         }
 
@@ -6426,6 +6461,7 @@
                     </div>
                     <div style="text-align:right;">
                         <div id="vol_ltp_${ticker}" style="font-size:18px;font-weight:700;color:#ffffff;" class="mono">—</div>
+                        <div id="vol_dist_${ticker}" style="font-size:11px;font-weight:700;color:#6b7280;" class="mono"></div>
                         <div style="font-size:11px;font-weight:700;color:#F59E0B;" class="mono">+${gainPct}%</div>
                         <div style="font-size:10px;color:#6b7280;">on ${addedDate}</div>
                     </div>
@@ -6441,9 +6477,9 @@
                         </div>
                     </div>
                     <div>
-                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target +20%</div>
+                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target +15%</div>
                         <div style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${targetPrice.toLocaleString()}</div>
-                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">SL ₹${slPrice.toLocaleString()} (-5%)</div>
+                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">SL ₹${slPrice.toLocaleString()} (-4%)</div>
                     </div>
                     <div>
                         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Signal Close</div>
