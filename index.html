@@ -5574,7 +5574,13 @@
             // Kick off volume gainer watchlist fetch in parallel
             const watchlistPromise = fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
-                .then(data => { if (Array.isArray(data)) volGainerData = data; });
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        volGainerData = data;
+                        // Re-run tab counts now that volume data is loaded
+                        updateTabCounts();
+                    }
+                });
 
             // Try EC2 DynamoDB API first (4s timeout — won't block app if EC2 is slow)
             try {
@@ -6871,19 +6877,81 @@
                             </div>
                         </div>
                     `;
-                    // Show stored static Fib levels (fetched once at save time)
-                    // Note: DOM update deferred via setTimeout since html hasn't been inserted yet
-                    (function(divId, fibData) {
+                    // Show stored static Fib levels (fetched once at save time).
+                    // If fib data is missing (e.g. API was down when stock was added),
+                    // attempt a background fetch now and update the entry in localStorage.
+                    (function(divId, fibData, stockSymbol, stockIdx) {
                         setTimeout(() => {
                             const el = document.getElementById(divId);
                             if (!el) return;
-                            if (fibData.fib382 && fibData.fib618) {
-                                el.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${fibData.fib382.toLocaleString()} | 50%: ₹${fibData.fib500.toLocaleString()} | 61.8%: ₹${fibData.fib618.toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${fibData.week52High.toLocaleString()} | L: ₹${fibData.week52Low.toLocaleString()}</span>`;
-                            } else {
-                                el.textContent = 'Fib: — (delete & re-add to fetch)';
+
+                            function renderFib(d) {
+                                el.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${d.fib382.toLocaleString()} | 50%: ₹${d.fib500.toLocaleString()} | 61.8%: ₹${d.fib618.toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${d.week52High.toLocaleString()} | L: ₹${d.week52Low.toLocaleString()}</span>`;
                             }
+
+                            if (fibData.fib382 && fibData.fib618) {
+                                renderFib(fibData);
+                                return;
+                            }
+
+                            // Fib missing — try local caches first (no network)
+                            function tryFibFromCacheForRender(sym) {
+                                try {
+                                    const tlCache = JSON.parse(sessionStorage.getItem('trendline52wCache') || '{}');
+                                    const entry = tlCache[sym.toUpperCase()];
+                                    if (entry && entry.high > 0 && entry.low > 0 && entry.high > entry.low) return entry;
+                                } catch(e) {}
+                                try {
+                                    const gs = (window.LIVE_DATA && window.LIVE_DATA.golden_stocks) || [];
+                                    const match = gs.find(s => (s.symbol || '').toUpperCase() === sym.toUpperCase());
+                                    if (match && match.week_52_high && match.week_52_low)
+                                        return { high: parseFloat(match.week_52_high), low: parseFloat(match.week_52_low) };
+                                } catch(e) {}
+                                return null;
+                            }
+
+                            function computeAndSaveFib(high, low) {
+                                if (!(high > 0 && low > 0 && high > low)) return null;
+                                const range = high - low;
+                                return {
+                                    fib382: parseFloat((high - range * 0.382).toFixed(2)),
+                                    fib500: parseFloat((high - range * 0.500).toFixed(2)),
+                                    fib618: parseFloat((high - range * 0.618).toFixed(2)),
+                                    week52High: high, week52Low: low
+                                };
+                            }
+
+                            function persistFibToStock(fibs) {
+                                const stocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                                if (stocks[stockIdx] && stocks[stockIdx].symbol === stockSymbol) {
+                                    Object.assign(stocks[stockIdx], fibs);
+                                    localStorage.setItem('manualStocks', JSON.stringify(stocks));
+                                }
+                            }
+
+                            el.innerHTML = '<span style="color:#6B7280;">Fib: fetching…</span>';
+
+                            const cached = tryFibFromCacheForRender(stockSymbol);
+                            if (cached) {
+                                const fibs = computeAndSaveFib(cached.high, cached.low);
+                                if (fibs) { renderFib(fibs); persistFibToStock(fibs); return; }
+                            }
+
+                            // Fall back to API
+                            fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${stockSymbol}`, { signal: AbortSignal.timeout(8000) })
+                                .then(r => r.json())
+                                .then(data => {
+                                    const high = parseFloat(data.week_52_high || data.high_52 || 0);
+                                    const low  = parseFloat(data.week_52_low  || data.low_52  || 0);
+                                    const fibs = computeAndSaveFib(high, low);
+                                    if (fibs) { renderFib(fibs); persistFibToStock(fibs); }
+                                    else { el.innerHTML = '<span style="color:#6B7280;">Fib: N/A (no 52W data)</span>'; }
+                                })
+                                .catch(() => {
+                                    el.innerHTML = '<span style="color:#6B7280;">Fib: — (API unreachable)</span>';
+                                });
                         }, 50);
-                    })(fibDivId, ms);
+                    })(fibDivId, ms, ms.symbol, idx);
                 });
                 
                 // Trendline pagination — filter dismissed stocks first
@@ -9757,41 +9825,75 @@
 
             const stockEntry = { symbol, companyName, currentPrice, entryTrigger, targetExit, stopLoss, positionSize, addedAt: new Date().toISOString() };
 
-            // Fetch 52W H/L once at save time and store statically
+            // Helper: apply fib levels to stockEntry from a 52W high/low pair
+            function applyFibToEntry(high, low) {
+                if (!(high > 0 && low > 0 && high > low)) return false;
+                const range = high - low;
+                stockEntry.fib382 = parseFloat((high - range * 0.382).toFixed(2));
+                stockEntry.fib500 = parseFloat((high - range * 0.500).toFixed(2));
+                stockEntry.fib618 = parseFloat((high - range * 0.618).toFixed(2));
+                stockEntry.week52High = high;
+                stockEntry.week52Low  = low;
+                return true;
+            }
+
+            // Helper: try to resolve 52W data from local caches (no network needed)
+            function tryFibFromCache(sym) {
+                // 1. trendline52wCache (sessionStorage) — built from trendline_screen.json
+                try {
+                    const tlCache = JSON.parse(sessionStorage.getItem('trendline52wCache') || '{}');
+                    const entry = tlCache[sym.toUpperCase()];
+                    if (entry && entry.high && entry.low) return applyFibToEntry(entry.high, entry.low);
+                } catch(e) {}
+                // 2. LIVE_DATA golden_stocks embedded in page
+                try {
+                    const gs = (window.LIVE_DATA && window.LIVE_DATA.golden_stocks) || [];
+                    const match = gs.find(s => (s.symbol || '').toUpperCase() === sym.toUpperCase());
+                    if (match && match.week_52_high && match.week_52_low)
+                        return applyFibToEntry(parseFloat(match.week_52_high), parseFloat(match.week_52_low));
+                } catch(e) {}
+                return false;
+            }
+
+            // Helper: save entry and switch to trendline tab
+            function commitSave() {
+                const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                manualStocks.unshift(stockEntry);
+                localStorage.setItem('manualStocks', JSON.stringify(manualStocks));
+                closeAddStockModal();
+                const volumeCount = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
+                const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                fetch('./trendline_screen.json', { cache: 'no-store' })
+                    .then(r => r.ok ? r.json() : [])
+                    .catch(() => [])
+                    .then(tl => {
+                        const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+                        const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+                        const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+                        const tlFiltered = Array.isArray(tl) ? tl.filter(s => !dismissed.includes(s.ticker) && !inRadar.includes(s.ticker) && !purged.includes(s.ticker)).length : 0;
+                        if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent=
+                            (volumeCount + tlFiltered + updatedManual.length).toLocaleString();
+                    });
+                switchTab('trendline');
+            }
+
+            // Fetch 52W H/L once at save time and store statically.
+            // Falls back to cached data if the API is unreachable.
             fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${symbol}`, { signal: AbortSignal.timeout(8000) })
                 .then(r => r.json())
                 .then(data => {
                     const high = parseFloat(data.week_52_high || data.high_52 || 0);
                     const low  = parseFloat(data.week_52_low  || data.low_52  || 0);
-                    if (high > 0 && low > 0) {
-                        const range = high - low;
-                        stockEntry.fib382 = Math.round(high - range * 0.382);
-                        stockEntry.fib500 = Math.round(high - range * 0.500);
-                        stockEntry.fib618 = Math.round(high - range * 0.618);
-                        stockEntry.week52High = high;
-                        stockEntry.week52Low  = low;
+                    if (!applyFibToEntry(high, low)) {
+                        // API returned but no usable 52W data — try local caches
+                        tryFibFromCache(symbol);
                     }
+                    commitSave();
                 })
-                .catch(() => {})
-                .finally(() => {
-                    const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                    manualStocks.unshift(stockEntry);
-                    localStorage.setItem('manualStocks', JSON.stringify(manualStocks));
-                    closeAddStockModal();
-                    const volumeCount = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
-                    const updatedManual = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                    fetch('./trendline_screen.json', { cache: 'no-store' })
-                        .then(r => r.ok ? r.json() : [])
-                        .catch(() => [])
-                        .then(tl => {
-                            const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
-                            const inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
-                            const purged = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                            const tlFiltered = Array.isArray(tl) ? tl.filter(s => !dismissed.includes(s.ticker) && !inRadar.includes(s.ticker) && !purged.includes(s.ticker)).length : 0;
-                            if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent=
-                                (volumeCount + tlFiltered + updatedManual.length).toLocaleString();
-                        });
-                    switchTab('trendline');
+                .catch(() => {
+                    // Network/timeout failure — try local caches before giving up
+                    tryFibFromCache(symbol);
+                    commitSave();
                 });
         };
 
