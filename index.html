@@ -6838,6 +6838,7 @@
                 manualStocksAll.forEach((ms, idx) => {
                     // Skip if already in Radar
                     if (isTickerInRadar(ms.symbol)) return;
+                    const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ms.symbol}`;
                     html += `
                         <div class="stock-card mb-4" style="border-left: 3px solid #6366F1;">
                             <div class="flex justify-between items-start">
