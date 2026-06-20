@@ -6839,6 +6839,7 @@
                     // Skip if already in Radar
                     if (isTickerInRadar(ms.symbol)) return;
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ms.symbol}`;
+                    const fibDivId = `manualFib_${ms.symbol}_${idx}`;
                     html += `
                         <div class="stock-card mb-4" style="border-left: 3px solid #6366F1;">
                             <div class="flex justify-between items-start">
@@ -6855,7 +6856,7 @@
                                         <div><div class="text-xs text-slate-500">Stop Loss</div><div class="text-sm font-bold mono" style="color: #DC2626;">₹${parseFloat(ms.stopLoss).toLocaleString()}</div></div>
                                         <div><div class="text-xs text-slate-500">Position</div><div class="text-sm font-bold mono" style="color: #A78BFA;">₹${parseFloat(ms.positionSize).toLocaleString()}</div></div>
                                     </div>
-                                    <div class="text-xs text-slate-500 mono mb-3">Fib: — | Score: —</div>
+                                    <div id="${fibDivId}" class="text-xs text-slate-500 mono mb-3">Fib: loading…</div>
                                     <div class="flex items-center space-x-2">
                                         <button onclick="takeManualTrade(${idx})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
@@ -6870,6 +6871,30 @@
                             </div>
                         </div>
                     `;
+                    // Fetch 52-week high/low and compute Fib levels asynchronously
+                    (function(symbol, divId) {
+                        fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${symbol}`, { signal: AbortSignal.timeout(8000) })
+                            .then(r => r.json())
+                            .then(data => {
+                                const el = document.getElementById(divId);
+                                if (!el) return;
+                                const high = parseFloat(data.week_52_high || data.high_52 || 0);
+                                const low  = parseFloat(data.week_52_low  || data.low_52  || 0);
+                                if (high > 0 && low > 0) {
+                                    const range = high - low;
+                                    const f382 = (high - range * 0.382).toFixed(0);
+                                    const f500 = (high - range * 0.500).toFixed(0);
+                                    const f618 = (high - range * 0.618).toFixed(0);
+                                    el.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${parseFloat(f382).toLocaleString()} | 50%: ₹${parseFloat(f500).toLocaleString()} | 61.8%: ₹${parseFloat(f618).toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${high.toLocaleString()} | L: ₹${low.toLocaleString()}</span>`;
+                                } else {
+                                    el.textContent = 'Fib: — (quote unavailable)';
+                                }
+                            })
+                            .catch(() => {
+                                const el = document.getElementById(divId);
+                                if (el) el.textContent = 'Fib: — (offline)';
+                            });
+                    })(ms.symbol, fibDivId);
                 });
                 
                 // Trendline pagination — filter dismissed stocks first
