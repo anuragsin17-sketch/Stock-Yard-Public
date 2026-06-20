@@ -5966,8 +5966,8 @@
                 return;
             }
 
-            const target   = parseFloat((entry * 1.20).toFixed(2));
-            const stopLoss = parseFloat((entry * 0.95).toFixed(2));
+            const target   = parseFloat((entry * 1.15).toFixed(2));
+            const stopLoss = parseFloat((entry * 0.96).toFixed(2));
             showOrderModal(symbol, entry, stopLoss, target, 'Volume');
         };
 
@@ -6399,8 +6399,8 @@
             const gainPct      = (stock.gain_pct || 0).toFixed(1);
             const prevLow      = stock.prev_day_low || 0;
             const threshold    = stock.alert_threshold || prevLow;
-            const targetPrice  = stock.target_price  || round2(prevLow * 1.20);
-            const slPrice      = stock.sl_price       || round2(prevLow * 0.95);
+            const targetPrice  = stock.target_price  || round2(prevLow * 1.15);
+            const slPrice      = stock.sl_price       || round2(prevLow * 0.96);
             const addedDate    = stock.added_date || '';
             const closePrice   = stock.close_price || 0;
             const alerted      = stock.alerted || false;
@@ -6471,8 +6471,8 @@
                 alert('Please set a valid entry price first');
                 return;
             }
-            const target   = preTarget || round2(entry * 1.20);
-            const stopLoss = preSL     || round2(entry * 0.95);
+            const target   = preTarget || round2(entry * 1.15);
+            const stopLoss = preSL     || round2(entry * 0.96);
             showOrderModal(ticker, entry, stopLoss, target, 'VolumeGainer');
         };
 
@@ -7313,7 +7313,7 @@
                 if (!trigger || !live) return;  // skip until live price is fetched
                 const distPct    = (live - trigger) / trigger * 100;
                 const distPctAbs = Math.abs(distPct);
-                const tgt = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.20).toFixed(2));
+                const tgt = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.15).toFixed(2));
                 const sl  = s.sl_price     ? parseFloat(s.sl_price)     : parseFloat((trigger * 0.93).toFixed(2));
                 // Show within -10% to +2% of trigger
                 // -10% = stock dropped below entry (still worth watching)
@@ -7565,8 +7565,8 @@
                     const savedTrig = parseFloat(localStorage.getItem(savedKey) || '0');
                     const trigger   = savedTrig > 0 ? savedTrig : s.trigger;
                     const isEdited  = savedTrig > 0 && savedTrig !== s.trigger;
-                    const sl        = isTL ? parseFloat((trigger * 0.92).toFixed(2)) : parseFloat((trigger * 0.95).toFixed(2));
-                    const target    = isTL ? parseFloat((trigger * 1.23).toFixed(2)) : parseFloat((trigger * 1.20).toFixed(2));
+                    const sl        = isTL ? parseFloat((trigger * 0.92).toFixed(2)) : parseFloat((trigger * 0.96).toFixed(2));
+                    const target    = isTL ? parseFloat((trigger * 1.23).toFixed(2)) : parseFloat((trigger * 1.15).toFixed(2));
                     const above     = s.live >= trigger;
                     const signedPct = ((s.live - trigger) / trigger * 100).toFixed(2);
                     const distPct2  = Math.abs(s.live - trigger) / trigger * 100;
@@ -7683,8 +7683,8 @@
             const key = `placeorder_trigger_${symbol}_${strategy}`;
             localStorage.setItem(key, v.toFixed(2));
             const isTL = strategy === 'Trendline';
-            const sl     = parseFloat((v * (isTL ? 0.92 : 0.95)).toFixed(2));
-            const target = parseFloat((v * (isTL ? 1.23 : 1.20)).toFixed(2));
+            const sl     = parseFloat((v * (isTL ? 0.92 : 0.96)).toFixed(2));
+            const target = parseFloat((v * (isTL ? 1.23 : 1.15)).toFixed(2));
             const slEl  = document.getElementById(`po_sl_${symbol}_${strategy}`);
             const tgtEl = document.getElementById(`po_target_${symbol}_${strategy}`);
             if (slEl)  slEl.textContent  = '₹' + sl.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
