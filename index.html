@@ -6241,26 +6241,25 @@
                 return;
             }
 
-            // Sort: nearest LTP to prev_day_low first (entry price = prev_day_low)
-            // Use _liveLtp only — close_price is signal day close (always 10%+ above entry, useless for distance)
-            // Secondary: newer added_date first
+            // Sort: nearest to entry first using pre-computed dist_pct from DB
+            // Stocks with in_entry_zone=true always have ltp + dist_pct stored
             const sorted = [...volGainerData].sort((a, b) => {
-                const aEntry = a.prev_day_low || 0;
-                const bEntry = b.prev_day_low || 0;
-                const aPrice = a._liveLtp || 0;
-                const bPrice = b._liveLtp || 0;
-                // Stocks with live price come before those without
-                if ((aPrice > 0) !== (bPrice > 0)) return aPrice > 0 ? -1 : 1;
-                const aDist  = (aEntry > 0 && aPrice > 0) ? Math.abs((aPrice - aEntry) / aEntry * 100) : 999;
-                const bDist  = (bEntry > 0 && bPrice > 0) ? Math.abs((bPrice - bEntry) / bEntry * 100) : 999;
+                const aDist = Math.abs(a.dist_pct ?? 999);
+                const bDist = Math.abs(b.dist_pct ?? 999);
                 if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
                 return (b.added_date || '').localeCompare(a.added_date || '');
             });
 
-            // ── Filter: fetch live LTPs, apply -10% to +4% filter, then render ──
-            const hasLivePrices = volGainerData.some(s => s._liveLtp > 0);
+            // ── Filter: use pre-computed in_entry_zone flag from DB (set by monitor every 30min) ──
+            // If flag exists on any record, use it. Otherwise fall back to client-side LTP fetch.
+            const hasPreComputedZone = volGainerData.some(s => s.in_entry_zone !== undefined);
 
-            if (!hasLivePrices) {
+            const filtered = hasPreComputedZone
+                ? sorted.filter(s => s.in_entry_zone === true)
+                : sorted;  // flag not yet set — show all until next monitor run
+
+            // If no pre-computed flags AND no live prices, kick off background fetch then re-render
+            if (!hasPreComputedZone && !volGainerData.some(s => s._liveLtp > 0)) {
                 const tickers = volGainerData.map(s => s.ticker).filter(Boolean);
                 fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 6000)
                     .then(r => r.ok ? r.json() : null)
@@ -6268,28 +6267,22 @@
                         if (json && json.success && json.prices) {
                             volGainerData.forEach(s => {
                                 const ltp = json.prices[(s.ticker || '').toUpperCase()];
-                                if (ltp > 0) s._liveLtp = parseFloat(ltp);
+                                if (ltp > 0) {
+                                    s._liveLtp  = parseFloat(ltp);
+                                    const entry = s.prev_day_low || 0;
+                                    if (entry > 0) {
+                                        const dist = (ltp - entry) / entry * 100;
+                                        s.dist_pct      = round2(dist);
+                                        s.in_entry_zone = dist >= -10 && dist <= 4;
+                                        s.ltp           = parseFloat(ltp);
+                                    }
+                                }
                             });
                         }
                     })
                     .catch(() => {})
-                    .finally(() => {
-                        if (currentTab === 'volume') displayVolumeGainerTab();
-                    });
-                // Show all stocks immediately while prices load, no filter yet
+                    .finally(() => { if (currentTab === 'volume') displayVolumeGainerTab(); });
             }
-
-            // Apply filter only if we have live prices; else show everything sorted by date
-            const filtered = volGainerData.some(s => s._liveLtp > 0)
-                ? sorted.filter(s => {
-                    const entry = s.prev_day_low || 0;
-                    if (entry <= 0) return false;
-                    const ltp = s._liveLtp || 0;
-                    if (ltp <= 0) return true;  // no price yet — show it
-                    const distPct = (ltp - entry) / entry * 100;
-                    return distPct >= -10 && distPct <= 4;
-                  })
-                : sorted;  // no live prices at all — show everything
 
             // Paginate
             const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE);
@@ -6333,12 +6326,20 @@
             updateTabCounts();
 
             // ── Live LTP fetch + re-sort by proximity to entry zone ───────────────
-            // Step 1: show static close price immediately (never blank)
+            // Step 1: show pre-computed LTP from DB immediately (never blank)
             paged.forEach(stock => {
-                const el = document.getElementById(`vol_ltp_${stock.ticker}`);
-                if (el && stock.close_price > 0) {
-                    el.textContent = '₹' + parseFloat(stock.close_price).toLocaleString('en-IN', {maximumFractionDigits:2});
-                    el.style.color = '#94a3b8'; // grey = static
+                const el    = document.getElementById(`vol_ltp_${stock.ticker}`);
+                const distEl = document.getElementById(`vol_dist_${stock.ticker}`);
+                const ltp   = stock.ltp || stock._liveLtp || stock.close_price || 0;
+                const entry = stock.prev_day_low || 0;
+                if (el && ltp > 0) {
+                    el.textContent = '₹' + parseFloat(ltp).toLocaleString('en-IN', {maximumFractionDigits:2});
+                    el.style.color = '#ffffff';
+                }
+                if (distEl && stock.dist_pct !== undefined) {
+                    const d = stock.dist_pct;
+                    distEl.textContent = (d >= 0 ? '+' : '') + d.toFixed(1) + '% from entry';
+                    distEl.style.color = Math.abs(d) <= 2 ? '#10B981' : d < 0 ? '#f59e0b' : '#94a3b8';
                 }
             });
 
