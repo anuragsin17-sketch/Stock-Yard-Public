@@ -6242,27 +6242,66 @@
             }
 
             // Sort: nearest LTP to prev_day_low first (entry price = prev_day_low)
-            // Secondary: newer added_date first (more recent signals on top if equal distance)
+            // Use _liveLtp only — close_price is signal day close (always 10%+ above entry, useless for distance)
+            // Secondary: newer added_date first
             const sorted = [...volGainerData].sort((a, b) => {
                 const aEntry = a.prev_day_low || 0;
                 const bEntry = b.prev_day_low || 0;
-                const aPrice = a._liveLtp || a.close_price || 0;
-                const bPrice = b._liveLtp || b.close_price || 0;
-                const aDist  = aEntry > 0 ? Math.abs((aPrice - aEntry) / aEntry * 100) : 999;
-                const bDist  = bEntry > 0 ? Math.abs((bPrice - bEntry) / bEntry * 100) : 999;
+                const aPrice = a._liveLtp || 0;
+                const bPrice = b._liveLtp || 0;
+                // Stocks with live price come before those without
+                if ((aPrice > 0) !== (bPrice > 0)) return aPrice > 0 ? -1 : 1;
+                const aDist  = (aEntry > 0 && aPrice > 0) ? Math.abs((aPrice - aEntry) / aEntry * 100) : 999;
+                const bDist  = (bEntry > 0 && bPrice > 0) ? Math.abs((bPrice - bEntry) / bEntry * 100) : 999;
                 if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
-                // Tiebreak: newer date first
                 return (b.added_date || '').localeCompare(a.added_date || '');
             });
 
-            // ── Filter: only show stocks where LTP is within -10% to +4% of prev_day_low ──
-            // Use live LTP if available, fall back to close_price
+            // ── Filter: only apply -10% to +4% zone filter when live prices are available ──
+            // close_price is signal day close (always >10% above entry) — can't use for distance
+            // If no live prices yet, kick off a fetch then re-render
+            const hasLivePrices = volGainerData.some(s => s._liveLtp > 0);
+
+            if (!hasLivePrices) {
+                // Fetch live LTPs for all stocks, then re-render
+                const tickers = volGainerData.map(s => s.ticker).filter(Boolean);
+                if (tickers.length > 0) {
+                    fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 8000)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(json => {
+                            if (json && json.success && json.prices) {
+                                volGainerData.forEach(s => {
+                                    const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                    if (ltp && ltp > 0) s._liveLtp = parseFloat(ltp);
+                                });
+                            }
+                            // Fallback: individual get-quote for any still missing
+                            const stillMissing = volGainerData.filter(s => !s._liveLtp);
+                            return Promise.allSettled(
+                                stillMissing.slice(0, 30).map(s =>
+                                    fetch(`${EC2_API}/api/get-quote?symbol=${s.ticker}`, { cache: 'no-store' })
+                                        .then(r => r.ok ? r.json() : null)
+                                        .then(d => { if (d?.success && d.ltp > 0) s._liveLtp = parseFloat(d.ltp); })
+                                        .catch(() => {})
+                                )
+                            );
+                        })
+                        .catch(() => {})
+                        .finally(() => {
+                            if (currentTab === 'volume') displayVolumeGainerTab();
+                        });
+                }
+                // Show skeleton while fetching
+                container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Fetching live prices...</div>`;
+                return;
+            }
+
             const filtered = sorted.filter(s => {
                 const entry = s.prev_day_low || 0;
                 if (entry <= 0) return false;
-                const price = s._liveLtp || s.close_price || 0;
-                if (price <= 0) return false;
-                const distPct = (price - entry) / entry * 100;
+                const ltp = s._liveLtp || 0;
+                if (ltp <= 0) return false;
+                const distPct = (ltp - entry) / entry * 100;
                 return distPct >= -10 && distPct <= 4;
             });
 
@@ -6385,45 +6424,43 @@
 
             // Re-sort AND re-filter cards by live distance to entry after prices loaded
             function resortByLive() {
-                // Re-filter with live prices
-                const liveFiltered = paged.filter(s => {
-                    const entry = s.prev_day_low || 0;
-                    if (entry <= 0) return true; // keep if no entry
-                    const price = s._liveLtp || s.close_price || 0;
-                    if (price <= 0) return true;
-                    const distPct = (price - entry) / entry * 100;
-                    return distPct >= -10 && distPct <= 4;
-                });
-
                 const cardsArea = document.getElementById('vol-cards-area');
                 if (!cardsArea) return;
 
-                // Hide cards outside zone
+                const nowHasLive = paged.some(s => s._liveLtp > 0);
+                if (!nowHasLive) return;  // still no live prices — nothing to do
+
+                // Re-filter with live prices
+                const liveFiltered = paged.filter(s => {
+                    const entry = s.prev_day_low || 0;
+                    if (entry <= 0) return true;
+                    const ltp = s._liveLtp || 0;
+                    if (ltp <= 0) return false;
+                    const distPct = (ltp - entry) / entry * 100;
+                    return distPct >= -10 && distPct <= 4;
+                });
+
+                // Show/hide cards based on live filter
                 paged.forEach(s => {
                     const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
                     if (!el) return;
-                    const inZone = liveFiltered.some(f => f.ticker === s.ticker);
-                    el.style.display = inZone ? '' : 'none';
+                    el.style.display = liveFiltered.some(f => f.ticker === s.ticker) ? '' : 'none';
                 });
 
-                // Re-sort visible cards by distance to entry
+                // Re-sort visible cards
                 const sortedByLive = [...liveFiltered].sort((a, b) => {
-                    const aEntry = a.prev_day_low || 0;
-                    const bEntry = b.prev_day_low || 0;
-                    const aLtp   = a._liveLtp || a.close_price || 0;
-                    const bLtp   = b._liveLtp || b.close_price || 0;
-                    const aDist  = aEntry > 0 ? Math.abs((aLtp - aEntry) / aEntry * 100) : 999;
-                    const bDist  = bEntry > 0 ? Math.abs((bLtp - bEntry) / bEntry * 100) : 999;
+                    const aEntry = a.prev_day_low || 0, bEntry = b.prev_day_low || 0;
+                    const aLtp   = a._liveLtp || 0,     bLtp   = b._liveLtp || 0;
+                    const aDist  = (aEntry > 0 && aLtp > 0) ? Math.abs((aLtp - aEntry) / aEntry * 100) : 999;
+                    const bDist  = (bEntry > 0 && bLtp > 0) ? Math.abs((bLtp - bEntry) / bEntry * 100) : 999;
                     if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
                     return (b.added_date || '').localeCompare(a.added_date || '');
                 });
-
-                sortedByLive.forEach(stock => {
-                    const el = cardsArea.querySelector(`[data-ticker="${stock.ticker}"]`);
+                sortedByLive.forEach(s => {
+                    const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
                     if (el) cardsArea.appendChild(el);
                 });
 
-                // Update badge with live-filtered count
                 setTabCount('volTabCount', liveFiltered.length);
             }
         }
