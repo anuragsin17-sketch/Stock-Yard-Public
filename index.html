@@ -5215,6 +5215,8 @@
                 // Pre-load 52W data from trendline_screen.json into session cache
                 // so Radar tab can show 52W H/L for all stocks (including Angel One synced)
                 preFetch52WFromTrendline();
+                // Sync manual stocks from DynamoDB into localStorage
+                syncManualStocksFromDB();
             });
             fetchIndexData();
             
@@ -9946,6 +9948,12 @@
                         if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent=
                             (volumeCount + tlFiltered + updatedManual.length).toLocaleString();
                     });
+                // Sync to DynamoDB (fire-and-forget)
+                fetch(`${EC2_API}/api/manual-stocks`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(stockEntry)
+                }).catch(() => {});
                 switchTab('trendline');
             }
 
@@ -9976,10 +9984,38 @@
 
         window.removeManualStock = function(idx) {
             const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-            manualStocks.splice(idx, 1);
+            const removed = manualStocks.splice(idx, 1);
             localStorage.setItem('manualStocks', JSON.stringify(manualStocks));
+            // Delete from DynamoDB (fire-and-forget)
+            if (removed[0]?.symbol) {
+                fetch(`${EC2_API}/api/manual-stocks?symbol=${removed[0].symbol}`, { method: 'DELETE' }).catch(() => {});
+            }
             switchTab('trendline');
         };
+
+        // Load manual stocks from DynamoDB on startup and merge with localStorage
+        async function syncManualStocksFromDB() {
+            try {
+                const r = await fetchWithTimeout(`${EC2_API}/api/manual-stocks`, { cache: 'no-store' }, 5000);
+                if (!r.ok) return;
+                const d = await r.json();
+                if (!d.success || !Array.isArray(d.stocks) || d.stocks.length === 0) return;
+                const local = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                const localSymbols = new Set(local.map(s => s.symbol));
+                // Add DB stocks not in localStorage
+                let added = 0;
+                d.stocks.forEach(s => {
+                    if (!localSymbols.has(s.symbol)) {
+                        local.unshift(s);
+                        added++;
+                    }
+                });
+                if (added > 0) {
+                    localStorage.setItem('manualStocks', JSON.stringify(local));
+                    console.log(`✅ Synced ${added} manual stocks from DB`);
+                }
+            } catch(e) { /* silent */ }
+        }
 
         window.takeManualTrade = function(idx) {
             const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
