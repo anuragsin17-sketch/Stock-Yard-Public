@@ -6974,12 +6974,14 @@
                                     d.fib500 ? `50%: ₹${d.fib500.toLocaleString()}` : null,
                                     d.fib618 ? `61.8%: ₹${d.fib618.toLocaleString()}` : null,
                                     d.fib786 ? `78.6%: ₹${d.fib786.toLocaleString()}` : null,
+                                    (d.fibLow || d.week52Low) ? `100%: ₹${(d.fibLow || d.week52Low).toLocaleString()}` : null,
                                 ].filter(Boolean).join(' | ');
                                 el.innerHTML = `<span style="color:#F59E0B;">${levels}</span><br><span style="color:#6B7280;">${rangeLabel}</span>`;
                             }
 
-                            // New format (ATH + 2020 low)
-                            if (fibData.fib618 && fibData.fib382) {
+                            // New format (ATH + 2020 low) — needs fib236 or fib786 to confirm it's the new format
+                            // Old format only had fib382/fib500/fib618 — re-fetch for those
+                            if (fibData.fib618 && fibData.fib382 && fibData.fib236 !== undefined) {
                                 renderFib(fibData);
                                 return;
                             }
@@ -6989,8 +6991,8 @@
                             fetch(`https://32-194-58-75.nip.io/api/get-52w?symbol=${stockSymbol}`, { signal: AbortSignal.timeout(10000) })
                                 .then(r => r.json())
                                 .then(data => {
-                                    const high  = (data.success && data.ath > 0)          ? data.ath      : (data.week_52_high || 0);
-                                    const low   = (data.success && data.low_2020 > 0)      ? data.low_2020 : (data.week_52_low  || 0);
+                        const high  = data.ath      > 0 ? data.ath      : (data.week_52_high || 0);
+                                    const low   = data.low_2020 > 0 ? data.low_2020 : (data.week_52_low  || 0);
                                     if (high > 0 && low > 0 && high > low) {
                                         const range = high - low;
                                         const fibs = {
