@@ -6987,7 +6987,7 @@
                                 const pills = FIB_DEFS.map(({ label, val }) => {
                                     if (!val || val <= 0) return '';
                                     const dist = ref > 0 ? Math.abs((ref - val) / val * 100) : 999;
-                                    const isNear = dist <= 3.0;
+                                    const isNear = dist <= 5.0;
                                     const isGolden = label.startsWith('61.8');
                                     let style;
                                     if (isNear) {
@@ -7201,7 +7201,7 @@
                                     const makePill = (label, price) => {
                                         if (!price || price <= 0) return '';
                                         const dist = Math.abs((entryTrigger - price) / price * 100);
-                                        const isNear = dist <= 3.0;
+                                        const isNear = dist <= 5.0;
                                         const p786lo = fibs.pocket_786_low  || 0;
                                         const p786hi = fibs.pocket_786_high || 0;
                                         const p100lo = fibs.pocket_100_low  || 0;
