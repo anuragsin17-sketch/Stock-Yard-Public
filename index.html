@@ -6525,8 +6525,12 @@
                         <div style="font-size:9px;color:#6b7280;margin-top:2px;">SL ₹${slPrice.toLocaleString()} (-4%)</div>
                     </div>
                     <div>
-                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Signal Close</div>
-                        <div style="font-size:13px;font-weight:700;color:#e5e7eb;" class="mono">₹${closePrice.toLocaleString()}</div>
+                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">52W L / H</div>
+                        <div id="vol_52w_${ticker}" style="font-size:11px;font-weight:600;color:#e5e7eb;" class="mono">${
+                            (stock.week_52_low && stock.week_52_high)
+                            ? `₹${parseFloat(stock.week_52_low).toLocaleString()} / ₹${parseFloat(stock.week_52_high).toLocaleString()}`
+                            : '—'
+                        }</div>
                         ${alertSentAt ? `<div style="font-size:9px;color:#10B981;margin-top:2px;">Alerted: ${alertSentAt}</div>` : ''}
                     </div>
                 </div>
@@ -7719,7 +7723,7 @@
                                 <div style="font-size:11px;font-weight:700;color:${distColor};">${distLabel}</div>
                             </div>
                         </div>
-                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:10px;border-radius:8px;margin-bottom:12px;">
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:10px;border-radius:8px;margin-bottom:12px;">
                             <div style="text-align:center;">
                                 <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Trigger ${isEdited?'<span style="color:#f59e0b;font-size:9px;">✏️</span>':''}</div>
                                 <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
@@ -7732,12 +7736,22 @@
                                 </div>
                             </div>
                             <div style="text-align:center;">
-                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target ${isTL?'23%':'20%'}</div>
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target ${isTL?'23%':'15%'}</div>
                                 <div id="po_target_${s.symbol}_${s.strategy}" style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${target.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                             </div>
                             <div style="text-align:center;">
-                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop ${isTL?'8%':'5%'}</div>
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Stop ${isTL?'8%':'4%'}</div>
                                 <div id="po_sl_${s.symbol}_${s.strategy}" style="font-size:13px;font-weight:700;color:#f43f5e;" class="mono">₹${sl.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">52W L / H</div>
+                                <div style="font-size:11px;font-weight:600;color:#e5e7eb;" class="mono">${
+                                    (s.week52Low && s.week52High)
+                                    ? `₹${parseFloat(s.week52Low).toLocaleString()} / ₹${parseFloat(s.week52High).toLocaleString()}`
+                                    : (s._raw?.week52Low && s._raw?.week52High)
+                                    ? `₹${parseFloat(s._raw.week52Low).toLocaleString()} / ₹${parseFloat(s._raw.week52High).toLocaleString()}`
+                                    : '—'
+                                }</div>
                             </div>
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;">
