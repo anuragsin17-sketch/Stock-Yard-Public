@@ -6954,45 +6954,63 @@
                             </div>
                         </div>
                     `;
-                    // Show stored static Fib levels (fetched once at save time).
-                    // If fib data is missing, fetch from EC2 /api/get-52w (yfinance) now.
+                    // Show stored Fib levels (ATH → 2020 low, same as trendline screener).
+                    // If missing, fetch from EC2 /api/get-52w now.
                     (function(divId, fibData, stockSymbol, stockIdx) {
                         setTimeout(() => {
                             const el = document.getElementById(divId);
                             if (!el) return;
 
                             function renderFib(d) {
-                                el.innerHTML = `<span style="color:#F59E0B;">Fib 38.2%: ₹${d.fib382.toLocaleString()} | 50%: ₹${d.fib500.toLocaleString()} | 61.8%: ₹${d.fib618.toLocaleString()}</span><br><span style="color:#6B7280;">52W H: ₹${d.week52High.toLocaleString()} | L: ₹${d.week52Low.toLocaleString()}</span>`;
+                                const high = d.fibHigh || d.week52High || 0;
+                                const low  = d.fibLow  || d.week52Low  || 0;
+                                const isATH = !!d.fibHigh;
+                                const rangeLabel = isATH
+                                    ? `ATH ₹${high.toLocaleString()} | 2020 Low ₹${low.toLocaleString()}`
+                                    : `52W H ₹${high.toLocaleString()} | L ₹${low.toLocaleString()}`;
+                                const levels = [
+                                    d.fib236 ? `23.6%: ₹${d.fib236.toLocaleString()}` : null,
+                                    d.fib382 ? `38.2%: ₹${d.fib382.toLocaleString()}` : null,
+                                    d.fib500 ? `50%: ₹${d.fib500.toLocaleString()}` : null,
+                                    d.fib618 ? `61.8%: ₹${d.fib618.toLocaleString()}` : null,
+                                    d.fib786 ? `78.6%: ₹${d.fib786.toLocaleString()}` : null,
+                                ].filter(Boolean).join(' | ');
+                                el.innerHTML = `<span style="color:#F59E0B;">${levels}</span><br><span style="color:#6B7280;">${rangeLabel}</span>`;
                             }
 
-                            if (fibData.fib382 && fibData.fib618) {
+                            // New format (ATH + 2020 low)
+                            if (fibData.fib618 && fibData.fib382) {
                                 renderFib(fibData);
                                 return;
                             }
 
-                            // Fib missing — fetch real 52W data from yfinance via EC2
+                            // Fib missing — fetch ATH + 2020 low from EC2
                             el.innerHTML = '<span style="color:#6B7280;">Fib: fetching…</span>';
                             fetch(`https://32-194-58-75.nip.io/api/get-52w?symbol=${stockSymbol}`, { signal: AbortSignal.timeout(10000) })
                                 .then(r => r.json())
                                 .then(data => {
-                                    if (data.success && data.week_52_high > 0 && data.week_52_low > 0) {
-                                        const high = data.week_52_high, low = data.week_52_low;
+                                    const high  = (data.success && data.ath > 0)          ? data.ath      : (data.week_52_high || 0);
+                                    const low   = (data.success && data.low_2020 > 0)      ? data.low_2020 : (data.week_52_low  || 0);
+                                    if (high > 0 && low > 0 && high > low) {
                                         const range = high - low;
                                         const fibs = {
+                                            fibHigh: high, fibLow: low,
+                                            fib236: parseFloat((high - range * 0.236).toFixed(2)),
                                             fib382: parseFloat((high - range * 0.382).toFixed(2)),
                                             fib500: parseFloat((high - range * 0.500).toFixed(2)),
                                             fib618: parseFloat((high - range * 0.618).toFixed(2)),
-                                            week52High: high, week52Low: low
+                                            fib786: parseFloat((high - range * 0.786).toFixed(2)),
+                                            week52High: data.week_52_high || high,
+                                            week52Low:  data.week_52_low  || low,
                                         };
                                         renderFib(fibs);
-                                        // Persist so it doesn't re-fetch next time
                                         const stocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
                                         if (stocks[stockIdx] && stocks[stockIdx].symbol === stockSymbol) {
                                             Object.assign(stocks[stockIdx], fibs);
                                             localStorage.setItem('manualStocks', JSON.stringify(stocks));
                                         }
                                     } else {
-                                        el.innerHTML = '<span style="color:#6B7280;">Fib: — (no 52W data)</span>';
+                                        el.innerHTML = '<span style="color:#6B7280;">Fib: — (no data)</span>';
                                     }
                                 })
                                 .catch(() => {
@@ -9899,17 +9917,25 @@
                 switchTab('trendline');
             }
 
-            // Fetch real 52W H/L from yfinance via EC2 /api/get-52w, then save
+            // Fetch ATH + 2020 low from EC2 /api/get-52w for correct fib (matches trendline screener)
+            // 0% = ATH, 100% = 2020 low — same as trendline screener fib logic
             fetch(`https://32-194-58-75.nip.io/api/get-52w?symbol=${symbol}`, { signal: AbortSignal.timeout(10000) })
                 .then(r => r.json())
                 .then(data => {
-                    if (data.success && data.week_52_high > 0 && data.week_52_low > 0) {
-                        const range = data.week_52_high - data.week_52_low;
-                        stockEntry.week52High = data.week_52_high;
-                        stockEntry.week52Low  = data.week_52_low;
-                        stockEntry.fib382 = parseFloat((data.week_52_high - range * 0.382).toFixed(2));
-                        stockEntry.fib500 = parseFloat((data.week_52_high - range * 0.500).toFixed(2));
-                        stockEntry.fib618 = parseFloat((data.week_52_high - range * 0.618).toFixed(2));
+                    if (data.success && data.ath > 0 && data.low_2020 > 0) {
+                        const high  = data.ath;
+                        const low   = data.low_2020;
+                        const range = high - low;
+                        stockEntry.fibHigh   = high;      // ATH (0%)
+                        stockEntry.fibLow    = low;       // 2020 low (100%)
+                        stockEntry.fib236    = parseFloat((high - range * 0.236).toFixed(2));
+                        stockEntry.fib382    = parseFloat((high - range * 0.382).toFixed(2));
+                        stockEntry.fib500    = parseFloat((high - range * 0.500).toFixed(2));
+                        stockEntry.fib618    = parseFloat((high - range * 0.618).toFixed(2));
+                        stockEntry.fib786    = parseFloat((high - range * 0.786).toFixed(2));
+                        // Keep week52 for display
+                        stockEntry.week52High = data.week_52_high || high;
+                        stockEntry.week52Low  = data.week_52_low  || low;
                     }
                     commitSave();
                 })
