@@ -6153,8 +6153,12 @@
         }
 
         function updateTabCounts() {
-            // Volume count — unalerted watchlist entries
-            const volCount = (volGainerData || []).filter(s => !s.alerted).length;
+            // Volume count — stocks currently in entry zone (-10% to +4%)
+            // Use in_entry_zone flag if available, else total unalerted
+            const volInZone = (volGainerData || []).filter(s => s.in_entry_zone === true).length;
+            const volCount  = volInZone > 0
+                ? volInZone
+                : (volGainerData || []).filter(s => !s.alerted).length;
             setTabCount('volTabCount', volCount);
 
             // Trendline count (dismissed excluded)
