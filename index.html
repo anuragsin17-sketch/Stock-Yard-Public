@@ -6968,15 +6968,45 @@
                                 const rangeLabel = isATH
                                     ? `ATH ₹${high.toLocaleString()} | 2020 Low ₹${low.toLocaleString()}`
                                     : `52W H ₹${high.toLocaleString()} | L ₹${low.toLocaleString()}`;
-                                const levels = [
-                                    d.fib236 ? `23.6%: ₹${d.fib236.toLocaleString()}` : null,
-                                    d.fib382 ? `38.2%: ₹${d.fib382.toLocaleString()}` : null,
-                                    d.fib500 ? `50%: ₹${d.fib500.toLocaleString()}` : null,
-                                    d.fib618 ? `61.8%: ₹${d.fib618.toLocaleString()}` : null,
-                                    d.fib786 ? `78.6%: ₹${d.fib786.toLocaleString()}` : null,
-                                    (d.fibLow || d.week52Low) ? `100%: ₹${(d.fibLow || d.week52Low).toLocaleString()}` : null,
-                                ].filter(Boolean).join(' | ');
-                                el.innerHTML = `<span style="color:#F59E0B;">${levels}</span><br><span style="color:#6B7280;">${rangeLabel}</span>`;
+
+                                // Use entry trigger as reference price for pill highlight
+                                const ref = parseFloat(fibData.entryTrigger) || parseFloat(fibData.currentPrice) || 0;
+
+                                const FIB_DEFS = [
+                                    { k: '0.0%_W',   label: '0.0% (ATH)',   val: high },
+                                    { k: 'fib236',   label: '23.6%',        val: d.fib236 },
+                                    { k: 'fib382',   label: '38.2%',        val: d.fib382 },
+                                    { k: 'fib500',   label: '50.0%',        val: d.fib500 },
+                                    { k: 'fib618',   label: '61.8%',        val: d.fib618 },
+                                    { k: 'fib786',   label: '78.6%',        val: d.fib786 },
+                                    { k: 'fibLow',   label: '100.0% (Base)',val: low  },
+                                ];
+
+                                const pills = FIB_DEFS.map(({ label, val }) => {
+                                    if (!val || val <= 0) return '';
+                                    const dist = ref > 0 ? Math.abs((ref - val) / val * 100) : 999;
+                                    const isNear = dist <= 3.0;
+                                    const isGolden = label.startsWith('61.8');
+                                    let style;
+                                    if (isNear) {
+                                        style = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.5);font-weight:700;';
+                                    } else if (isGolden) {
+                                        style = 'background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);font-weight:600;';
+                                    } else if (val <= ref) {
+                                        style = 'background:rgba(59,130,246,0.07);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);';
+                                    } else {
+                                        style = 'background:rgba(107,114,128,0.07);color:#6b7280;border:1px solid rgba(107,114,128,0.12);';
+                                    }
+                                    const tick = isNear ? ' ✓' : '';
+                                    return `<span style="font-size:10px;padding:3px 7px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${label}: ₹${parseFloat(val).toFixed(0)}${tick}</span>`;
+                                }).join('');
+
+                                el.innerHTML = `
+                                    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">
+                                        Fibonacci Levels &nbsp;<span style="color:#4b5563;">${rangeLabel}</span>
+                                    </div>
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>
+                                `;
                             }
 
                             // New format (ATH + 2020 low) — needs fib236 or fib786 to confirm it's the new format
