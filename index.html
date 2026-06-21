@@ -6360,6 +6360,28 @@
                     distEl.textContent = (d >= 0 ? '+' : '') + d.toFixed(1) + '% from entry';
                     distEl.style.color = Math.abs(d) <= 2 ? '#10B981' : d < 0 ? '#f59e0b' : '#94a3b8';
                 }
+
+                // Lazy-fetch 52W for stocks missing it (staggered to avoid hammering EC2)
+                if (!stock.week_52_low || !stock.week_52_high) {
+                    (function(sym, s) {
+                        setTimeout(() => {
+                            fetch(`${EC2_API}/api/get-52w?symbol=${sym}`, { signal: AbortSignal.timeout(8000) })
+                                .then(r => r.ok ? r.json() : null)
+                                .then(d => {
+                                    if (!d || !d.success) return;
+                                    const h = d.week_52_high || 0;
+                                    const l = d.week_52_low  || 0;
+                                    if (h > 0 && l > 0) {
+                                        const el52 = document.getElementById(`vol_52w_${sym}`);
+                                        if (el52) el52.textContent = `₹${parseFloat(l).toLocaleString()} / ₹${parseFloat(h).toLocaleString()}`;
+                                        // Persist back so next render shows it immediately
+                                        const idx = volGainerData.findIndex(x => x.ticker === sym);
+                                        if (idx >= 0) { volGainerData[idx].week_52_low = l; volGainerData[idx].week_52_high = h; }
+                                    }
+                                }).catch(() => {});
+                        }, 300 + Math.floor(Math.random() * 1500)); // stagger 0.3-1.8s
+                    })(stock.ticker, stock);
+                }
             });
 
             // Step 2: fetch live LTPs — try bulk DynamoDB first, fall back to individual get-quote
