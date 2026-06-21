@@ -7194,14 +7194,14 @@
                                 const inP618 = p618lo > 0 && entryTrigger >= p618lo && entryTrigger <= p618hi;
                                 const inP500 = p500lo > 0 && entryTrigger >= p500lo && entryTrigger <= p500hi;
 
-                                // If new dual-TF data available
-                                if (wFib && mFib) {
+                                // If weekly fib data available (new 2020-low → ATH format)
+                                if (wFib) {
                                     const LEVELS = ['23.6%','38.2%','50.0%','61.8%','78.6%','100.0%'];
 
-                                    const makePill = (label, price, tf) => {
+                                    const makePill = (label, price) => {
                                         if (!price || price <= 0) return '';
                                         const dist = Math.abs((entryTrigger - price) / price * 100);
-                                        const isNear = dist <= 2.0;
+                                        const isNear = dist <= 3.0;
                                         const p786lo = fibs.pocket_786_low  || 0;
                                         const p786hi = fibs.pocket_786_high || 0;
                                         const p100lo = fibs.pocket_100_low  || 0;
@@ -7224,16 +7224,14 @@
                                         } else {
                                             style = 'background:rgba(107,114,128,0.07);color:#6b7280;border:1px solid rgba(107,114,128,0.12);';
                                         }
-                                        return `<span style="font-size:10px;padding:3px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${tf} ${label}: ₹${parseFloat(price).toFixed(0)}${glow}</span>`;
+                                        return `<span style="font-size:10px;padding:3px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${label}: ₹${parseFloat(price).toFixed(0)}${glow}</span>`;
                                     };
 
-                                    // Render key levels side-by-side W then M
+                                    // Render key levels (weekly = 2020 low → ATH)
                                     let pillsHtml = '';
                                     LEVELS.forEach(lvl => {
                                         const wp = wFib[lvl];
-                                        const mp = mFib[lvl];
-                                        pillsHtml += makePill(lvl, wp, 'W');
-                                        pillsHtml += makePill(lvl, mp, 'M');
+                                        pillsHtml += makePill(lvl, wp);
                                     });
 
                                     // Pocket indicators
@@ -7255,9 +7253,7 @@
                                     return `
                                     <div style="margin-bottom:10px;">
                                         <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">
-                                            Fibonacci — <span style="color:#3b82f6;">W</span>=Weekly(52-bar) &nbsp;
-                                            <span style="color:#a78bfa;">M</span>=Monthly(24-bar) &nbsp;
-                                            <span style="color:#374151;">(green=near entry · amber=in pocket)</span>
+                                            Fibonacci Levels &nbsp;<span style="color:#4b5563;">ATH ₹${wFib['0.0%']?.toLocaleString() || '—'} → 2020 Low ₹${wFib['100.0%']?.toLocaleString() || '—'}</span>
                                         </div>
                                         ${(pocket618 || pocket500 || pocket786 || pocket100) ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">${pocket618}${pocket500}${pocket786}${pocket100}</div>` : ''}
                                         <div style="display:flex;flex-wrap:wrap;gap:4px;">${pillsHtml}</div>
