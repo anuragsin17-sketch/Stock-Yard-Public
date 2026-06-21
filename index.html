@@ -7002,15 +7002,20 @@
                     })(fibDivId, ms, ms.symbol, idx);
                 });
                 
-                // Trendline pagination — filter dismissed stocks first
+                // Trendline tab — only show scores 8, 9, 10
+                // Score 10 = trendline touch ≤3%
+                // Score  9 = near fib level ±3%
+                // Score  8 = fib ±3% AND trendline ≤2% (dual confluence — best)
                 const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
 
                 const filteredTrendStocks = trendlineStocks
-                    .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker))
+                    .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker)
+                                 && (s.confluenceScore || 0) >= 8)
                     .sort((a, b) => {
-                        // Primary: confluence score desc (10=ULTRA first, then 9, 8, 7, 5)
-                        const scoreDiff = (b.confluenceScore || 0) - (a.confluenceScore || 0);
-                        if (scoreDiff !== 0) return scoreDiff;
+                        // Score 10 first (TL touch), then 9 (fib), then 8 (dual confluence)
+                        const aScore = a.confluenceScore || 0;
+                        const bScore = b.confluenceScore || 0;
+                        if (aScore !== bScore) return bScore - aScore;  // 10 > 9 > 8 → descending
                         // Secondary: distance to trendline asc (closest = most urgent)
                         const distDiff = (a.distanceRemaining || 0) - (b.distanceRemaining || 0);
                         if (Math.abs(distDiff) > 0.1) return distDiff;
