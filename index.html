@@ -8999,16 +8999,15 @@
                 if (anySyncOk) {
                     const tradeHistory = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
                     let historyDirty = false;
+
+                    // ── Path 1: trades that were previously tracked in radarOverrides ──
                     Object.entries(prevBrokerTrades).forEach(([k, v]) => {
                         const isAngelPos = v.source === 'Angel One';
                         const isGrowwPos = v.source === 'Groww';
-                        // Only auto-close if the relevant broker API succeeded
                         if ((isAngelPos && !angelOk) || (isGrowwPos && !growwOk)) return;
                         if (!liveTickers.has(v.ticker)) {
                             const entry = parseFloat(v.entry_price) || 0;
-                            // Use actual exit price from Angel One order book if available,
-                            // otherwise fall back to last known LTP
-                            const orderBookExit = sellExitMap[v.ticker.toUpperCase()];
+                            const orderBookExit = sellExitMap[(v.ticker || '').toUpperCase()];
                             const exit  = orderBookExit
                                 ? parseFloat(orderBookExit)
                                 : (parseFloat(v.current_price) || entry);
@@ -9022,12 +9021,10 @@
                                 pnl, pnl_percent: pnlPct,
                                 closed_at: new Date().toISOString()
                             };
-                            console.log(`Auto-closed: ${v.ticker} exit: ₹${exit} (${exitSource}) pnl: ${pnl.toFixed(2)}`);
+                            console.log(`Auto-closed (tracked): ${v.ticker} exit: ₹${exit} (${exitSource}) pnl: ${pnl.toFixed(2)}`);
 
-                            // Push to tradeHistory for Radar Performance
                             const alreadyRecorded = tradeHistory.some(h =>
                                 h.ticker === v.ticker &&
-                                h.source === v.source &&
                                 Math.abs(parseFloat(h.entry_price) - entry) < 1
                             );
                             if (!alreadyRecorded) {
@@ -9048,6 +9045,75 @@
                             }
                         }
                     });
+
+                    // ── Path 2: sold trades from Angel One order book not yet in radarOverrides ──
+                    // This handles the case where trades were closed in Angel One but the app
+                    // never tracked them as "Open" (e.g. first sync after a trade was already closed,
+                    // or trades done directly in the Angel One app without going through Stock Yard).
+                    if (angelOk && Object.keys(sellExitMap).length > 0) {
+                        const allKnownTickers = new Set([
+                            ...Object.values(allBrokerTrades).map(t => (t.ticker || '').toUpperCase()),
+                            ...Object.values(closedTrades).map(t => (t.ticker || '').toUpperCase()),
+                        ]);
+
+                        Object.entries(sellExitMap).forEach(([ticker, exitPrice]) => {
+                            const tickerUp = ticker.toUpperCase();
+                            // Skip if it's still open or already recorded as closed
+                            if (allKnownTickers.has(tickerUp)) return;
+                            if (blockedTickers.includes(ticker)) return;
+
+                            // Look up any existing entry data we might have
+                            const prevEntry = Object.values(existing).find(e =>
+                                (e.ticker || '').toUpperCase() === tickerUp
+                            ) || {};
+                            const entry  = parseFloat(prevEntry.entry_price || 0);
+                            const qty    = parseInt(prevEntry.quantity || 0);
+                            const pnl    = entry > 0 && qty > 0 ? (exitPrice - entry) * qty : 0;
+                            const pnlPct = entry > 0 ? ((exitPrice - entry) / entry * 100) : 0;
+                            const key    = 'SOLD_' + tickerUp + '_' + Date.now();
+
+                            closedTrades[key] = {
+                                ticker,
+                                entry_price:   entry,
+                                exit_price:    parseFloat(exitPrice),
+                                exit_source:   'Angel One order book',
+                                quantity:      qty,
+                                pnl,
+                                pnl_percent:   pnlPct,
+                                status:        'Closed',
+                                source:        'Angel One',
+                                is_angel_synced: true,
+                                closed_at:     new Date().toISOString(),
+                                ...(prevEntry.triggered_at ? { triggered_at: prevEntry.triggered_at } : {})
+                            };
+                            console.log(`Auto-closed (order book only): ${ticker} exit: ₹${exitPrice}`);
+
+                            // Only add to history if we have entry data (otherwise P&L would be wrong)
+                            if (entry > 0 && qty > 0) {
+                                const alreadyRecorded = tradeHistory.some(h =>
+                                    (h.ticker || '').toUpperCase() === tickerUp &&
+                                    Math.abs(parseFloat(h.exit_price) - exitPrice) < 1
+                                );
+                                if (!alreadyRecorded) {
+                                    tradeHistory.unshift({
+                                        ticker,
+                                        entry_price: entry,
+                                        exit_price:  parseFloat(exitPrice),
+                                        exit_source: 'Angel One order book',
+                                        quantity:    qty,
+                                        pnl,
+                                        pnl_percent: pnlPct,
+                                        status:      pnl >= 0 ? 'Target Hit' : 'Stop Loss',
+                                        source:      'Angel One',
+                                        opened_at:   prevEntry.triggered_at || null,
+                                        closed_at:   new Date().toISOString()
+                                    });
+                                    historyDirty = true;
+                                }
+                            }
+                        });
+                    }
+
                     if (historyDirty) {
                         localStorage.setItem('tradeHistory', JSON.stringify(tradeHistory));
                         console.log('✅ Closed trades saved to Radar Performance history');
