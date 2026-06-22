@@ -8220,6 +8220,7 @@
                         <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:6px;padding:8px;text-align:center;">
                             <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Exit</div>
                             <div style="font-size:11px;font-weight:600;color:${pc};" class="mono">${formatINR(h.exit_price)}</div>
+                            ${h.exit_source === 'Angel One order book' ? '<div style="font-size:8px;color:#10b981;margin-top:1px;">📋 verified</div>' : ''}
                         </div>
                         <div style="background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);border-radius:6px;padding:8px;text-align:center;">
                             <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Qty</div>
@@ -8940,7 +8941,12 @@
             ]).then(([angelData, growwData]) => {
                 const angelPositions = (angelData && angelData.success) ? (angelData.open_trades || []) : [];
                 const growwPositions = (growwData  && growwData.success)  ? (growwData.open_trades  || []) : [];
+                // sell_exit_map: {TICKER: actual_exit_price} from Angel One order book
+                const sellExitMap    = (angelData && angelData.sell_exit_map) ? angelData.sell_exit_map : {};
                 console.log('Angel One:', angelPositions.length, '| Groww:', growwPositions.length);
+                if (Object.keys(sellExitMap).length > 0) {
+                    console.log('📋 Sell exits from order book:', sellExitMap);
+                }
 
                 // Only auto-close if at least one broker API responded successfully
                 // If both failed, don't touch existing positions
@@ -9000,16 +9006,23 @@
                         if ((isAngelPos && !angelOk) || (isGrowwPos && !growwOk)) return;
                         if (!liveTickers.has(v.ticker)) {
                             const entry = parseFloat(v.entry_price) || 0;
-                            const exit  = parseFloat(v.current_price) || entry;
+                            // Use actual exit price from Angel One order book if available,
+                            // otherwise fall back to last known LTP
+                            const orderBookExit = sellExitMap[v.ticker.toUpperCase()];
+                            const exit  = orderBookExit
+                                ? parseFloat(orderBookExit)
+                                : (parseFloat(v.current_price) || entry);
+                            const exitSource = orderBookExit ? 'Angel One order book' : 'last LTP';
                             const qty   = parseInt(v.quantity) || 0;
                             const pnl   = (exit - entry) * qty;
                             const pnlPct = entry > 0 ? ((exit - entry) / entry * 100) : 0;
                             closedTrades[k] = {
                                 ...v, status: 'Closed', exit_price: exit,
+                                exit_source: exitSource,
                                 pnl, pnl_percent: pnlPct,
                                 closed_at: new Date().toISOString()
                             };
-                            console.log('Auto-closed:', v.ticker, '(', v.source, ') exit:', exit, 'pnl:', pnl.toFixed(2));
+                            console.log(`Auto-closed: ${v.ticker} exit: ₹${exit} (${exitSource}) pnl: ${pnl.toFixed(2)}`);
 
                             // Push to tradeHistory for Radar Performance
                             const alreadyRecorded = tradeHistory.some(h =>
@@ -9022,6 +9035,7 @@
                                     ticker:      v.ticker,
                                     entry_price: entry,
                                     exit_price:  exit,
+                                    exit_source: exitSource,
                                     quantity:    qty,
                                     pnl,
                                     pnl_percent: pnlPct,
