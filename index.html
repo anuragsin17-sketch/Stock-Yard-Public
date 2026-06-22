@@ -6977,8 +6977,18 @@
                 `;
 
                 // Show manually added stocks first (skip those already in Radar)
+                // Only show on page 1 — they are not paginated with trendline stocks
+                // When search is active, filter manual stocks by query too
                 const manualStocksAll = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                manualStocksAll.forEach((ms, idx) => {
+                const manualStocksFiltered = trendSearch.length >= 3
+                    ? manualStocksAll.filter(ms =>
+                        (ms.symbol||'').toUpperCase().includes(trendSearch) ||
+                        (ms.companyName||'').toUpperCase().includes(trendSearch))
+                    : manualStocksAll;
+                if (trendPage === 1 || trendSearch.length >= 3) {
+                manualStocksFiltered.forEach((ms, idx) => {
+                    // preserve original index for remove/trade actions
+                    const origIdx = manualStocksAll.indexOf(ms);
                     // Skip if already in Radar
                     if (isTickerInRadar(ms.symbol)) return;
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ms.symbol}`;
@@ -7001,12 +7011,12 @@
                                     </div>
                                     <div id="${fibDivId}" class="text-xs text-slate-500 mono mb-3">—</div>
                                     <div class="flex items-center space-x-2">
-                                        <button onclick="takeManualTrade(${idx})"
+                                        <button onclick="takeManualTrade(${origIdx})"
                                             class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                                             style="background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;min-width:90px;letter-spacing:0.5px;font-weight:700;text-transform:uppercase;border:none;">
                                             PLACE BUY ORDER
                                         </button>
-                                        <button onclick="removeManualStock(${idx})"
+                                        <button onclick="removeManualStock(${origIdx})"
                                             class="py-2 px-3 rounded-lg text-xs touch-btn"
                                             style="background: rgba(100,116,139,0.2); color: #94A3B8;">🗑️</button>
                                     </div>
@@ -7109,8 +7119,9 @@
                                     el.innerHTML = '<span style="color:#6B7280;">Fib: — (EC2 unreachable)</span>';
                                 });
                         }, 50);
-                    })(fibDivId, ms, ms.symbol, idx);
+                    })(fibDivId, ms, ms.symbol, origIdx);
                 });
+                } // end: manual stocks page 1 only
                 
                 // Trendline tab — only show scores 8, 9, 10
                 // Score 10 = trendline touch ≤3%
