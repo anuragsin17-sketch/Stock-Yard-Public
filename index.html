@@ -8271,9 +8271,9 @@
                     </button>
                 </div>
 
-                <!-- Row 2: Capital + Period (From/To only) -->
-                <div style="display:flex;align-items:flex-end;gap:10px;">
-                    <div style="flex-shrink:0;">
+                <!-- Row 2: Capital + Slots + Period — wraps on mobile -->
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;">
+                    <div style="flex-shrink:0;min-width:110px;">
                         <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">💰 Capital (₹)</div>
                         <input id="perfCapitalInput" type="number" min="50000" step="50000"
                             value="${perfCapital}"
@@ -8291,7 +8291,7 @@
                         </div>
                         <div class="text-xs mt-1" style="color:#6b7280;">Slots: ${Math.max(1,Math.floor(perfCapital/50000))}</div>
                     </div>
-                    <div style="flex-shrink:0;">
+                    <div style="flex-shrink:0;min-width:80px;">
                         <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">🔢 Slots (max concurrent)</div>
                         <input id="perfSlotsInput" type="number" min="1" max="500" step="1"
                             value="${perfSlotsOverride > 0 ? perfSlotsOverride : Math.max(1,Math.floor(perfCapital/50000))}"
@@ -8302,16 +8302,16 @@
                             style="background:rgba(30,41,59,0.9);border:1px solid rgba(6,95,70,0.5);color:#34d399;width:80px;"/>
                         <div class="text-xs mt-1" style="color:#6b7280;">${perfSlotsOverride > 0 ? '✏️ custom' : 'auto = ÷₹50K'}</div>
                     </div>
-                    <div style="flex:1;">
+                    <div style="flex:1;min-width:200px;">
                         <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">📅 Period</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
                             <input type="date" id="perfDateFromInput"
                                 class="w-full px-2 py-1.5 rounded-lg text-xs mono outline-none"
-                                style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.25);color:#38BDF8;"
+                                style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.25);color:#38BDF8;min-width:0;"
                                 onchange="perfYears=0; perfDateFrom=this.value;"/>
                             <input type="date" id="perfDateToInput"
                                 class="w-full px-2 py-1.5 rounded-lg text-xs mono outline-none"
-                                style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.25);color:#38BDF8;"
+                                style="background:rgba(30,41,59,0.9);border:1px solid rgba(59,130,246,0.25);color:#38BDF8;min-width:0;"
                                 onchange="perfDateTo=this.value;"/>
                         </div>
                     </div>
