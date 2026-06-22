@@ -9049,21 +9049,46 @@
                     const json = await resp.json();
                     if (json.success && json.prices && Object.keys(json.prices).length > 0) {
                         console.log(`✅ Bulk prices: ${Object.keys(json.prices).length} tickers`);
-                        // Fetch prev close for all tickers in parallel for Day P&L
-                        const prevCloseMap = {};
-                        await Promise.allSettled(tickers.map(ticker =>
-                            fetchPrevClose(ticker).then(pc => { if (pc > 0) prevCloseMap[ticker] = pc; })
-                        ));
-                        return tickers.map(ticker => {
+                        // Return LTPs immediately — don't block on prev-close Yahoo fetch
+                        const quotes = tickers.map(ticker => {
                             const ltp = json.prices[ticker.toUpperCase()];
-                            return ltp ? {
-                                ticker,
-                                ltp,
-                                open: 0,
-                                close: prevCloseMap[ticker] || 0,  // yesterday's close for Day P&L
-                                timestamp: new Date().toISOString()
-                            } : null;
+                            return ltp ? { ticker, ltp, open: 0, close: 0, timestamp: new Date().toISOString() } : null;
                         }).filter(Boolean);
+
+                        // Fetch prev-close in background, then patch Day P&L in-place
+                        Promise.allSettled(tickers.map(ticker =>
+                            fetchPrevClose(ticker).then(pc => {
+                                if (pc <= 0) return;
+                                // Update the quote object in-place
+                                const q = quotes.find(q => q.ticker === ticker);
+                                if (q) q.close = pc;
+                                // Update Day P&L in DOM directly
+                                const trade = openTrades.find(t => (t.ticker||t.symbol) === ticker);
+                                if (!trade) return;
+                                const ltp = parseFloat(q?.ltp || 0);
+                                const qty = parseFloat(trade.quantity || 0);
+                                if (ltp > 0 && qty > 0) {
+                                    // Recompute and update total day P&L
+                                    let dayPnl = 0;
+                                    quotes.forEach(q2 => {
+                                        const t2 = openTrades.find(t => (t.ticker||t.symbol) === q2.ticker);
+                                        if (!t2) return;
+                                        const l2 = parseFloat(q2.ltp || 0);
+                                        const c2 = parseFloat(q2.close || 0);
+                                        const q2y = parseFloat(t2.quantity || 0);
+                                        if (l2 > 0 && c2 > 0 && q2y > 0) dayPnl += (l2 - c2) * q2y;
+                                    });
+                                    const sumDayEl = document.getElementById('radar_sum_day');
+                                    if (sumDayEl && currentTab === 'performance') {
+                                        const dc = dayPnl >= 0 ? '#10b981' : '#f43f5e';
+                                        sumDayEl.textContent = (dayPnl >= 0 ? '+' : '') + formatINR(dayPnl, 0);
+                                        sumDayEl.style.color = dc;
+                                    }
+                                }
+                            })
+                        ));
+
+                        return quotes;
                     }
                 }
             } catch(e) {
