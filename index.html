@@ -6238,7 +6238,7 @@
         }
 
         function updateTabCounts() {
-            // Volume count — stocks currently in entry zone (-10% to +4%)
+            // Volume count — stocks currently in entry zone (-10% to +5%)
             // Use in_entry_zone flag if available, else total unalerted
             const volInZone = (volGainerData || []).filter(s => s.in_entry_zone === true).length;
             const volCount  = volInZone > 0
@@ -6356,7 +6356,7 @@
                                     s.ltp           = parseFloat(ltp);
                                     s._liveLtp      = parseFloat(ltp);
                                     s.dist_pct      = round2(dist);
-                                    s.in_entry_zone = dist >= -10 && dist <= 4;
+                                    s.in_entry_zone = dist >= -10 && dist <= 5;
                                 } else {
                                     // No price available — mark as unknown, hide from zone filter
                                     s.in_entry_zone = false;
@@ -6394,7 +6394,7 @@
 
             const statusNote = !allFlagged
                 ? `<div style="font-size:10px;color:#6b7280;margin-bottom:8px;">⏳ Fetching live prices for ${withoutFlag.length} stocks...</div>`
-                : `<div style="font-size:10px;color:#6b7280;margin-bottom:8px;">✅ ${filtered.length} stocks in entry zone (-10% to +4%) · ${volGainerData.length} total watching</div>`;
+                : `<div style="font-size:10px;color:#6b7280;margin-bottom:8px;">✅ ${filtered.length} stocks in entry zone (-10% to +5%) · ${volGainerData.length} total watching</div>`;
 
             // No search filtering in rendered HTML — persistent search bar handles it
             const displayList = paged;
@@ -6445,7 +6445,7 @@
                 if (distEl && stock.dist_pct !== undefined) {
                     const d = stock.dist_pct;
                     distEl.textContent = (d >= 0 ? '+' : '') + d.toFixed(1) + '% from entry';
-                    distEl.style.color = Math.abs(d) <= 2 ? '#10B981' : d < 0 ? '#f59e0b' : '#94a3b8';
+                    distEl.style.color = Math.abs(d) <= 2 ? '#10B981' : d < 0 ? '#f59e0b' : '#6b7280';
                 }
 
                 // Lazy-fetch 52W for stocks missing it (staggered to avoid hammering EC2)
@@ -6492,9 +6492,9 @@
                             const distPct = entry > 0 ? ((ltp - entry) / entry * 100) : null;
                             if (distEl && distPct !== null) {
                                 distEl.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(1) + '% from entry';
-                                distEl.style.color = Math.abs(distPct) <= 2 ? '#10B981' : distPct < 0 ? '#f59e0b' : '#94a3b8';
+                                distEl.style.color = Math.abs(distPct) <= 2 ? '#10B981' : distPct < 0 ? '#f59e0b' : '#6b7280';
                             }
-                            el.style.color = (entry > 0 && ltp <= entry * 1.02) ? '#10B981' : '#ffffff';
+                            el.style.color = (entry > 0 && ltp <= entry * 1.05) ? '#10B981' : '#ffffff';
                         }
                     }).catch(() => {});
             };
@@ -6517,9 +6517,9 @@
                                     const distPct = entry > 0 ? ((ltp - entry) / entry * 100) : null;
                                     if (distEl && distPct !== null) {
                                         distEl.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(1) + '% from entry';
-                                        distEl.style.color = Math.abs(distPct) <= 2 ? '#10B981' : distPct < 0 ? '#f59e0b' : '#94a3b8';
+                                        distEl.style.color = Math.abs(distPct) <= 2 ? '#10B981' : distPct < 0 ? '#f59e0b' : '#6b7280';
                                     }
-                                    el.style.color = (entry > 0 && ltp <= entry * 1.02) ? '#10B981' : '#ffffff';
+                                    el.style.color = (entry > 0 && ltp <= entry * 1.05) ? '#10B981' : '#ffffff';
                                 }
                             }
                         });
@@ -6550,7 +6550,7 @@
                     const ltp = s._liveLtp || 0;
                     if (ltp <= 0) return false;
                     const distPct = (ltp - entry) / entry * 100;
-                    return distPct >= -10 && distPct <= 4;
+                    return distPct >= -10 && distPct <= 5;
                 });
 
                 // Show/hide cards based on live filter
