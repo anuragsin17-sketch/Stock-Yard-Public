@@ -5320,25 +5320,22 @@
                     const tickers = placeOrderAllStocks.map(s => s.symbol).filter(Boolean);
                     if (tickers.length > 0) {
                         try {
-                            const resp = await fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000);
-                            if (resp.ok) {
-                                const json = await resp.json();
-                                if (json && json.success && json.prices) {
+                            const prices = await fetchBulkLTP(tickers);
+                            if (prices && Object.keys(prices).length > 0) {
                                     // Update _liveLtp on trendline source stocks
                                     const tlStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
                                     tlStocks.forEach(s => {
-                                        const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                        const ltp = prices[(s.ticker || '').toUpperCase()];
                                         if (ltp && ltp > 0) s._liveLtp = parseFloat(ltp);
                                     });
                                     sessionStorage.setItem('trendlineStocks', JSON.stringify(tlStocks));
                                     // Update _liveLtp on volume source stocks
                                     if (Array.isArray(volGainerData)) {
                                         volGainerData.forEach(s => {
-                                            const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                            const ltp = prices[(s.ticker || '').toUpperCase()];
                                             if (ltp && ltp > 0) s._liveLtp = parseFloat(ltp);
                                         });
                                     }
-                                }
                             }
                         } catch(e) {}
                         if (currentTab === 'placeorder') {
@@ -5420,29 +5417,85 @@
         }
         
         // Fetch live LTP from Angel One for a single stock
+        // Falls back to Yahoo Finance via CORS proxy if EC2 is unavailable
         async function fetchLiveQuote(symbol) {
+            // Primary: EC2 Angel One
             try {
-                const response = await fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${symbol}`, {
-                    cache: 'no-store',
-                    mode: 'cors'
-                });
-                
-                if (!response.ok) {
-                    console.warn(`⚠️ Quote fetch failed for ${symbol}:`, response.status);
-                    return null;
+                const response = await fetchWithTimeout(
+                    `https://32-194-58-75.nip.io/api/get-quote?symbol=${symbol}`,
+                    { cache: 'no-store', mode: 'cors' },
+                    5000
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.ltp > 0) {
+                        console.log(`✅ EC2 quote for ${symbol}: ₹${data.ltp}`);
+                        return data;
+                    }
                 }
-                
-                const data = await response.json();
-                if (data.success) {
-                    console.log(`✅ Live quote for ${symbol}: ₹${data.ltp}`);
-                    return data;
-                }
-                
-            } catch (error) {
-                console.log(`ℹ️ Could not fetch live quote for ${symbol}:`, error.message);
+            } catch (e) {
+                console.log(`⚠️ EC2 quote failed for ${symbol}: ${e.message}`);
             }
-            
+
+            // Fallback: Yahoo Finance via CORS proxy (1m bars = current intraday price)
+            try {
+                const yf_sym = encodeURIComponent(symbol.replace('-EQ','') + '.NS');
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yf_sym}?interval=1m&range=1d`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
+                const r = await fetchWithTimeout(proxyUrl, {}, 8000);
+                if (r.ok) {
+                    const json = await r.json();
+                    const result = json?.chart?.result?.[0];
+                    if (result) {
+                        const quotes = result.indicators?.quote?.[0];
+                        const closes = (quotes?.close || []).filter(c => c != null);
+                        const ltp = closes.length > 0 ? parseFloat(closes[closes.length-1].toFixed(2)) : 0;
+                        const meta = result.meta || {};
+                        const open = parseFloat(meta.regularMarketOpen || meta.open || 0);
+                        const prevClose = parseFloat(meta.chartPreviousClose || meta.previousClose || 0);
+                        if (ltp > 0) {
+                            console.log(`✅ Yahoo fallback for ${symbol}: ₹${ltp}`);
+                            return { success: true, symbol, ltp, open, close: prevClose, source: 'yahoo' };
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log(`⚠️ Yahoo fallback also failed for ${symbol}: ${e.message}`);
+            }
+
             return null;
+        }
+
+        // Fetch bulk LTP for multiple tickers — tries EC2 first, then Yahoo Finance
+        async function fetchBulkLTP(tickers) {
+            if (!tickers || tickers.length === 0) return {};
+
+            // Primary: EC2 /api/prices (DynamoDB cache)
+            try {
+                const resp = await fetchWithTimeout(
+                    `${EC2_API}/api/prices?tickers=${tickers.join(',')}`,
+                    { cache: 'no-store' }, 5000
+                );
+                if (resp.ok) {
+                    const json = await resp.json();
+                    if (json.success && json.prices && Object.keys(json.prices).length > 0) {
+                        console.log(`✅ EC2 bulk prices: ${Object.keys(json.prices).length}/${tickers.length} tickers`);
+                        return json.prices; // { TICKER: ltp }
+                    }
+                }
+            } catch (e) {
+                console.log(`⚠️ EC2 bulk prices failed: ${e.message}`);
+            }
+
+            // Fallback: Yahoo Finance via CORS proxy for each ticker
+            console.log(`📡 Falling back to Yahoo Finance for ${tickers.length} tickers...`);
+            const prices = {};
+            await Promise.allSettled(tickers.map(async ticker => {
+                const q = await fetchLiveQuote(ticker);
+                if (q && q.ltp > 0) prices[ticker.toUpperCase()] = q.ltp;
+            }));
+            console.log(`✅ Yahoo fallback: ${Object.keys(prices).length}/${tickers.length} prices`);
+            return prices;
         }
         
         // Update tab prices - re-render current tab to show new prices
@@ -6285,11 +6338,10 @@
                 // Some records missing flag — fetch LTPs for them and compute flag client-side
                 const tickers = withoutFlag.map(s => s.ticker).filter(Boolean);
                 if (tickers.length > 0) {
-                    fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 6000)
-                        .then(r => r.ok ? r.json() : null)
-                        .then(json => {
+                    fetchBulkLTP(tickers)
+                        .then(prices => {
                             withoutFlag.forEach(s => {
-                                const ltp = json?.prices?.[(s.ticker || '').toUpperCase()] || 0;
+                                const ltp = prices?.[(s.ticker || '').toUpperCase()] || 0;
                                 const entry = s.prev_day_low || 0;
                                 if (ltp > 0 && entry > 0) {
                                     const dist = (ltp - entry) / entry * 100;
@@ -6438,16 +6490,12 @@
                     }).catch(() => {});
             };
 
-            // Try bulk first (fast if DynamoDB LivePrices is populated)
-            fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000)
-                .then(r => r.ok ? r.json() : null)
-                .then(json => {
+            // Try bulk first — fetchBulkLTP tries EC2 then falls back to Yahoo Finance
+            fetchBulkLTP(tickers)
+                .then(ltpMap => {
                     if (currentTab !== 'volume') return; // user switched tabs during fetch
-                    const ltpMap = (json && json.success && json.prices && Object.keys(json.prices).length > 0)
-                        ? json.prices : null;
-
-                    if (ltpMap) {
-                        // Bulk succeeded — update from DynamoDB prices
+                    if (ltpMap && Object.keys(ltpMap).length > 0) {
+                        // Update from bulk prices
                         paged.forEach(stock => {
                             const ltp = ltpMap[stock.ticker.toUpperCase()];
                             if (ltp && ltp > 0) {
@@ -6467,14 +6515,13 @@
                             }
                         });
                     } else {
-                        // Bulk empty — fall back to individual get-quote calls
+                        // fetchBulkLTP already tried Yahoo — if still empty, try individual
                         Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
                         return;
                     }
                     resortByLive();
                 })
                 .catch(() => {
-                    // Bulk failed — individual fetches
                     Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
                 });
 
@@ -7565,17 +7612,16 @@
                     ...trendCached.filter(s => !s._liveLtp).map(s => s.ticker)
                 ].filter(Boolean);
 
-                fetchWithTimeout(`${EC2_API}/api/prices?tickers=${allTickers.join(',')}`, { cache: 'no-store' }, 8000)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(json => {
-                        if (json && json.success && json.prices) {
+                fetchBulkLTP(allTickers)
+                    .then(prices => {
+                        if (prices && Object.keys(prices).length > 0) {
                             volGainerData.forEach(s => {
-                                const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                const ltp = prices[(s.ticker || '').toUpperCase()];
                                 if (ltp && ltp > 0) s._liveLtp = ltp;
                             });
                             const tlStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
                             tlStocks.forEach(s => {
-                                const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                const ltp = prices[(s.ticker || '').toUpperCase()];
                                 if (ltp && ltp > 0) s._liveLtp = ltp;
                             });
                             sessionStorage.setItem('trendlineStocks', JSON.stringify(tlStocks));
@@ -7668,25 +7714,15 @@
 
             if (allMissing.length > 0) {
                 const tickers = allMissing.map(x => x.ticker);
-                fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(json => {
-                        const ltpMap = (json && json.success && json.prices && Object.keys(json.prices).length > 0)
-                            ? json.prices : null;
-                        if (ltpMap) {
+                fetchBulkLTP(tickers)
+                    .then(prices => {
+                        if (prices && Object.keys(prices).length > 0) {
                             allMissing.forEach(x => {
-                                const ltp = ltpMap[x.ticker.toUpperCase()];
+                                const ltp = prices[x.ticker.toUpperCase()];
                                 if (ltp && ltp > 0) x.obj._liveLtp = ltp;
                             });
                             // Persist updated trendline stocks back to sessionStorage
                             if (tlMissingLTP.length > 0) sessionStorage.setItem('trendlineStocks', JSON.stringify(trendStocksRaw));
-                        } else {
-                            return Promise.allSettled(allMissing.slice(0, 15).map(x =>
-                                fetch(`${EC2_API}/api/get-quote?symbol=${x.ticker}`, { cache: 'no-store' })
-                                    .then(r => r.ok ? r.json() : null)
-                                    .then(data => { if (data?.success && data.ltp > 0) x.obj._liveLtp = parseFloat(data.ltp); })
-                                    .catch(() => {})
-                            ));
                         }
                     })
                     .then(() => {
@@ -9032,7 +9068,7 @@
             return 0;
         }
 
-        // Fetch live LTP for all open radar trades from Angel One
+        // Fetch live LTP for all open radar trades
         async function fetchLiveLTPForRadarTrades(trades) {
             if (!trades || trades.length === 0) return [];
             
@@ -9041,88 +9077,62 @@
             
             console.log(`🔄 Fetching live LTP for ${openTrades.length} open trades...`);
 
-            // Try bulk prices endpoint first (1 request instead of N)
-            try {
-                const tickers = openTrades.map(t => t.ticker || t.symbol).filter(Boolean);
-                const resp = await fetch(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' });
-                if (resp.ok) {
-                    const json = await resp.json();
-                    if (json.success && json.prices && Object.keys(json.prices).length > 0) {
-                        console.log(`✅ Bulk prices: ${Object.keys(json.prices).length} tickers`);
-                        // Return LTPs immediately — don't block on prev-close Yahoo fetch
-                        const quotes = tickers.map(ticker => {
-                            const ltp = json.prices[ticker.toUpperCase()];
-                            return ltp ? { ticker, ltp, open: 0, close: 0, timestamp: new Date().toISOString() } : null;
-                        }).filter(Boolean);
+            const tickers = openTrades.map(t => t.ticker || t.symbol).filter(Boolean);
 
-                        // Fetch prev-close in background, then patch Day P&L in-place
-                        Promise.allSettled(tickers.map(ticker =>
-                            fetchPrevClose(ticker).then(pc => {
-                                if (pc <= 0) return;
-                                // Update the quote object in-place
-                                const q = quotes.find(q => q.ticker === ticker);
-                                if (q) q.close = pc;
-                                // Update Day P&L in DOM directly
-                                const trade = openTrades.find(t => (t.ticker||t.symbol) === ticker);
-                                if (!trade) return;
-                                const ltp = parseFloat(q?.ltp || 0);
-                                const qty = parseFloat(trade.quantity || 0);
-                                if (ltp > 0 && qty > 0) {
-                                    // Recompute and update total day P&L
-                                    let dayPnl = 0;
-                                    quotes.forEach(q2 => {
-                                        const t2 = openTrades.find(t => (t.ticker||t.symbol) === q2.ticker);
-                                        if (!t2) return;
-                                        const l2 = parseFloat(q2.ltp || 0);
-                                        const c2 = parseFloat(q2.close || 0);
-                                        const q2y = parseFloat(t2.quantity || 0);
-                                        if (l2 > 0 && c2 > 0 && q2y > 0) dayPnl += (l2 - c2) * q2y;
-                                    });
-                                    const sumDayEl = document.getElementById('radar_sum_day');
-                                    if (sumDayEl && currentTab === 'performance') {
-                                        const dc = dayPnl >= 0 ? '#10b981' : '#f43f5e';
-                                        sumDayEl.textContent = (dayPnl >= 0 ? '+' : '') + formatINR(dayPnl, 0);
-                                        sumDayEl.style.color = dc;
-                                    }
-                                }
-                            })
-                        ));
+            // fetchBulkLTP: tries EC2 DynamoDB first, then Yahoo Finance fallback
+            const prices = await fetchBulkLTP(tickers);
 
-                        return quotes;
-                    }
-                }
-            } catch(e) {
-                console.log('⚠️ Bulk prices failed, falling back to individual fetches');
+            if (prices && Object.keys(prices).length > 0) {
+                // Return LTPs immediately — don't block on prev-close Yahoo fetch
+                const quotes = tickers.map(ticker => {
+                    const ltp = prices[ticker.toUpperCase()];
+                    return ltp ? { ticker, ltp, open: 0, close: 0, timestamp: new Date().toISOString() } : null;
+                }).filter(Boolean);
+
+                // Fetch prev-close in background, then patch Day P&L in-place
+                Promise.allSettled(tickers.map(ticker =>
+                    fetchPrevClose(ticker).then(pc => {
+                        if (pc <= 0) return;
+                        const q = quotes.find(q => q.ticker === ticker);
+                        if (q) q.close = pc;
+                        const trade = openTrades.find(t => (t.ticker||t.symbol) === ticker);
+                        if (!trade) return;
+                        let dayPnl = 0;
+                        quotes.forEach(q2 => {
+                            const t2 = openTrades.find(t => (t.ticker||t.symbol) === q2.ticker);
+                            if (!t2) return;
+                            const l2 = parseFloat(q2.ltp || 0);
+                            const c2 = parseFloat(q2.close || 0);
+                            const qty2 = parseFloat(t2.quantity || 0);
+                            if (l2 > 0 && c2 > 0 && qty2 > 0) dayPnl += (l2 - c2) * qty2;
+                        });
+                        const sumDayEl = document.getElementById('radar_sum_day');
+                        if (sumDayEl && currentTab === 'performance') {
+                            const dc = dayPnl >= 0 ? '#10b981' : '#f43f5e';
+                            sumDayEl.textContent = (dayPnl >= 0 ? '+' : '') + formatINR(dayPnl, 0);
+                            sumDayEl.style.color = dc;
+                        }
+                    })
+                ));
+
+                return quotes;
             }
 
-            // Fallback: fetch individually
+            // Last resort: individual fetchLiveQuote (already has Yahoo fallback built in)
             const quotePromises = openTrades.map(trade => {
                 const ticker = trade.ticker || trade.symbol;
-                return Promise.all([
-                    fetchLiveQuote(ticker),
-                    fetchPrevClose(ticker)
-                ]).then(([quote, prevClose]) => {
-                    if (quote) {
-                        return {
-                            ticker,
-                            ltp: quote.ltp,
-                            open: quote.open || 0,
-                            close: prevClose || quote.close || 0,  // Yahoo prev close preferred
-                            timestamp: quote.timestamp
-                        };
+                return fetchLiveQuote(ticker).then(quote => {
+                    if (quote && quote.ltp > 0) {
+                        return { ticker, ltp: quote.ltp, open: quote.open || 0, close: quote.close || 0, timestamp: new Date().toISOString() };
                     }
                     return null;
-                }).catch(e => {
-                    console.warn(`Error fetching quote for ${ticker}:`, e.message);
-                    return null;
-                });
+                }).catch(() => null);
             });
             
             try {
-                const liveQuotes = await Promise.all(quotePromises);
-                const validQuotes = liveQuotes.filter(q => q !== null);
-                console.log(`✓ Fetched live LTP for ${validQuotes.length} trades`);
-                return validQuotes;
+                const liveQuotes = (await Promise.all(quotePromises)).filter(q => q !== null);
+                console.log(`✓ Fetched live LTP for ${liveQuotes.length} trades`);
+                return liveQuotes;
             } catch (e) {
                 console.error('Error fetching live LTP batch:', e);
                 return [];
