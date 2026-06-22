@@ -6308,6 +6308,11 @@
                 const resp = await fetch('./volume_gainer_watchlist.json', { cache: 'no-store' });
                 if (resp.ok) {
                     volGainerData = await resp.json();
+                    // Support both plain array and {last_scan_run, stocks} object
+                    if (volGainerData && !Array.isArray(volGainerData) && volGainerData.stocks) {
+                        window._volLastScanRun = volGainerData.last_scan_run || null;
+                        volGainerData = volGainerData.stocks;
+                    }
                 } else {
                     volGainerData = volGainerData || [];
                 }
@@ -6418,6 +6423,7 @@
                         style="all:unset;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
                         <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     </button>
+                    ${window._volLastScanRun ? `<span style="font-size:10px;color:#6b7280;margin-left:4px;">✅ Last scan: <span style="color:#34d399;font-weight:600;">${window._volLastScanRun.timestamp}</span> · <span style="color:#f1f5f9;">${window._volLastScanRun.new_stocks} new</span></span>` : ''}
                 </div>
                 <div id="vol-cards-area">${displayList.map(s => createVolumeGainerCard(s)).join('')}</div>
                 <div id="vol-pagination-area">${paginationHtml}</div>
