@@ -5306,13 +5306,49 @@
             const allStocks = [];
             
             if (currentTab === 'volume') {
-                // Volume tab now uses volume_gainer_watchlist — no live price fetch needed here
-                // Alerts are handled by the backend monitor
+                // Volume tab uses volume_gainer_watchlist — live LTP is fetched inside displayVolumeGainerTab
+                return;
             } else if (currentTab === 'trendline') {
                 // Skip — trendline prices come from the JSON file updated by backend workflow
                 return;
             } else if (currentTab === 'performance') {
                 // Radar tab — handled separately by fetchLiveLTPForRadarTrades
+                return;
+            } else if (currentTab === 'placeorder') {
+                // Place Order tab — refresh LTPs for all visible stocks then re-render
+                if (Array.isArray(placeOrderAllStocks) && placeOrderAllStocks.length > 0) {
+                    const tickers = placeOrderAllStocks.map(s => s.symbol).filter(Boolean);
+                    if (tickers.length > 0) {
+                        try {
+                            const resp = await fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000);
+                            if (resp.ok) {
+                                const json = await resp.json();
+                                if (json && json.success && json.prices) {
+                                    // Update _liveLtp on trendline source stocks
+                                    const tlStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+                                    tlStocks.forEach(s => {
+                                        const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                        if (ltp && ltp > 0) s._liveLtp = parseFloat(ltp);
+                                    });
+                                    sessionStorage.setItem('trendlineStocks', JSON.stringify(tlStocks));
+                                    // Update _liveLtp on volume source stocks
+                                    if (Array.isArray(volGainerData)) {
+                                        volGainerData.forEach(s => {
+                                            const ltp = json.prices[(s.ticker || '').toUpperCase()];
+                                            if (ltp && ltp > 0) s._liveLtp = parseFloat(ltp);
+                                        });
+                                    }
+                                }
+                            }
+                        } catch(e) {}
+                        if (currentTab === 'placeorder') {
+                            placeOrderAllStocks = buildPlaceOrderStocks();
+                            const c = document.getElementById('resultsContainer');
+                            if (c) renderPlaceOrderContent(c);
+                            setTabCount('placeOrderTabCount', placeOrderAllStocks.length);
+                        }
+                    }
+                }
                 return;
             }
             
@@ -5428,15 +5464,6 @@
             // If on radar/performance tab, refresh those
             if (currentTab === 'performance') {
                 displayPerformanceTracking();
-            }
-            
-            // Always refresh radar tab if it exists (for LTP updates)
-            if (currentTab === 'performance' || currentTab === 'performance') {
-                const trades = JSON.parse(localStorage.getItem('radarTrades') || '[]');
-                const radarContainer = document.getElementById('resultsContainer');
-                if (radarContainer && trades.length > 0) {
-                    renderRadarTab(radarContainer, trades);
-                }
             }
         }
         
@@ -6281,8 +6308,7 @@
                             // On failure mark all missing as false so we don't block render
                             withoutFlag.forEach(s => { s.in_entry_zone = false; s.dist_pct = 999; });
                         })
-                        .finally(() => { if (currentTab === 'volume') displayVolumeGainerTab(); });
-                }
+                        .finally(() => { if (currentTab === 'volume') displayVolumeGainerTab(); });                }
                 // While fetching, show only the ones we already have flags for
             }
 
@@ -6392,6 +6418,7 @@
                 return fetch(`${EC2_API}/api/get-quote?symbol=${stock.ticker}`, { cache: 'no-store' })
                     .then(r => r.ok ? r.json() : null)
                     .then(data => {
+                        if (currentTab !== 'volume') return; // switched away
                         if (!data || !data.success) return;
                         const ltp = parseFloat(data.ltp);
                         if (!ltp || ltp <= 0) return;
@@ -6415,6 +6442,7 @@
             fetchWithTimeout(`${EC2_API}/api/prices?tickers=${tickers.join(',')}`, { cache: 'no-store' }, 5000)
                 .then(r => r.ok ? r.json() : null)
                 .then(json => {
+                    if (currentTab !== 'volume') return; // user switched tabs during fetch
                     const ltpMap = (json && json.success && json.prices && Object.keys(json.prices).length > 0)
                         ? json.prices : null;
 
@@ -6452,6 +6480,7 @@
 
             // Re-sort AND re-filter cards by live distance to entry after prices loaded
             function resortByLive() {
+                if (currentTab !== 'volume') return; // user switched away — don't touch DOM
                 const cardsArea = document.getElementById('vol-cards-area');
                 if (!cardsArea) return;
 
@@ -6865,6 +6894,9 @@
                     trendlineStocks = [];
                 }
             }
+
+            // Guard: user may have switched tabs while the async fetch was in flight
+            if (currentTab !== 'trendline') return;
                 
                 // ─── Cache 52W data from trendline_screen.json into sessionStorage
                 // so get52WData() can find it for Radar tab (Angel One synced stocks etc.)
@@ -6905,7 +6937,7 @@
                             } catch(e) {}
                         })).then(() => {
                             sessionStorage.setItem('trendline52wCache', JSON.stringify(tl52wMap));
-                            displayTrendlineScreen();
+                            if (currentTab === 'trendline') displayTrendlineScreen();
                         });
                     }
                 }
@@ -7344,6 +7376,7 @@
                     fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${stock.ticker}`, { cache: 'no-store' })
                         .then(r => r.ok ? r.json() : null)
                         .then(data => {
+                            if (currentTab !== 'trendline') return; // switched away
                             if (!data || !data.success) return;
                             const ltp = parseFloat(data.ltp);
                             if (!ltp || ltp <= 0) return;
@@ -7565,9 +7598,21 @@
                                 sessionStorage.setItem('trendlineStocks', JSON.stringify(tlStocks));
                             }
                             // Volume: inject ltp as _liveLtp into volGainerData
+                            // IMPORTANT: never replace volGainerData wholesale — that contaminates
+                            // the Volume tab with Place Order's data. Only update _liveLtp in-place.
                             if (volStocks.length > 0) {
-                                volStocks.forEach(s => { if (s.ltp > 0) s._liveLtp = s.ltp; });
-                                volGainerData = volStocks;
+                                if (!Array.isArray(volGainerData) || volGainerData.length === 0) {
+                                    // Only replace if Volume tab has no data yet
+                                    volStocks.forEach(s => { if (s.ltp > 0) s._liveLtp = s.ltp; });
+                                    volGainerData = volStocks;
+                                } else {
+                                    // Merge LTPs in-place — do NOT replace the array
+                                    const ltpByTicker = {};
+                                    volStocks.forEach(s => { if (s.ltp > 0) ltpByTicker[s.ticker] = s.ltp; });
+                                    volGainerData.forEach(s => {
+                                        if (ltpByTicker[s.ticker]) s._liveLtp = ltpByTicker[s.ticker];
+                                    });
+                                }
                             }
                             logger.debug && console.log(`📡 /api/signals: TL=${tlStocks.length} VOL=${volStocks.length} source=${json.source}`);
                             if (currentTab === 'placeorder') displayPlaceOrder();
