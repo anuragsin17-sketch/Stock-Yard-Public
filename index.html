@@ -6601,8 +6601,8 @@
                         ${statusBadge}
                     </div>
                     <div style="text-align:right;">
-                        <div id="vol_ltp_${ticker}" style="font-size:18px;font-weight:700;color:#ffffff;" class="mono">—</div>
-                        <div id="vol_dist_${ticker}" style="font-size:11px;font-weight:700;color:#6b7280;" class="mono"></div>
+                        <div id="vol_ltp_${ticker}" style="font-size:18px;font-weight:700;color:${(stock.ltp||stock._liveLtp||0)>0?'#ffffff':'#6b7280'};" class="mono">${(stock.ltp||stock._liveLtp||stock.close_price||0)>0?'₹'+(parseFloat(stock.ltp||stock._liveLtp||stock.close_price)).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'}</div>
+                        <div id="vol_dist_${ticker}" style="font-size:11px;font-weight:700;color:#6b7280;" class="mono">${(stock.dist_pct!==undefined&&stock.dist_pct!==999)?((stock.dist_pct>=0?'+':'')+parseFloat(stock.dist_pct).toFixed(1)+'% from entry'):''}</div>
                         <div style="font-size:11px;font-weight:700;color:#F59E0B;" class="mono">+${gainPct}%</div>
                         <div style="font-size:10px;color:#6b7280;">on ${addedDate}</div>
                     </div>
@@ -7554,10 +7554,10 @@
             vols.forEach(s => {
                 // Entry trigger = signal day LOW (prev_day_low)
                 const trigger = s.prev_day_low || 0;
-                // Only use _liveLtp — close_price is signal day close (always 10%+ above entry)
-                // and would incorrectly filter out stocks at entry zone
-                const live = s._liveLtp || 0;
-                if (!trigger || !live) return;  // skip until live price is fetched
+                // Prefer live LTP; fall back to pre-computed ltp from DB, then close_price as last resort
+                // close_price is signal day close (can be 10%+ above entry) — treated as stale indicator only
+                const live = s._liveLtp || s.ltp || s.close_price || 0;
+                if (!trigger || !live) return;  // skip if no price at all
                 const distPct    = (live - trigger) / trigger * 100;
                 const distPctAbs = Math.abs(distPct);
                 const tgt = s.target_price ? parseFloat(s.target_price) : parseFloat((trigger * 1.15).toFixed(2));
@@ -9446,7 +9446,8 @@
             // ── Trade cards — wrapped so filterRadarCards() can update them without full re-render
             html += `<div id="radarCardsArea">`;
             displayTrades.forEach(trade => {
-                const { ticker, entry_price: ep, current_price: cp, target: tgt, stop_loss: sl, quantity: qty, status, source } = trade;
+                const { ticker, entry_price: ep, current_price: _cp_snake, target: tgt, stop_loss: sl, quantity: qty, status, source } = trade;
+                const cp = parseFloat(_cp_snake || trade.currentPrice || 0);
                 const amt = ep * qty, cur = cp * qty, pnl = cur - amt;
                 const pnlPct = ep > 0 ? (pnl / amt) * 100 : 0;
                 const isEditable = status === 'Open' || status === 'Triggered';
