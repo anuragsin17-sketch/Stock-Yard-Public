@@ -73,7 +73,7 @@
             background: #111625;
             border: 1px solid #1f2937;
             border-radius: 12px;
-            transition: all 0.2s ease;
+            transition: border-color 0.2s ease, transform 0.2s ease;
             padding: 20px;
             margin-bottom: 16px;
         }
@@ -106,6 +106,15 @@
         }
         .position-filter-btn:hover {
             border-color: rgba(4, 120, 87, 0.3);
+        }
+        /* Prevent price and distance elements from animating color changes */
+        [id^="vol_ltp_"], [id^="vol_dist_"], [id^="tl_ltp_"], [id^="dist_"],
+        [id^="radar_ltp_"], [id^="radar_pnl_"], [id^="radar_pnlpct_"] {
+            transition: none !important;
+        }
+        /* vol-cards-area: use will-change so the browser composites it separately */
+        #vol-cards-area {
+            will-change: contents;
         }
         /* Skeleton loading */
         .skeleton {
@@ -5240,6 +5249,9 @@
             document.getElementById('refreshBtn').addEventListener('click', function() {                this.disabled = true;
                 this.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span class="text-xs ml-1">Loading...</span>';
                 
+                // Force cache invalidation so Refresh always gets fresh server data
+                _volGainerFetchedAt = 0;
+                
                 loadData().then(() => {
                     // Also fetch index data and live prices for priority stocks
                     return Promise.all([
@@ -5660,8 +5672,14 @@
             const watchlistPromise = fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(data => {
-                    if (Array.isArray(data)) {
-                        volGainerData = data;
+                    let stocks = data;
+                    if (data && !Array.isArray(data) && data.stocks) {
+                        window._volLastScanRun = data.last_scan_run || null;
+                        stocks = data.stocks;
+                    }
+                    if (Array.isArray(stocks)) {
+                        volGainerData = stocks;
+                        _volGainerFetchedAt = Date.now(); // mark cache as fresh
                         // Re-run tab counts now that volume data is loaded
                         updateTabCounts();
                     }
@@ -6294,6 +6312,7 @@
         
         // ─── VOLUME GAINER TAB (new logic) ──────────────────────────────────────
         let volGainerData = null; // cached watchlist
+        let _volGainerFetchedAt = 0; // timestamp of last successful JSON fetch
 
         async function displayVolumeGainerTab() {
             currentTab = 'volume';
@@ -6304,20 +6323,48 @@
                 container.innerHTML = skeletonList(3);
             }
 
-            try {
-                const resp = await fetch('./volume_gainer_watchlist.json', { cache: 'no-store' });
-                if (resp.ok) {
-                    volGainerData = await resp.json();
-                    // Support both plain array and {last_scan_run, stocks} object
-                    if (volGainerData && !Array.isArray(volGainerData) && volGainerData.stocks) {
-                        window._volLastScanRun = volGainerData.last_scan_run || null;
-                        volGainerData = volGainerData.stocks;
+            // Only re-fetch from server if cache is empty or older than 5 minutes.
+            // Re-fetching every render wipes _liveLtp / in_entry_zone / dist_pct that
+            // live price updates set on the objects, causing the sort to flip every second.
+            const now = Date.now();
+            const cacheStale = (now - _volGainerFetchedAt) > 5 * 60 * 1000;
+            if (!Array.isArray(volGainerData) || volGainerData.length === 0 || cacheStale) {
+                try {
+                    const resp = await fetch('./volume_gainer_watchlist.json', { cache: 'no-store' });
+                    if (resp.ok) {
+                        const freshData = await resp.json();
+                        // Support both plain array and {last_scan_run, stocks} object
+                        let freshStocks = freshData;
+                        if (freshData && !Array.isArray(freshData) && freshData.stocks) {
+                            window._volLastScanRun = freshData.last_scan_run || null;
+                            freshStocks = freshData.stocks;
+                        }
+                        if (Array.isArray(freshStocks)) {
+                            // Merge live prices from old cache into fresh data so sort stays stable
+                            if (Array.isArray(volGainerData)) {
+                                const oldMap = {};
+                                volGainerData.forEach(s => { if (s.ticker) oldMap[s.ticker] = s; });
+                                freshStocks.forEach(s => {
+                                    const old = oldMap[s.ticker];
+                                    if (old) {
+                                        if (old._liveLtp > 0)          s._liveLtp = old._liveLtp;
+                                        if (old.ltp > 0)               s.ltp = old.ltp;
+                                        if (old.dist_pct !== undefined) s.dist_pct = old.dist_pct;
+                                        if (old.in_entry_zone !== undefined) s.in_entry_zone = old.in_entry_zone;
+                                        if (old.week_52_high)          s.week_52_high = old.week_52_high;
+                                        if (old.week_52_low)           s.week_52_low  = old.week_52_low;
+                                    }
+                                });
+                            }
+                            volGainerData = freshStocks;
+                            _volGainerFetchedAt = now;
+                        }
+                    } else {
+                        volGainerData = volGainerData || [];
                     }
-                } else {
+                } catch (e) {
                     volGainerData = volGainerData || [];
                 }
-            } catch (e) {
-                volGainerData = volGainerData || [];
             }
 
             // Don't overwrite another tab's content if user switched away during fetch
@@ -6343,7 +6390,9 @@
             const allFlagged  = withoutFlag.length === 0;
 
             if (!allFlagged) {
-                // Some records missing flag — fetch LTPs for them and compute flag client-side
+                // Some records missing flag — fetch LTPs for them and compute flag client-side.
+                // Do NOT call displayVolumeGainerTab() again — that causes a full re-render flash.
+                // Instead, patch the data and call resortByLive() in-place after flags are set.
                 const tickers = withoutFlag.map(s => s.ticker).filter(Boolean);
                 if (tickers.length > 0) {
                     fetchBulkLTP(tickers)
@@ -6358,17 +6407,16 @@
                                     s.dist_pct      = round2(dist);
                                     s.in_entry_zone = dist >= -10 && dist <= 5;
                                 } else {
-                                    // No price available — mark as unknown, hide from zone filter
                                     s.in_entry_zone = false;
                                     s.dist_pct      = 999;
                                 }
                             });
                         })
                         .catch(() => {
-                            // On failure mark all missing as false so we don't block render
                             withoutFlag.forEach(s => { s.in_entry_zone = false; s.dist_pct = 999; });
-                        })
-                        .finally(() => { if (currentTab === 'volume') displayVolumeGainerTab(); });                }
+                        });
+                    // NOTE: no .finally(displayVolumeGainerTab) — resortByLive() handles the DOM update
+                }
                 // While fetching, show only the ones we already have flags for
             }
 
@@ -6504,37 +6552,41 @@
                 .then(ltpMap => {
                     if (currentTab !== 'volume') return; // user switched tabs during fetch
                     if (ltpMap && Object.keys(ltpMap).length > 0) {
-                        // Update from bulk prices
-                        paged.forEach(stock => {
-                            const ltp = ltpMap[stock.ticker.toUpperCase()];
-                            if (ltp && ltp > 0) {
-                                stock._liveLtp = ltp;
-                                const el = document.getElementById(`vol_ltp_${stock.ticker}`);
-                                const distEl = document.getElementById(`vol_dist_${stock.ticker}`);
-                                if (el) {
-                                    el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
-                                    const entry = stock.prev_day_low || 0;
-                                    const distPct = entry > 0 ? ((ltp - entry) / entry * 100) : null;
-                                    if (distEl && distPct !== null) {
-                                        distEl.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(1) + '% from entry';
-                                        distEl.style.color = Math.abs(distPct) <= 2 ? '#10B981' : distPct < 0 ? '#f59e0b' : '#6b7280';
+                        // Batch all DOM price updates in one rAF — prevents per-stock reflows
+                        requestAnimationFrame(() => {
+                            if (currentTab !== 'volume') return;
+                            paged.forEach(stock => {
+                                const ltp = ltpMap[stock.ticker.toUpperCase()];
+                                if (ltp && ltp > 0) {
+                                    stock._liveLtp = ltp;
+                                    const el = document.getElementById(`vol_ltp_${stock.ticker}`);
+                                    const distEl = document.getElementById(`vol_dist_${stock.ticker}`);
+                                    if (el) {
+                                        el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+                                        const entry = stock.prev_day_low || 0;
+                                        const distPct = entry > 0 ? ((ltp - entry) / entry * 100) : null;
+                                        if (distEl && distPct !== null) {
+                                            distEl.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(1) + '% from entry';
+                                            distEl.style.color = Math.abs(distPct) <= 2 ? '#10B981' : distPct < 0 ? '#f59e0b' : '#6b7280';
+                                        }
+                                        el.style.color = (entry > 0 && ltp <= entry * 1.05) ? '#10B981' : '#ffffff';
                                     }
-                                    el.style.color = (entry > 0 && ltp <= entry * 1.05) ? '#10B981' : '#ffffff';
                                 }
-                            }
+                            });
+                            resortByLive();
                         });
                     } else {
                         // fetchBulkLTP already tried Yahoo — if still empty, try individual
                         Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
                         return;
                     }
-                    resortByLive();
                 })
                 .catch(() => {
                     Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
                 });
 
-            // Re-sort AND re-filter cards by live distance to entry after prices loaded
+            // Re-sort AND re-filter cards by live distance to entry after prices loaded.
+            // Uses requestAnimationFrame to batch all DOM writes into one paint frame.
             function resortByLive() {
                 if (currentTab !== 'volume') return; // user switched away — don't touch DOM
                 const cardsArea = document.getElementById('vol-cards-area');
@@ -6553,14 +6605,7 @@
                     return distPct >= -10 && distPct <= 5;
                 });
 
-                // Show/hide cards based on live filter
-                paged.forEach(s => {
-                    const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
-                    if (!el) return;
-                    el.style.display = liveFiltered.some(f => f.ticker === s.ticker) ? '' : 'none';
-                });
-
-                // Re-sort visible cards
+                // Re-sort by live distance
                 const sortedByLive = [...liveFiltered].sort((a, b) => {
                     const aEntry = a.prev_day_low || 0, bEntry = b.prev_day_low || 0;
                     const aLtp   = a._liveLtp || 0,     bLtp   = b._liveLtp || 0;
@@ -6569,12 +6614,33 @@
                     if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
                     return (b.added_date || '').localeCompare(a.added_date || '');
                 });
-                sortedByLive.forEach(s => {
-                    const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
-                    if (el) cardsArea.appendChild(el);
-                });
 
-                setTabCount('volTabCount', liveFiltered.length);
+                // Check if the visible order actually changed — skip DOM moves if not
+                const currentOrder = Array.from(cardsArea.children)
+                    .filter(el => el.style.display !== 'none')
+                    .map(el => el.getAttribute('data-ticker'));
+                const newOrder = sortedByLive.map(s => s.ticker);
+                const orderChanged = currentOrder.join(',') !== newOrder.join(',');
+
+                // Batch all DOM writes in one rAF to avoid per-update reflows
+                requestAnimationFrame(() => {
+                    // Show/hide cards based on live filter
+                    paged.forEach(s => {
+                        const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
+                        if (!el) return;
+                        el.style.display = liveFiltered.some(f => f.ticker === s.ticker) ? '' : 'none';
+                    });
+
+                    // Only reorder if sequence actually changed
+                    if (orderChanged) {
+                        sortedByLive.forEach(s => {
+                            const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
+                            if (el) cardsArea.appendChild(el);
+                        });
+                    }
+
+                    setTabCount('volTabCount', liveFiltered.length);
+                });
             }
         }
 
@@ -7438,7 +7504,8 @@
 
                 container.innerHTML = html;
 
-                // Fetch live LTP for visible trendline stocks
+                // Fetch live LTP for visible trendline stocks — batch all DOM writes per stock
+                // into requestAnimationFrame so staggered responses don't cause per-update reflows
                 pagedTrendStocks.forEach(stock => {
                     fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${stock.ticker}`, { cache: 'no-store' })
                         .then(r => r.ok ? r.json() : null)
@@ -7447,16 +7514,19 @@
                             if (!data || !data.success) return;
                             const ltp = parseFloat(data.ltp);
                             if (!ltp || ltp <= 0) return;
-                            const el = document.getElementById(`tl_ltp_${stock.ticker}`);
-                            if (el) el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
-                            const distEl = document.getElementById(`dist_${stock.ticker}`);
-                            const entryEl = document.getElementById(`entry_${stock.ticker}`);
-                            if (distEl && entryEl) {
-                                const entry = parseFloat(entryEl.value) || stock.triggerPrice;
-                                const dist = Math.abs((ltp - entry) / entry * 100).toFixed(2);
-                                distEl.textContent = dist + '%';
-                                distEl.style.color = dist <= 1 ? '#f43f5e' : dist <= 5 ? '#fbbf24' : '#34d399';
-                            }
+                            requestAnimationFrame(() => {
+                                if (currentTab !== 'trendline') return;
+                                const el = document.getElementById(`tl_ltp_${stock.ticker}`);
+                                if (el) el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+                                const distEl = document.getElementById(`dist_${stock.ticker}`);
+                                const entryEl = document.getElementById(`entry_${stock.ticker}`);
+                                if (distEl && entryEl) {
+                                    const entry = parseFloat(entryEl.value) || stock.triggerPrice;
+                                    const dist = Math.abs((ltp - entry) / entry * 100).toFixed(2);
+                                    distEl.textContent = dist + '%';
+                                    distEl.style.color = dist <= 1 ? '#f43f5e' : dist <= 5 ? '#fbbf24' : '#34d399';
+                                }
+                            });
                         })
                         .catch(() => {});
                 });
