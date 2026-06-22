@@ -9571,7 +9571,8 @@
                             <input type="number" value="${sl.toFixed(2)}" onchange="updateTradeFieldByTicker('${t}','${ep}','stop_loss',this.value)" onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${sl.toFixed(2)}'}" style="width:100%;font-size:13px;font-weight:700;color:#f43f5e;background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.3);border-radius:6px;padding:6px 8px;outline:none;font-family:'JetBrains Mono',monospace;">
                         </div>
                     </div>
-                    <div style="display:flex;justify-content:flex-end;">
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button onclick="markTradeClosedByTicker('${t}','${ep}',${cp})" style="padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;background:rgba(107,114,128,0.15);color:#94a3b8;border:1px solid rgba(107,114,128,0.3);cursor:pointer;">✕ Mark Closed</button>
                         <button onclick="removeTradeByTicker('${t}','${ep}')" style="padding:8px 12px;border-radius:8px;font-size:13px;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.2);cursor:pointer;">🗑️</button>
                     </div>` : `
                     <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -9646,6 +9647,46 @@
 
         window.updateTradeStatus = function(idx, status) {
             // Legacy - not used in new flow
+            displayPerformanceTracking();
+        };
+
+        // Mark trade as closed manually (when sold outside the app)
+        window.markTradeClosedByTicker = function(ticker, entryPrice, exitPrice) {
+            if (!confirm(`Mark ${ticker} as closed at ₹${parseFloat(exitPrice).toFixed(2)}?`)) return;
+            const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
+            const ep  = parseFloat(entryPrice) || 0;
+            const cp  = parseFloat(exitPrice)  || ep;
+            // Find the trade to get qty
+            const trade = Object.values(overrides).find(ov => ov.ticker === ticker) || {};
+            const qty = parseInt(trade.quantity || 0);
+            const pnl = (cp - ep) * qty;
+            const pnlPct = ep > 0 ? ((cp - ep) / ep * 100) : 0;
+            // Save to trade history
+            const history = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
+            const alreadyIn = history.some(h => h.ticker === ticker && Math.abs(parseFloat(h.entry_price) - ep) < 1);
+            if (!alreadyIn) {
+                history.unshift({
+                    ticker, entry_price: ep, exit_price: cp,
+                    target: parseFloat(trade.target || 0),
+                    stop_loss: parseFloat(trade.stop_loss || 0),
+                    quantity: qty, pnl, pnl_percent: pnlPct,
+                    status: pnl >= 0 ? 'Target Hit' : 'Stop Loss',
+                    source: trade.source || 'Manual',
+                    opened_at: trade.triggered_at || null,
+                    closed_at: new Date().toISOString()
+                });
+                localStorage.setItem('tradeHistory', JSON.stringify(history));
+            }
+            // Mark as closed in overrides
+            const key = Object.keys(overrides).find(k => overrides[k].ticker === ticker) || ticker;
+            overrides[key] = { ...(overrides[key] || {}), ticker, status: 'Closed',
+                exit_price: cp, pnl, pnl_percent: pnlPct, closed_at: new Date().toISOString() };
+            localStorage.setItem('radarOverrides', JSON.stringify(overrides));
+            // Remove from inRadarTickers
+            let inRadar = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+            inRadar = inRadar.filter(t => t !== ticker);
+            localStorage.setItem('inRadarTickers', JSON.stringify(inRadar));
+            console.log(`✅ ${ticker} marked closed at ₹${cp}, P&L: ₹${pnl.toFixed(0)}`);
             displayPerformanceTracking();
         };
 
