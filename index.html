@@ -7127,6 +7127,7 @@
                     if (isTickerInRadar(ms.symbol)) return;
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ms.symbol}`;
                     const fibDivId = `manualFib_${ms.symbol}_${idx}`;
+                    const manualLtpId = `manual_ltp_${ms.symbol}_${idx}`;
                     html += `
                         <div class="stock-card mb-4" style="border-left: 3px solid #6366F1;">
                             <div class="flex justify-between items-start">
@@ -7136,7 +7137,7 @@
                                         <span class="px-2 py-0.5 text-xs rounded-full" style="background: rgba(99,102,241,0.2); color: #818CF8;">Manual</span>
                                     </div>
                                     <div class="text-xs text-slate-400 mb-3">${ms.companyName || ''}</div>
-                                    <div class="text-lg font-bold mono mb-2" style="color: #047857;">₹${parseFloat(ms.currentPrice).toLocaleString()}</div>
+                                    <div id="${manualLtpId}" class="text-lg font-bold mono mb-2" style="color: #047857;">₹${parseFloat(ms.currentPrice).toLocaleString()}</div>
                                     <div class="grid grid-cols-2 gap-2 mb-2">
                                         <div><div class="text-xs text-slate-500">Entry Trigger</div><div class="text-sm font-bold mono" style="color: #3B82F6;">₹${parseFloat(ms.entryTrigger).toLocaleString()}</div></div>
                                         <div><div class="text-xs text-slate-500">Target</div><div class="text-sm font-bold mono" style="color: #10B981;">₹${parseFloat(ms.targetExit).toLocaleString()}</div></div>
@@ -7254,6 +7255,28 @@
                                 });
                         }, 50);
                     })(fibDivId, ms, ms.symbol, origIdx);
+
+                    // Fetch live LTP for manual stock from EC2
+                    (function(ltpId, symbol) {
+                        fetch(`${EC2_API}/api/get-quote?symbol=${symbol}`, { cache: 'no-store', signal: AbortSignal.timeout(6000) })
+                            .then(r => r.ok ? r.json() : null)
+                            .then(data => {
+                                if (!data || !data.success || !data.ltp) return;
+                                const el = document.getElementById(ltpId);
+                                if (!el) return;
+                                const ltp = parseFloat(data.ltp);
+                                const prev = parseFloat(data.close) || 0;
+                                if (prev > 0) {
+                                    const pct = ((ltp - prev) / prev * 100);
+                                    const color = pct >= 0 ? '#34d399' : '#f87171';
+                                    el.innerHTML = `₹${ltp.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span style="font-size:12px;color:${color};">(${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)</span>`;
+                                } else {
+                                    el.textContent = `₹${ltp.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                                }
+                                el.style.color = '#047857';
+                            })
+                            .catch(() => { /* keep saved price on failure */ });
+                    })(manualLtpId, ms.symbol);
                 });
                 } // end: manual stocks page 1 only
                 
@@ -7696,7 +7719,10 @@
             const tlNeedsLtp  = trendCached.length > 0 && trendCached.some(s => !s._liveLtp);
 
             if ((volNeedsLtp || tlNeedsLtp) && trendCached.length > 0 && volCached) {
-                container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Fetching live prices...</div>`;
+                // Don't blank the screen — only show loading if container has nothing useful yet
+                if (!container.querySelector('.stock-card')) {
+                    container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Fetching live prices...</div>`;
+                }
 
                 const allTickers = [
                     ...volGainerData.filter(s => !s._liveLtp).map(s => s.ticker),
@@ -7731,7 +7757,10 @@
             }
 
             if (trendCached.length === 0 || !volCached) {
-                container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Loading signals...</div>`;
+                // Don't blank the screen — only show loading if container has nothing useful yet
+                if (!container.querySelector('.stock-card')) {
+                    container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Loading signals...</div>`;
+                }
 
                 // Try DynamoDB /api/signals first — returns trendline + volume + LTPs in one call
                 fetchWithTimeout(`${EC2_API}/api/signals`, { cache: 'no-store' }, 5000)
