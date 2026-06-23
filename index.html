@@ -7000,7 +7000,10 @@
         async function displayTrendlineScreen() {
             const container = document.getElementById('resultsContainer');
             
-            container.innerHTML = skeletonList(4);
+            // Only show skeleton on first load — not on background re-renders
+            if (!container.querySelector('[data-ticker]') && !container.querySelector('.stock-card')) {
+                container.innerHTML = skeletonList(4);
+            }
             
             let trendlineStocks = null;
 
@@ -7071,7 +7074,15 @@
                             } catch(e) {}
                         })).then(() => {
                             sessionStorage.setItem('trendline52wCache', JSON.stringify(tl52wMap));
-                            if (currentTab === 'trendline') displayTrendlineScreen();
+                            // Patch 52W into already-rendered cards without a full re-render
+                            if (currentTab === 'trendline') {
+                                stillMissing.forEach(s => {
+                                    const el = document.getElementById(`tl52w_${s.ticker}`);
+                                    if (el && s.week52High && s.week52Low) {
+                                        el.textContent = `₹${parseFloat(s.week52Low).toLocaleString('en-IN')} / ₹${parseFloat(s.week52High).toLocaleString('en-IN')}`;
+                                    }
+                                });
+                            }
                         });
                     }
                 }
@@ -7405,7 +7416,7 @@
                                 </div>
                                 <div>
                                     <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">52-Week L / H</div>
-                                    ${tl52wHigh && tl52wLow ? `<div style="font-size:12px;font-weight:600;color:#e5e7eb;" class="mono">${formatINR(tl52wLow)} / ${formatINR(tl52wHigh)}</div>` : '<div style="font-size:12px;color:#6b7280;">—</div>'}
+                                    ${tl52wHigh && tl52wLow ? `<div id="tl52w_${stock.ticker}" style="font-size:12px;font-weight:600;color:#e5e7eb;" class="mono">${formatINR(tl52wLow)} / ${formatINR(tl52wHigh)}</div>` : `<div id="tl52w_${stock.ticker}" style="font-size:12px;color:#6b7280;">—</div>`}
                                 </div>
                             </div>
                             <!-- Fibonacci Levels Row — dual W+M timeframe display -->
