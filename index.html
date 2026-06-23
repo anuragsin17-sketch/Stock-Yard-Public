@@ -5667,6 +5667,9 @@
         
         // Load data (try fetch first, fallback to embedded)
         const EC2_API = 'https://32-194-58-75.nip.io';
+        // API key sent with order requests — must match STOCKYARD_API_KEY on EC2
+        // Set once in browser console: localStorage.setItem('STOCKYARD_API_KEY','your-key')
+        const STOCKYARD_API_KEY = localStorage.getItem('STOCKYARD_API_KEY') || '';
 
         // Fetch with timeout helper — prevents EC2 slowness from blocking app load
         function fetchWithTimeout(url, options = {}, timeoutMs = 4000) {
@@ -5861,7 +5864,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-API-Key': localStorage.getItem('STOCKYARD_API_KEY') || ''
+                        'X-API-Key': STOCKYARD_API_KEY
                     },
                     body: JSON.stringify({
                         symbol: symbol,
