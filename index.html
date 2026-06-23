@@ -505,11 +505,7 @@
             <span id="themeIcon" style="font-size:22px;line-height:1;">🌙</span>
             <span style="font-size:9px;font-weight:600;letter-spacing:0.3px;">Theme</span>
         </button>
-        <!-- API Key setup — remove after setting on all devices -->
-        <button onclick="openSettingsPanel()" id="apiKeyBtn" class="touch-btn flex flex-col items-center justify-center gap-1" style="min-height:unset;background:none;border:none;color:#9ca3af;" title="Set API Key">
-            <span style="font-size:22px;line-height:1;">🔑</span>
-            <span style="font-size:9px;font-weight:600;letter-spacing:0.3px;">API Key</span>
-        </button>
+
     </div>
 
     </div><!-- /#appWrapper -->
@@ -588,25 +584,7 @@
                 <button onclick="closeSettingsPanel()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
             </div>
 
-            <!-- API Key section -->
-            <div style="margin-bottom:20px;">
-                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Order API Key</div>
-                <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">Required for placing orders. Must match <code style="color:#34d399;background:rgba(16,185,129,0.1);padding:1px 5px;border-radius:3px;">STOCKYARD_API_KEY</code> on EC2.</div>
-                <input id="settingsApiKeyInput" type="password"
-                    placeholder="Paste your API key here"
-                    style="width:100%;padding:10px;background:#080c14;border:1px solid #1f2937;border-radius:8px;color:#f1f5f9;font-size:12px;font-family:'JetBrains Mono',monospace;box-sizing:border-box;"/>
-                <div style="display:flex;gap:8px;margin-top:10px;">
-                    <button onclick="saveSettingsApiKey()"
-                        style="flex:1;padding:10px;border-radius:8px;background:linear-gradient(135deg,#065F46,#047857);color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;">
-                        💾 Save Key
-                    </button>
-                    <button onclick="clearSettingsApiKey()"
-                        style="padding:10px 14px;border-radius:8px;background:rgba(239,68,68,0.12);color:#f87171;font-size:13px;font-weight:600;border:1px solid rgba(239,68,68,0.25);cursor:pointer;">
-                        Clear
-                    </button>
-                </div>
-                <div id="settingsApiKeyStatus" style="min-height:18px;font-size:12px;margin-top:8px;color:#34d399;"></div>
-            </div>
+            <!-- API Key section removed from UI — key is pre-configured in localStorage -->
 
             <!-- Current key status -->
             <div style="background:rgba(8,12,20,0.6);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px;font-size:11px;color:#6b7280;">
@@ -9442,48 +9420,21 @@
         window.openSettingsPanel = function() {
             const panel = document.getElementById('settingsPanel');
             panel.style.display = 'flex';
-            // Show current key status
+            // Show current key status (key is pre-configured, input removed from UI)
             const existing = localStorage.getItem('STOCKYARD_API_KEY') || '';
             const statusEl = document.getElementById('settingsKeyStatus');
             if (existing) {
-                statusEl.textContent = '✅ Key set (' + existing.slice(0,6) + '••••)';
+                statusEl.textContent = '✅ Key active (' + existing.slice(0,6) + '••••)';
                 statusEl.style.color = '#34d399';
             } else {
                 statusEl.textContent = '⚠️ Not set — orders may be rejected';
                 statusEl.style.color = '#f59e0b';
             }
-            // Pre-fill input if key exists
-            document.getElementById('settingsApiKeyInput').value = existing;
-            document.getElementById('settingsApiKeyStatus').textContent = '';
         };
         window.closeSettingsPanel = function() {
             document.getElementById('settingsPanel').style.display = 'none';
         };
-        window.saveSettingsApiKey = function() {
-            const val = document.getElementById('settingsApiKeyInput').value.trim();
-            if (!val) {
-                document.getElementById('settingsApiKeyStatus').textContent = '⚠️ Enter a key first';
-                document.getElementById('settingsApiKeyStatus').style.color = '#f59e0b';
-                return;
-            }
-            localStorage.setItem('STOCKYARD_API_KEY', val);
-            // Update global constant used by placeAngelOrder
-            window._STOCKYARD_API_KEY_OVERRIDE = val;
-            const statusEl = document.getElementById('settingsKeyStatus');
-            statusEl.textContent = '✅ Key set (' + val.slice(0,6) + '••••)';
-            statusEl.style.color = '#34d399';
-            document.getElementById('settingsApiKeyStatus').textContent = '✅ Saved successfully';
-            document.getElementById('settingsApiKeyStatus').style.color = '#34d399';
-            setTimeout(closeSettingsPanel, 1200);
-        };
-        window.clearSettingsApiKey = function() {
-            localStorage.removeItem('STOCKYARD_API_KEY');
-            document.getElementById('settingsApiKeyInput').value = '';
-            document.getElementById('settingsKeyStatus').textContent = '⚠️ Not set';
-            document.getElementById('settingsKeyStatus').style.color = '#f59e0b';
-            document.getElementById('settingsApiKeyStatus').textContent = 'Key cleared';
-            document.getElementById('settingsApiKeyStatus').style.color = '#94a3b8';
-        };
+        // saveSettingsApiKey / clearSettingsApiKey removed — API key input is no longer in the UI
         window.submitGrowwToken = async function() {
             const token  = document.getElementById('growwTokenInput').value.trim();
             const secret = document.getElementById('growwAdminSecret').value.trim();
