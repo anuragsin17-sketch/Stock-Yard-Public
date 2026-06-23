@@ -9421,8 +9421,19 @@
                             localStorage.setItem('tradeHistory', JSON.stringify(tradeHistory));
                         }
                     } else if (anySyncOk && !isStillOpen && !orderBookExit) {
-                        // Not in holdings AND no sell order = order was cancelled/rejected — remove from radar
-                        console.log(`Removed cancelled/unfilled order from Radar: ${v.ticker}`);
+                        // Not in holdings AND no sell order today
+                        // Only drop if it was a pending order (never filled) — keep historical closed trades
+                        if (v._pending_order) {
+                            console.log(`🗑️ Pending order not filled (cancelled?): ${v.ticker} → removed from Radar`);
+                            const toastEl2 = document.createElement('div');
+                            toastEl2.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a0a0a;border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;z-index:9999;';
+                            toastEl2.textContent = `❌ ${v.ticker} order was cancelled — removed from Radar`;
+                            document.body.appendChild(toastEl2);
+                            setTimeout(() => toastEl2.remove(), 3500);
+                        } else {
+                            // Keep it — it's a historical closed trade or manual entry
+                            finalManualTrades[k] = v;
+                        }
                     } else {
                         finalManualTrades[k] = v;
                     }
