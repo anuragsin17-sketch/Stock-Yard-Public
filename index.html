@@ -9791,7 +9791,7 @@
 
             // Only show Angel One / Groww synced trades — not manual or Trendline auto-added
             const allowedSrc = ['Angel One', 'angel one', 'Groww', 'groww'];
-            trades = trades.filter(t => t.order_id || t.is_angel_synced || allowedSrc.includes(t.source));
+            trades = trades.filter(t => t.order_id || t.is_angel_synced || allowedSrc.includes(t.source) || t.status === 'Closed');
 
             if (trades.length === 0) {
                 container.innerHTML = `
