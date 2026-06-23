@@ -7851,7 +7851,13 @@
                 });
             });
             // Both strategies already filtered above (-10% to +2%)
-            return all.sort((a, b) => a.distPct - b.distPct);
+            // Filter out closed stocks
+            const closedKey = 'placeorder_closed_stocks';
+            const closed = JSON.parse(localStorage.getItem(closedKey) || '[]');
+            const closedSet = new Set(closed.map(c => `${c.symbol}_${c.strategy}`));
+            const filtered = all.filter(s => !closedSet.has(`${s.symbol}_${s.strategy}`));
+            
+            return filtered.sort((a, b) => a.distPct - b.distPct);
         }
 
         function displayPlaceOrder() {
@@ -8163,6 +8169,10 @@
                             </div>
                             <div style="display:flex;gap:6px;align-items:center;">
                                 ${isEdited ? `<button onclick="resetPlaceOrderTrigger('${s.symbol}','${s.strategy}')" style="all:unset;font-size:10px;color:#6b7280;cursor:pointer;padding:4px 8px;border:1px solid rgba(107,114,128,0.3);border-radius:5px;">↺ Reset</button>` : ''}
+                                <button onclick="markStockClosed('${s.symbol}', '${s.strategy}')"
+                                    style="padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);cursor:pointer;letter-spacing:0.3px;text-transform:uppercase;touch-action:manipulation;">
+                                    ✕ Mark Closed
+                                </button>
                                 <button onclick="showOrderModal('${s.symbol}',${trigger},${sl},${target},'${s.strategy}',${s.week52High||'null'},${s.week52Low||'null'})"
                                     style="padding:10px 20px;border-radius:8px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;border:none;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;touch-action:manipulation;">
                                     🛒 PLACE BUY ORDER
@@ -8230,6 +8240,22 @@
 
         function resetPlaceOrderTrigger(symbol, strategy) {
             localStorage.removeItem(`placeorder_trigger_${symbol}_${strategy}`);
+            displayPlaceOrder();
+        }
+
+        function markStockClosed(symbol, strategy) {
+            if (!confirm(`Mark ${symbol} (${strategy}) as closed?\n\nThis will remove it from the Place Order tab.`)) {
+                return;
+            }
+            
+            // Add to closed list to filter out from Place Order tab
+            const closedKey = 'placeorder_closed_stocks';
+            const closed = JSON.parse(localStorage.getItem(closedKey) || '[]');
+            const entry = { symbol, strategy, closedAt: new Date().toISOString() };
+            closed.push(entry);
+            localStorage.setItem(closedKey, JSON.stringify(closed));
+            
+            // Refresh the Place Order tab
             displayPlaceOrder();
         }
 
