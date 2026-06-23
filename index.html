@@ -300,7 +300,7 @@
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen" style="background: #080C14;">
 
     <!-- ─── PIN AUTHENTICATION SCREEN ───────────────────────────────────────── -->
-    <div id="pinScreen">
+    <div id="pinScreen" onclick="document.getElementById('pinInput').focus()">
         <div style="text-align:center; padding: 0 24px; width: 100%; max-width: 360px;">
             <!-- Logo -->
             <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:36px;">
@@ -314,7 +314,11 @@
                 <input id="pinInput" type="password" maxlength="6" inputmode="numeric" pattern="[0-9]*"
                     placeholder="Enter PIN"
                     autocomplete="off"
-                    style="width:100%;padding:16px;font-size:24px;letter-spacing:8px;text-align:center;background:rgba(20,25,35,0.9);border:1px solid rgba(255,255,255,0.1);border-radius:16px;color:#f1f5f9;outline:none;font-family:'JetBrains Mono',monospace;"
+                    autocapitalize="off"
+                    readonly
+                    style="width:100%;padding:16px;font-size:24px;letter-spacing:8px;text-align:center;background:rgba(20,25,35,0.9);border:1px solid rgba(255,255,255,0.1);border-radius:16px;color:#f1f5f9;outline:none;font-family:'JetBrains Mono',monospace;-webkit-user-select:text;user-select:text;"
+                    onclick="this.removeAttribute('readonly'); this.focus();"
+                    onfocus="this.removeAttribute('readonly');"
                     onkeydown="if(event.key==='Enter')unlockApp()"/>
             </div>
             <div id="pinError" style="color:#DC2626;font-size:13px;margin-bottom:14px;min-height:18px;"></div>
@@ -5233,11 +5237,21 @@
                 document.getElementById('pinScreen').style.display = 'none';
                 document.getElementById('appWrapper').style.display = '';
             } else {
-                // Focus PIN input after a brief delay
+                // iOS PWA fix: remove readonly then focus after paint
+                // readonly trick prevents iOS auto-zoom but blocks keyboard on standalone mode
                 setTimeout(() => {
                     const pi = document.getElementById('pinInput');
-                    if (pi) pi.focus();
-                }, 100);
+                    if (pi) {
+                        pi.removeAttribute('readonly');
+                        // Don't auto-focus on iOS PWA — it suppresses keyboard
+                        // User tap triggers focus via onclick handler
+                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                        const isPWA = window.navigator.standalone === true;
+                        if (!isIOS || !isPWA) {
+                            pi.focus();
+                        }
+                    }
+                }, 300);
             }
         })();
 
