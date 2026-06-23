@@ -9360,7 +9360,48 @@
                     }
                 }
 
-                localStorage.setItem('radarOverrides', JSON.stringify({ ...allBrokerTrades, ...closedTrades, ...manualTrades }));
+                // Auto-close manual trades that Angel One has a completed SELL for
+                // (trades placed via Spotlight/manual UI that are now sold in Angel One)
+                const finalManualTrades = {};
+                Object.entries(manualTrades).forEach(([k, v]) => {
+                    const tickerUp = (v.ticker || '').toUpperCase();
+                    const orderBookExit = sellExitMap[tickerUp];
+                    const isStillOpen = liveTickers.has(v.ticker) || liveTickers.has(tickerUp);
+                    if (anySyncOk && orderBookExit && !isStillOpen) {
+                        // Angel One sold this — auto-close it
+                        const entry  = parseFloat(v.entry_price || 0);
+                        const exit   = parseFloat(orderBookExit);
+                        const qty    = parseInt(v.quantity || 0);
+                        const pnl    = entry > 0 && qty > 0 ? (exit - entry) * qty : 0;
+                        const pnlPct = entry > 0 ? ((exit - entry) / entry * 100) : 0;
+                        closedTrades[k] = {
+                            ...v, status: 'Closed', exit_price: exit,
+                            exit_source: 'Angel One order book',
+                            pnl, pnl_percent: pnlPct,
+                            closed_at: new Date().toISOString()
+                        };
+                        console.log(`Auto-closed (manual trade): ${v.ticker} exit: ₹${exit} pnl: ${pnl.toFixed(2)}`);
+                        const tradeHistory = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
+                        const alreadyRecorded = tradeHistory.some(h =>
+                            (h.ticker || '').toUpperCase() === tickerUp &&
+                            Math.abs(parseFloat(h.exit_price) - exit) < 1
+                        );
+                        if (!alreadyRecorded) {
+                            tradeHistory.unshift({
+                                ticker: v.ticker, entry_price: entry, exit_price: exit,
+                                exit_source: 'Angel One order book', quantity: qty,
+                                pnl, pnl_percent: pnlPct,
+                                status: pnl >= 0 ? 'Target Hit' : 'Stop Loss',
+                                source: v.source || 'Manual', closed_at: new Date().toISOString()
+                            });
+                            localStorage.setItem('tradeHistory', JSON.stringify(tradeHistory));
+                        }
+                    } else {
+                        finalManualTrades[k] = v;
+                    }
+                });
+
+                localStorage.setItem('radarOverrides', JSON.stringify({ ...allBrokerTrades, ...closedTrades, ...finalManualTrades }));
                 localStorage.setItem('inRadarTickers', JSON.stringify([...liveTickers]));
                 console.log('Synced', Object.keys(allBrokerTrades).length, 'open,', Object.keys(closedTrades).length, 'closed');
 
