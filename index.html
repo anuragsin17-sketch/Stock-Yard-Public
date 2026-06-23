@@ -6122,13 +6122,19 @@
             else if (currentTab === 'performance') displayPerformanceTracking();
         }
 
+        // Debounce timer for search
+        let _searchDebounceTimer = null;
+
         function onPersistentSearch(val) {
             tabSearchQuery = val.toUpperCase();
             volSearch = tabSearchQuery;
             trendSearch = tabSearchQuery;
             radarSearch = tabSearchQuery;
-            // Filter without re-rendering — just hide/show existing cards
-            filterCardsInPlace(tabSearchQuery);
+            // Debounce 300ms — avoids re-rendering on every keystroke
+            clearTimeout(_searchDebounceTimer);
+            _searchDebounceTimer = setTimeout(() => {
+                filterCardsInPlace(tabSearchQuery);
+            }, 300);
         }
 
         function filterCardsInPlace(query) {
@@ -7776,41 +7782,43 @@
             const tlNeedsLtp  = trendCached.length > 0 && trendCached.some(s => !s._liveLtp);
 
             if ((volNeedsLtp || tlNeedsLtp) && trendCached.length > 0 && volCached) {
-                // Don't blank the screen — only show loading if container has nothing useful yet
-                if (!container.querySelector('.stock-card')) {
-                    container.innerHTML = `<div style="text-align:center;padding:40px;color:#6b7280;font-size:13px;">⏳ Fetching live prices...</div>`;
-                }
+                // Render immediately with whatever prices we have (trigger price as fallback)
+                placeOrderAllStocks = buildPlaceOrderStocks();
+                renderPlaceOrderContent(container);
+                setTabCount('placeOrderTabCount', placeOrderAllStocks.length);
 
+                // Then fetch live prices in background and silently re-render when done
                 const allTickers = [
                     ...volGainerData.filter(s => !s._liveLtp).map(s => s.ticker),
                     ...trendCached.filter(s => !s._liveLtp).map(s => s.ticker)
                 ].filter(Boolean);
 
-                fetchBulkLTP(allTickers)
-                    .then(prices => {
-                        if (prices && Object.keys(prices).length > 0) {
-                            volGainerData.forEach(s => {
-                                const ltp = prices[(s.ticker || '').toUpperCase()];
-                                if (ltp && ltp > 0) s._liveLtp = ltp;
-                            });
-                            const tlStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
-                            tlStocks.forEach(s => {
-                                const ltp = prices[(s.ticker || '').toUpperCase()];
-                                if (ltp && ltp > 0) s._liveLtp = ltp;
-                            });
-                            sessionStorage.setItem('trendlineStocks', JSON.stringify(tlStocks));
-                        }
-                    })
-                    .catch(() => {})
-                    .finally(() => {
-                        if (currentTab === 'placeorder') {
-                            placeOrderAllStocks = buildPlaceOrderStocks();
-                            renderPlaceOrderContent(container);
-                            // Sync tab badge now that live prices are loaded
-                            setTabCount('placeOrderTabCount', placeOrderAllStocks.length);
-                        }
-                    });
-                return;  // wait for prices before rendering
+                if (allTickers.length > 0) {
+                    fetchBulkLTP(allTickers)
+                        .then(prices => {
+                            if (prices && Object.keys(prices).length > 0) {
+                                volGainerData.forEach(s => {
+                                    const ltp = prices[(s.ticker || '').toUpperCase()];
+                                    if (ltp && ltp > 0) s._liveLtp = ltp;
+                                });
+                                const tlStocks = JSON.parse(sessionStorage.getItem('trendlineStocks') || '[]');
+                                tlStocks.forEach(s => {
+                                    const ltp = prices[(s.ticker || '').toUpperCase()];
+                                    if (ltp && ltp > 0) s._liveLtp = ltp;
+                                });
+                                sessionStorage.setItem('trendlineStocks', JSON.stringify(tlStocks));
+                            }
+                        })
+                        .catch(() => {})
+                        .finally(() => {
+                            if (currentTab === 'placeorder') {
+                                placeOrderAllStocks = buildPlaceOrderStocks();
+                                renderPlaceOrderContent(container);
+                                setTabCount('placeOrderTabCount', placeOrderAllStocks.length);
+                            }
+                        });
+                }
+                return;
             }
 
             if (trendCached.length === 0 || !volCached) {
