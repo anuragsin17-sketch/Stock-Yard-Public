@@ -6182,8 +6182,11 @@
             const savedKey = `trendline_${ticker}`;
             const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
             const entry  = saved.entryTrigger || entryTrigger;
-            const target = saved.targetExit   || targetExit;
-            const stop   = saved.stopLoss     || stopLoss;
+            
+            // Fixed Target and SL (same as Volume strategy)
+            const target = parseFloat((entry * 1.15).toFixed(2));  // +15% fixed
+            const stop   = parseFloat((entry * 0.96).toFixed(2));  // -4% fixed
+            
             showOrderModal(ticker, entry, stop, target, 'Trendline', week52High, week52Low);
         }
 
