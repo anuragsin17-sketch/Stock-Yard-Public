@@ -6379,6 +6379,12 @@
                 }
             }
 
+            // Filter out manually closed tickers (persisted in localStorage)
+            const volClosed = JSON.parse(localStorage.getItem('vol_closed_tickers') || '[]');
+            if (volClosed.length > 0 && Array.isArray(volGainerData)) {
+                volGainerData = volGainerData.filter(s => !volClosed.includes((s.ticker || '').toUpperCase()));
+            }
+
             // Don't overwrite another tab's content if user switched away during fetch
             if (currentTab !== 'volume') return;
 
@@ -6720,7 +6726,12 @@
                     </div>
                 </div>
                 <!-- Action -->
-                <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                    <button onclick="markVolSignalClosed('${ticker}')"
+                        class="px-3 py-2 rounded-lg text-xs font-semibold touch-btn"
+                        style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);min-width:100px;letter-spacing:0.3px;font-weight:600;">
+                        ✕ Mark Closed
+                    </button>
                     <button onclick="takeVolumeGainerTrade('${ticker}','${company.replace(/'/g,"\\'")}',${targetPrice},${slPrice})"
                         class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
                         style="background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;min-width:90px;letter-spacing:0.5px;font-weight:700;text-transform:uppercase;border:none;">
@@ -6742,6 +6753,34 @@
             const target   = preTarget || round2(entry * 1.15);
             const stopLoss = preSL     || round2(entry * 0.96);
             showOrderModal(ticker, entry, stopLoss, target, 'VolumeGainer');
+        };
+
+        window.markVolSignalClosed = function(ticker) {
+            if (!volGainerData || !Array.isArray(volGainerData)) return;
+            // Remove from local data array
+            const before = volGainerData.length;
+            volGainerData = volGainerData.filter(s => (s.ticker || '').toUpperCase() !== ticker.toUpperCase());
+            if (volGainerData.length === before) return; // wasn't found
+
+            // Remove card from DOM immediately — no full re-render needed
+            const card = document.querySelector(`[data-ticker="${ticker}"]`);
+            if (card) {
+                card.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                card.style.opacity = '0';
+                card.style.transform = 'translateX(40px)';
+                setTimeout(() => card.remove(), 260);
+            }
+
+            // Update tab count badge
+            const liveFiltered = volGainerData.filter(s => s.in_entry_zone || s.in_place_order_zone || (s.dist_pct !== undefined && s.dist_pct !== 999 && s.dist_pct <= 5));
+            setTabCount('volTabCount', liveFiltered.length || volGainerData.length);
+
+            // Persist closed list in localStorage so it survives a refresh
+            const closed = JSON.parse(localStorage.getItem('vol_closed_tickers') || '[]');
+            if (!closed.includes(ticker.toUpperCase())) {
+                closed.push(ticker.toUpperCase());
+                localStorage.setItem('vol_closed_tickers', JSON.stringify(closed));
+            }
         };
 
         // ─── Display results for current tab ─────────────────────────────────────
