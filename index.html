@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260619140000 -->
+    <!-- BUILD: 20260620120000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -5614,42 +5614,53 @@
         
         // Fetch real-time NIFTY and SENSEX data
         async function fetchIndexData() {
-            try {
-                async function fetchWithProxy(symbol) {
-                    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`;
-                    const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
-                    if (!resp.ok) throw new Error('proxy failed');
-                    return await resp.json();
+            async function fetchWithProxy(symbol) {
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+                // Try two proxies in order — corsproxy.io first, allorigins as fallback
+                const proxies = [
+                    `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
+                    `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+                ];
+                for (const proxyUrl of proxies) {
+                    try {
+                        const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+                        if (!resp.ok) continue;
+                        const json = await resp.json();
+                        if (json?.chart?.result?.[0]?.meta?.regularMarketPrice) return json;
+                    } catch (e) { /* try next */ }
                 }
+                throw new Error('all proxies failed');
+            }
 
+            function updateIndex(data, elementId) {
+                const meta = data.chart.result[0].meta;
+                const price = meta.regularMarketPrice;
+                const prevClose = meta.previousClose || meta.chartPreviousClose || meta.regularMarketPreviousClose;
+                const el = document.getElementById(elementId);
+                if (prevClose && prevClose > 0) {
+                    const pct = ((price - prevClose) / prevClose) * 100;
+                    el.textContent = `${price.toFixed(0)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+                    el.style.color = pct >= 0 ? '#34d399' : '#f87171';
+                } else {
+                    el.textContent = `${price.toFixed(0)}`;
+                    el.style.color = '#34d399';
+                }
+            }
+
+            try {
                 const [niftyData, sensexData] = await Promise.all([
                     fetchWithProxy('%5ENSEI'),
                     fetchWithProxy('%5EBSESN')
                 ]);
-
-                function updateIndex(data, elementId) {
-                    const meta = data.chart.result[0].meta;
-                    const price = meta.regularMarketPrice;
-                    const prevClose = meta.previousClose || meta.chartPreviousClose || meta.regularMarketPreviousClose;
-                    const el = document.getElementById(elementId);
-                    if (prevClose && prevClose > 0) {
-                        const pct = ((price - prevClose) / prevClose) * 100;
-                        el.textContent = `${price.toFixed(0)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
-                        el.style.color = pct >= 0 ? '#34d399' : '#f87171';
-                    } else {
-                        el.textContent = `${price.toFixed(0)}`;
-                        el.style.color = '#34d399';
-                    }
-                }
-
                 updateIndex(niftyData, 'nifty50Price');
                 updateIndex(sensexData, 'sensexPrice');
-
             } catch (error) {
                 console.warn('Index data fetch failed:', error);
-                document.getElementById('nifty50Price').textContent = 'N/A';
-                document.getElementById('sensexPrice').textContent = 'N/A';
+                // Keep last known value rather than flashing N/A
+                const niftyEl = document.getElementById('nifty50Price');
+                const sensexEl = document.getElementById('sensexPrice');
+                if (niftyEl.textContent === '--') niftyEl.textContent = 'N/A';
+                if (sensexEl.textContent === '--') sensexEl.textContent = 'N/A';
             }
         }
         
