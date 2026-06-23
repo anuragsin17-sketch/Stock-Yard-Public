@@ -6421,40 +6421,7 @@
         
         // ─── VOLUME GAINER TAB (new logic) ──────────────────────────────────────
         let volGainerData = null; // cached watchlist
-        let stockListData = null; // CSV stock list for filtering
-        let volListFilter = 'all'; // 'all', 'inside', 'outside'
         let _volGainerFetchedAt = 0; // timestamp of last successful JSON fetch
-        
-        // Load stock list from JSON
-        async function loadStockList() {
-            if (stockListData) return stockListData;
-            try {
-                const resp = await fetch('./stock_list.json?t=' + Date.now(), { cache: 'no-store' });
-                if (resp.ok) {
-                    stockListData = await resp.json();
-                    return stockListData;
-                }
-            } catch (e) {
-                console.warn('stock_list.json not available, filtering disabled:', e);
-            }
-            return [];
-        }
-        let stockListData = null; // Stock List.csv symbols loaded from JSON
-        let volListFilter = 'all'; // 'all' | 'inside' | 'outside'
-
-        async function loadStockList() {
-            if (stockListData) return stockListData;
-            try {
-                const resp = await fetch(`./stock_list.json?t=${Date.now()}`, { cache: 'no-store' });
-                if (resp.ok) {
-                    stockListData = await resp.json();
-                    return stockListData;
-                }
-            } catch (e) {
-                console.error('Failed to load stock_list.json:', e);
-            }
-            return [];
-        }
 
         async function displayVolumeGainerTab() {
             currentTab = 'volume';
@@ -6581,57 +6548,20 @@
             const filtered = sorted.filter(s => s.in_entry_zone === true);
 
             // Render: action bar → cards area → pagination at bottom
+            const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE);
+            if (volPage > totalPages) volPage = 1;
+            const paged = filtered.slice((volPage-1)*TAB_PAGE_SIZE, volPage*TAB_PAGE_SIZE);
             
-            // Load stock list for filtering (non-blocking)
-            await loadStockList().catch(() => {});
-            const stockSet = stockListData ? new Set((stockListData || []).map(s => s.toUpperCase())) : null;
-            
-            // Apply list filter only if stock list is available
-            let listFiltered = filtered;
-            if (stockSet && volListFilter !== 'all') {
-                if (volListFilter === 'inside') {
-                    listFiltered = filtered.filter(s => stockSet.has((s.ticker || '').toUpperCase()));
-                } else if (volListFilter === 'outside') {
-                    listFiltered = filtered.filter(s => !stockSet.has((s.ticker || '').toUpperCase()));
-                }
-            }
-            
-            // Recalculate pagination with filtered list
-            const totalPagesFiltered = Math.ceil(listFiltered.length / TAB_PAGE_SIZE);
-            if (volPage > totalPagesFiltered) volPage = 1;
-            const pagedFiltered = listFiltered.slice((volPage-1)*TAB_PAGE_SIZE, volPage*TAB_PAGE_SIZE);
-            
-            // Count for badges (only if stock list is available)
-            const insideCount = stockSet ? filtered.filter(s => stockSet.has((s.ticker || '').toUpperCase())).length : 0;
-            const outsideCount = stockSet ? filtered.filter(s => !stockSet.has((s.ticker || '').toUpperCase())).length : 0;
-            
-            const paginationHtml = totalPagesFiltered > 1 ? paginationControls(
-                volPage, totalPagesFiltered,
+            const paginationHtml = totalPages > 1 ? paginationControls(
+                volPage, totalPages,
                 'volPage=Math.max(1,volPage-1); displayVolumeGainerTab()',
-                `volPage=Math.min(${totalPagesFiltered},volPage+1); displayVolumeGainerTab()`,
+                `volPage=Math.min(${totalPages},volPage+1); displayVolumeGainerTab()`,
                 (p) => `volPage=${p}; displayVolumeGainerTab()`
             ) : '';
-            
-            // Only show Inside/Outside buttons if stock list is loaded
-            const listFilterButtons = stockSet ? `
-                <button onclick="volListFilter='inside'; volPage=1; displayVolumeGainerTab();"
-                    style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${volListFilter==='inside'?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'};background:${volListFilter==='inside'?'rgba(59,130,246,0.15)':'rgba(30,41,59,0.8)'};color:${volListFilter==='inside'?'#3B82F6':'#94a3b8'};">
-                    📊 Inside List <span style="opacity:0.7;">${insideCount}</span>
-                </button>
-                <button onclick="volListFilter='outside'; volPage=1; displayVolumeGainerTab();"
-                    style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${volListFilter==='outside'?'rgba(251,191,36,0.4)':'rgba(255,255,255,0.1)'};background:${volListFilter==='outside'?'rgba(251,191,36,0.15)':'rgba(30,41,59,0.8)'};color:${volListFilter==='outside'?'#FBBF24':'#94a3b8'};">
-                    🌟 Outside List <span style="opacity:0.7;">${outsideCount}</span>
-                </button>
-            ` : '';
             
             container.innerHTML = `
                 ${statusNote}
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                    <button onclick="volListFilter='all'; volPage=1; displayVolumeGainerTab();"
-                        style="padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${volListFilter==='all'?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.1)'};background:${volListFilter==='all'?'rgba(16,185,129,0.15)':'rgba(30,41,59,0.8)'};color:${volListFilter==='all'?'#34d399':'#94a3b8'};">
-                        All <span style="opacity:0.7;">${filtered.length}</span>
-                    </button>
-                    ${listFilterButtons}
                     <button onclick="openAddStockModal('volume')"
                         style="all:unset;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;cursor:pointer;">
                         <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
@@ -6643,7 +6573,7 @@
                     </button>
                     ${window._volLastScanRun ? `<span style="font-size:10px;color:#6b7280;margin-left:4px;">✅ Last scan: <span style="color:#34d399;font-weight:600;">${window._volLastScanRun.timestamp}</span> · <span style="color:#f1f5f9;">${window._volLastScanRun.new_stocks} new</span></span>` : ''}
                 </div>
-                <div id="vol-cards-area">${pagedFiltered.map(s => createVolumeGainerCard(s)).join('')}</div>
+                <div id="vol-cards-area">${paged.map(s => createVolumeGainerCard(s)).join('')}</div>
                 <div id="vol-pagination-area">${paginationHtml}</div>
             `;
             // Refresh all tab counts after rendering
@@ -6651,7 +6581,7 @@
 
             // ── Live LTP fetch + re-sort by proximity to entry zone ───────────────
             // Step 1: show pre-computed LTP from DB immediately (never blank)
-            pagedFiltered.forEach(stock => {
+            paged.forEach(stock => {
                 const el    = document.getElementById(`vol_ltp_${stock.ticker}`);
                 const distEl = document.getElementById(`vol_dist_${stock.ticker}`);
                 const ltp   = stock.ltp || stock._liveLtp || stock.close_price || 0;
