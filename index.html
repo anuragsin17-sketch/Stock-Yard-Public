@@ -9202,6 +9202,11 @@
                         const isAngelPos = v.source === 'Angel One';
                         const isGrowwPos = v.source === 'Groww';
                         if ((isAngelPos && !angelOk) || (isGrowwPos && !growwOk)) return;
+                        // Already closed — keep as-is, don't re-process
+                        if (v.status === 'Closed') {
+                            closedTrades[k] = v;
+                            return;
+                        }
                         if (!liveTickers.has(v.ticker)) {
                             const entry = parseFloat(v.entry_price) || 0;
                             const orderBookExit = sellExitMap[(v.ticker || '').toUpperCase()];
@@ -9367,6 +9372,12 @@
                     const tickerUp = (v.ticker || '').toUpperCase();
                     const isStillOpen = liveTickers.has(v.ticker) || liveTickers.has(tickerUp);
 
+                    // Never touch already-closed trades — keep them exactly as-is
+                    if (v.status === 'Closed') {
+                        finalManualTrades[k] = v;
+                        return;
+                    }
+
                     if (v._pending_order) {
                         if (isStillOpen) {
                             // Angel One confirmed the fill — promote to Open
@@ -9381,7 +9392,7 @@
                         return;
                     }
 
-                    // All other manual trades (Open, Closed, etc.) — keep untouched
+                    // All other manual trades (Open, Pending, etc.) — keep untouched
                     finalManualTrades[k] = v;
                 });
 
