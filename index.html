@@ -6429,13 +6429,13 @@
         async function loadStockList() {
             if (stockListData) return stockListData;
             try {
-                const resp = await fetch('./stock_list.json', { cache: 'no-store' });
+                const resp = await fetch('./stock_list.json?t=' + Date.now(), { cache: 'no-store' });
                 if (resp.ok) {
                     stockListData = await resp.json();
                     return stockListData;
                 }
             } catch (e) {
-                console.error('Failed to load stock_list.json:', e);
+                console.warn('stock_list.json not available, filtering disabled:', e);
             }
             return [];
         }
