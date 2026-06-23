@@ -8728,12 +8728,18 @@
             }
 
             // Recalculate from filtered trades
+            // Scale P&L based on position size: backtest uses ₹50K/trade baseline
+            // If user selected ₹10L capital with 6 slots, position size = ₹10L/6 = ₹1.67L per trade
+            // Scaling factor = (capital / slots) / 50000
+            const positionSize = perfCapital / effectiveSlots;
+            const pnlScaleFactor = positionSize / 50000;
+            
             const completed  = filteredTrades.filter(t => t.outcome !== 'OPEN');
             const wins       = completed.filter(t => t.pnl_pct > 0);
             const losses_arr = completed.filter(t => t.pnl_pct <= 0);
-            const win_pnl    = wins.reduce((a,t)=>a+t.pnl_amt,0);
-            const loss_pnl   = Math.abs(losses_arr.reduce((a,t)=>a+t.pnl_amt,0));
-            const total_pnl_raw = filteredTrades.reduce((a,t)=>a+t.pnl_amt,0);
+            const win_pnl    = wins.reduce((a,t)=>a+(t.pnl_amt * pnlScaleFactor),0);
+            const loss_pnl   = Math.abs(losses_arr.reduce((a,t)=>a+(t.pnl_amt * pnlScaleFactor),0));
+            const total_pnl_raw = filteredTrades.reduce((a,t)=>a+(t.pnl_amt * pnlScaleFactor),0);
             const win_rate   = completed.length ? (wins.length/completed.length*100).toFixed(1) : 0;
             const pf_val     = loss_pnl > 0 ? (win_pnl/loss_pnl).toFixed(2) : '∞';
             const avg_hold   = filteredTrades.length ? Math.round(filteredTrades.reduce((a,t)=>a+t.holding_days,0)/filteredTrades.length) : 0;
@@ -8742,16 +8748,16 @@
             const timeouts_ct  = filteredTrades.filter(t=>t.outcome==='TIMEOUT').length;
             const open_ct      = filteredTrades.filter(t=>t.outcome==='OPEN').length;
 
-            // P&L is actual from backtest at ₹50K/trade — NO scaling
+            // P&L scaled by position size multiplier
             const actualPnl = Math.round(total_pnl_raw);
-            // ROI = what % of your capital was the profit (informational)
+            // ROI = what % of your capital was the profit
             const roiPct    = perfCapital > 0 ? (actualPnl / perfCapital * 100).toFixed(1) : 0;
 
             // Max drawdown approximation (running capital floor)
             let runCap = perfCapital, peakCap = perfCapital, maxDD = 0;
             const sortedByDateForDD = [...filteredTrades].sort((a,b) => a.entry_date.localeCompare(b.entry_date));
             sortedByDateForDD.forEach(t => {
-                runCap += (t.pnl_amt || 0);
+                runCap += ((t.pnl_amt || 0) * pnlScaleFactor);
                 if (runCap > peakCap) peakCap = runCap;
                 const dd = peakCap - runCap;
                 if (dd > maxDD) maxDD = dd;
