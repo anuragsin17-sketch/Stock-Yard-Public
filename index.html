@@ -337,7 +337,10 @@
                 <!-- Left: logo + title + NIFTY + SENSEX inline -->
                 <div class="flex items-center gap-2">
                     <div style="width:28px;height:28px;background:linear-gradient(135deg,#10b981,#059669);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#080c14;font-weight:800;font-size:14px;">⚡</div>
-                    <h1 class="text-base font-bold tracking-tight text-white" id="headerTitle">Stock Yard</h1>
+                    <h1 class="text-base font-bold tracking-tight text-white" id="headerTitle"
+                        oncontextmenu="openSettingsPanel(); return false;"
+                        style="cursor:default; -webkit-user-select:none; user-select:none;"
+                        ontouchstart="startLongPress(event)" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()">Stock Yard</h1>
                     <a href="https://in.tradingview.com/chart/?symbol=NSE:NIFTY" target="_blank"
                         style="display:flex;align-items:center;gap:4px;text-decoration:none;background:#111625;border:1px solid #1f2937;padding:3px 8px;border-radius:5px;">
                         <span style="color:#6b7280;font-size:9px;font-weight:700;">NIFTY</span>
@@ -521,6 +524,41 @@
             <input id="growwAdminSecret" type="password" placeholder="Admin secret" style="width:100%;padding:10px;background:#080c14;border:1px solid #1f2937;border-radius:8px;color:#f1f5f9;font-size:13px;box-sizing:border-box;"/>
             <div id="growwTokenStatus" style="min-height:20px;font-size:12px;margin-top:10px;"></div>
             <button onclick="submitGrowwToken()" style="width:100%;margin-top:12px;padding:12px;border-radius:10px;background:linear-gradient(135deg,#4c1d95,#6d28d9);color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;">Update Token & Restart Service</button>
+        </div>
+    </div>
+
+    <!-- ── Settings Panel (long-press header title) ──────────────────────────── -->
+    <div id="settingsPanel" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;">
+        <div style="background:#111625;border:1px solid #1f2937;border-radius:16px;padding:24px;width:90%;max-width:400px;margin:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="color:#f1f5f9;font-size:16px;font-weight:700;">⚙️ App Settings</h3>
+                <button onclick="closeSettingsPanel()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+            </div>
+
+            <!-- API Key section -->
+            <div style="margin-bottom:20px;">
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Order API Key</div>
+                <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">Required for placing orders. Must match <code style="color:#34d399;background:rgba(16,185,129,0.1);padding:1px 5px;border-radius:3px;">STOCKYARD_API_KEY</code> on EC2.</div>
+                <input id="settingsApiKeyInput" type="password"
+                    placeholder="Paste your API key here"
+                    style="width:100%;padding:10px;background:#080c14;border:1px solid #1f2937;border-radius:8px;color:#f1f5f9;font-size:12px;font-family:'JetBrains Mono',monospace;box-sizing:border-box;"/>
+                <div style="display:flex;gap:8px;margin-top:10px;">
+                    <button onclick="saveSettingsApiKey()"
+                        style="flex:1;padding:10px;border-radius:8px;background:linear-gradient(135deg,#065F46,#047857);color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;">
+                        💾 Save Key
+                    </button>
+                    <button onclick="clearSettingsApiKey()"
+                        style="padding:10px 14px;border-radius:8px;background:rgba(239,68,68,0.12);color:#f87171;font-size:13px;font-weight:600;border:1px solid rgba(239,68,68,0.25);cursor:pointer;">
+                        Clear
+                    </button>
+                </div>
+                <div id="settingsApiKeyStatus" style="min-height:18px;font-size:12px;margin-top:8px;color:#34d399;"></div>
+            </div>
+
+            <!-- Current key status -->
+            <div style="background:rgba(8,12,20,0.6);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px;font-size:11px;color:#6b7280;">
+                Status: <span id="settingsKeyStatus" style="font-weight:600;">checking...</span>
+            </div>
         </div>
     </div>
 
@@ -5864,7 +5902,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-API-Key': STOCKYARD_API_KEY
+                        'X-API-Key': window._STOCKYARD_API_KEY_OVERRIDE || localStorage.getItem('STOCKYARD_API_KEY') || STOCKYARD_API_KEY
                     },
                     body: JSON.stringify({
                         symbol: symbol,
@@ -9318,6 +9356,64 @@
         };
         window.closeGrowwTokenModal = function() {
             document.getElementById('growwTokenModal').style.display = 'none';
+        };
+
+        // ── Settings Panel ────────────────────────────────────────────────────
+        let _longPressTimer = null;
+
+        window.startLongPress = function(e) {
+            _longPressTimer = setTimeout(() => {
+                openSettingsPanel();
+                if (navigator.vibrate) navigator.vibrate(40);
+            }, 800); // 800ms long press
+        };
+        window.cancelLongPress = function() {
+            clearTimeout(_longPressTimer);
+        };
+        window.openSettingsPanel = function() {
+            const panel = document.getElementById('settingsPanel');
+            panel.style.display = 'flex';
+            // Show current key status
+            const existing = localStorage.getItem('STOCKYARD_API_KEY') || '';
+            const statusEl = document.getElementById('settingsKeyStatus');
+            if (existing) {
+                statusEl.textContent = '✅ Key set (' + existing.slice(0,6) + '••••)';
+                statusEl.style.color = '#34d399';
+            } else {
+                statusEl.textContent = '⚠️ Not set — orders may be rejected';
+                statusEl.style.color = '#f59e0b';
+            }
+            // Pre-fill input if key exists
+            document.getElementById('settingsApiKeyInput').value = existing;
+            document.getElementById('settingsApiKeyStatus').textContent = '';
+        };
+        window.closeSettingsPanel = function() {
+            document.getElementById('settingsPanel').style.display = 'none';
+        };
+        window.saveSettingsApiKey = function() {
+            const val = document.getElementById('settingsApiKeyInput').value.trim();
+            if (!val) {
+                document.getElementById('settingsApiKeyStatus').textContent = '⚠️ Enter a key first';
+                document.getElementById('settingsApiKeyStatus').style.color = '#f59e0b';
+                return;
+            }
+            localStorage.setItem('STOCKYARD_API_KEY', val);
+            // Update global constant used by placeAngelOrder
+            window._STOCKYARD_API_KEY_OVERRIDE = val;
+            const statusEl = document.getElementById('settingsKeyStatus');
+            statusEl.textContent = '✅ Key set (' + val.slice(0,6) + '••••)';
+            statusEl.style.color = '#34d399';
+            document.getElementById('settingsApiKeyStatus').textContent = '✅ Saved successfully';
+            document.getElementById('settingsApiKeyStatus').style.color = '#34d399';
+            setTimeout(closeSettingsPanel, 1200);
+        };
+        window.clearSettingsApiKey = function() {
+            localStorage.removeItem('STOCKYARD_API_KEY');
+            document.getElementById('settingsApiKeyInput').value = '';
+            document.getElementById('settingsKeyStatus').textContent = '⚠️ Not set';
+            document.getElementById('settingsKeyStatus').style.color = '#f59e0b';
+            document.getElementById('settingsApiKeyStatus').textContent = 'Key cleared';
+            document.getElementById('settingsApiKeyStatus').style.color = '#94a3b8';
         };
         window.submitGrowwToken = async function() {
             const token  = document.getElementById('growwTokenInput').value.trim();
