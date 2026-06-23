@@ -5615,15 +5615,16 @@
         // Fetch real-time NIFTY and SENSEX data
         async function fetchIndexData() {
             async function fetchWithProxy(symbol) {
-                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-                // Try two proxies in order — corsproxy.io first, allorigins as fallback
+                // Cache-bust with current minute so proxies can't serve stale responses
+                const ts = Math.floor(Date.now() / 60000);
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1m&range=1d&_=${ts}`;
                 const proxies = [
                     `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
                     `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
                 ];
                 for (const proxyUrl of proxies) {
                     try {
-                        const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+                        const resp = await fetch(proxyUrl, { cache: 'no-store', signal: AbortSignal.timeout(6000) });
                         if (!resp.ok) continue;
                         const json = await resp.json();
                         if (json?.chart?.result?.[0]?.meta?.regularMarketPrice) return json;
@@ -5635,9 +5636,10 @@
             function updateIndex(data, elementId) {
                 const meta = data.chart.result[0].meta;
                 const price = meta.regularMarketPrice;
-                const prevClose = meta.previousClose || meta.chartPreviousClose || meta.regularMarketPreviousClose;
+                // chartPreviousClose is the correct prev-day close for indices on Yahoo
+                const prevClose = meta.chartPreviousClose || meta.previousClose || meta.regularMarketPreviousClose;
                 const el = document.getElementById(elementId);
-                if (prevClose && prevClose > 0) {
+                if (prevClose && prevClose > 0 && price !== prevClose) {
                     const pct = ((price - prevClose) / prevClose) * 100;
                     el.textContent = `${price.toFixed(0)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
                     el.style.color = pct >= 0 ? '#34d399' : '#f87171';
@@ -5656,7 +5658,6 @@
                 updateIndex(sensexData, 'sensexPrice');
             } catch (error) {
                 console.warn('Index data fetch failed:', error);
-                // Keep last known value rather than flashing N/A
                 const niftyEl = document.getElementById('nifty50Price');
                 const sensexEl = document.getElementById('sensexPrice');
                 if (niftyEl.textContent === '--') niftyEl.textContent = 'N/A';
