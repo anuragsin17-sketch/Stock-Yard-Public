@@ -9360,83 +9360,29 @@
                     }
                 }
 
-                // Auto-close manual trades that Angel One has a completed SELL for
-                // (trades placed via Spotlight/manual UI that are now sold in Angel One)
-                // Also remove manual trades where the order was cancelled/never filled
-                // (not in holdings AND not in sellExitMap = order never executed)
+                // Manual trades: always keep as-is (user manages these themselves)
+                // Only handle _pending_order trades specially
                 const finalManualTrades = {};
                 Object.entries(manualTrades).forEach(([k, v]) => {
                     const tickerUp = (v.ticker || '').toUpperCase();
-                    const orderBookExit = sellExitMap[tickerUp];
                     const isStillOpen = liveTickers.has(v.ticker) || liveTickers.has(tickerUp);
 
-                    // ── Pending orders: promote to Open if filled, drop if not ──
                     if (v._pending_order) {
                         if (isStillOpen) {
                             // Angel One confirmed the fill — promote to Open
                             console.log(`✅ Pending order filled: ${v.ticker} → promoted to Open`);
                             finalManualTrades[k] = { ...v, status: 'Open', _pending_order: false };
                         } else if (anySyncOk) {
-                            // Sync succeeded but not in holdings = cancelled/rejected — drop it
-                            console.log(`🗑️ Pending order not filled (cancelled?): ${v.ticker} → removed from Radar`);
-                            const toastEl2 = document.createElement('div');
-                            toastEl2.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a0a0a;border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;z-index:9999;';
-                            toastEl2.textContent = `❌ ${v.ticker} order was cancelled — removed from Radar`;
-                            document.body.appendChild(toastEl2);
-                            setTimeout(() => toastEl2.remove(), 3500);
+                            // Not in holdings = cancelled/rejected — drop it silently
+                            console.log(`🗑️ Pending order not in holdings: ${v.ticker} → removed`);
                         } else {
-                            // Sync failed — keep as pending, try again next sync
                             finalManualTrades[k] = v;
                         }
                         return;
                     }
 
-                    if (anySyncOk && orderBookExit && !isStillOpen) {
-                        // Angel One sold this — auto-close with actual exit price
-                        const entry  = parseFloat(v.entry_price || 0);
-                        const exit   = parseFloat(orderBookExit);
-                        const qty    = parseInt(v.quantity || 0);
-                        const pnl    = entry > 0 && qty > 0 ? (exit - entry) * qty : 0;
-                        const pnlPct = entry > 0 ? ((exit - entry) / entry * 100) : 0;
-                        closedTrades[k] = {
-                            ...v, status: 'Closed', exit_price: exit,
-                            exit_source: 'Angel One order book',
-                            pnl, pnl_percent: pnlPct,
-                            closed_at: new Date().toISOString()
-                        };
-                        console.log(`Auto-closed (manual trade): ${v.ticker} exit: ₹${exit} pnl: ${pnl.toFixed(2)}`);
-                        const tradeHistory = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
-                        const alreadyRecorded = tradeHistory.some(h =>
-                            (h.ticker || '').toUpperCase() === tickerUp &&
-                            Math.abs(parseFloat(h.exit_price) - exit) < 1
-                        );
-                        if (!alreadyRecorded) {
-                            tradeHistory.unshift({
-                                ticker: v.ticker, entry_price: entry, exit_price: exit,
-                                exit_source: 'Angel One order book', quantity: qty,
-                                pnl, pnl_percent: pnlPct,
-                                status: pnl >= 0 ? 'Target Hit' : 'Stop Loss',
-                                source: v.source || 'Manual', closed_at: new Date().toISOString()
-                            });
-                            localStorage.setItem('tradeHistory', JSON.stringify(tradeHistory));
-                        }
-                    } else if (anySyncOk && !isStillOpen && !orderBookExit) {
-                        // Not in holdings AND no sell order today
-                        // Only drop if it was a pending order (never filled) — keep historical closed trades
-                        if (v._pending_order) {
-                            console.log(`🗑️ Pending order not filled (cancelled?): ${v.ticker} → removed from Radar`);
-                            const toastEl2 = document.createElement('div');
-                            toastEl2.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a0a0a;border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;z-index:9999;';
-                            toastEl2.textContent = `❌ ${v.ticker} order was cancelled — removed from Radar`;
-                            document.body.appendChild(toastEl2);
-                            setTimeout(() => toastEl2.remove(), 3500);
-                        } else {
-                            // Keep it — it's a historical closed trade or manual entry
-                            finalManualTrades[k] = v;
-                        }
-                    } else {
-                        finalManualTrades[k] = v;
-                    }
+                    // All other manual trades (Open, Closed, etc.) — keep untouched
+                    finalManualTrades[k] = v;
                 });
 
                 localStorage.setItem('radarOverrides', JSON.stringify({ ...allBrokerTrades, ...closedTrades, ...finalManualTrades }));
