@@ -159,6 +159,36 @@
         .pin-shake {
             animation: pinShake 0.4s ease;
         }
+        .pin-dot {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .pin-dot.filled {
+            background: #10b981;
+            border-color: #10b981;
+        }
+        .pin-key {
+            background: rgba(20,25,35,0.9);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px;
+            color: #f1f5f9;
+            font-size: 22px;
+            font-weight: 600;
+            padding: 18px 10px;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.15s ease, transform 0.1s ease;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .pin-key:active {
+            background: rgba(16,185,129,0.2);
+            border-color: rgba(16,185,129,0.4);
+            transform: scale(0.94);
+        }
         /* Tab flash feedback for swipe */
         @keyframes tabFlash {
             0%   { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.8); }
@@ -300,33 +330,47 @@
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen" style="background: #080C14;">
 
     <!-- ─── PIN AUTHENTICATION SCREEN ───────────────────────────────────────── -->
-    <div id="pinScreen" onclick="document.getElementById('pinInput').focus()">
-        <div style="text-align:center; padding: 0 24px; width: 100%; max-width: 360px;">
+    <div id="pinScreen">
+        <div style="text-align:center; padding: 0 24px; width: 100%; max-width: 320px;">
             <!-- Logo -->
-            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:36px;">
-                <svg style="width:40px;height:40px;color:#047857;" fill="none" stroke="#047857" viewBox="0 0 24 24">
+            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:32px;">
+                <svg style="width:36px;height:36px;" fill="none" stroke="#047857" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
-                <span style="font-size:28px;font-weight:700;color:#f1f5f9;letter-spacing:-0.5px;">Stock Yard</span>
+                <span style="font-size:26px;font-weight:700;color:#f1f5f9;letter-spacing:-0.5px;">Stock Yard</span>
             </div>
-            <!-- PIN input area -->
-            <div id="pinInputWrap" style="margin-bottom:16px;">
-                <input id="pinInput" type="password" maxlength="6" inputmode="numeric" pattern="[0-9]*"
-                    placeholder="Enter PIN"
-                    autocomplete="off"
-                    autocapitalize="off"
-                    readonly
-                    style="width:100%;padding:16px;font-size:24px;letter-spacing:8px;text-align:center;background:rgba(20,25,35,0.9);border:1px solid rgba(255,255,255,0.1);border-radius:16px;color:#f1f5f9;outline:none;font-family:'JetBrains Mono',monospace;-webkit-user-select:text;user-select:text;"
-                    onclick="this.removeAttribute('readonly'); this.focus();"
-                    onfocus="this.removeAttribute('readonly');"
-                    onkeydown="if(event.key==='Enter')unlockApp()"/>
+
+            <!-- PIN dots display -->
+            <div style="margin-bottom:28px;">
+                <div style="font-size:13px;color:#6b7280;font-weight:600;margin-bottom:16px;letter-spacing:0.5px;text-transform:uppercase;">Enter PIN</div>
+                <div id="pinDots" style="display:flex;justify-content:center;gap:14px;">
+                    <div class="pin-dot" id="dot0"></div>
+                    <div class="pin-dot" id="dot1"></div>
+                    <div class="pin-dot" id="dot2"></div>
+                    <div class="pin-dot" id="dot3"></div>
+                    <div class="pin-dot" id="dot4"></div>
+                    <div class="pin-dot" id="dot5"></div>
+                </div>
+                <div id="pinError" style="color:#DC2626;font-size:12px;margin-top:12px;min-height:16px;"></div>
             </div>
-            <div id="pinError" style="color:#DC2626;font-size:13px;margin-bottom:14px;min-height:18px;"></div>
-            <button onclick="unlockApp()"
-                style="width:100%;padding:16px;border-radius:16px;font-size:16px;font-weight:600;background:linear-gradient(135deg,#065F46,#047857);color:#fff;border:none;cursor:pointer;touch-action:manipulation;">
-                🔓 Unlock
-            </button>
-            <div style="margin-top:20px;color:rgba(148,163,184,0.5);font-size:12px;">Stock Yard v2 — Secure Access</div>
+
+            <!-- Numpad -->
+            <div id="pinInputWrap" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:280px;margin:0 auto;">
+                <button onclick="pinPad(1)" class="pin-key">1</button>
+                <button onclick="pinPad(2)" class="pin-key">2</button>
+                <button onclick="pinPad(3)" class="pin-key">3</button>
+                <button onclick="pinPad(4)" class="pin-key">4</button>
+                <button onclick="pinPad(5)" class="pin-key">5</button>
+                <button onclick="pinPad(6)" class="pin-key">6</button>
+                <button onclick="pinPad(7)" class="pin-key">7</button>
+                <button onclick="pinPad(8)" class="pin-key">8</button>
+                <button onclick="pinPad(9)" class="pin-key">9</button>
+                <button onclick="pinClear()" class="pin-key" style="color:#9ca3af;font-size:13px;">Clear</button>
+                <button onclick="pinPad(0)" class="pin-key">0</button>
+                <button onclick="pinBackspace()" class="pin-key" style="font-size:20px;">⌫</button>
+            </div>
+
+            <div style="margin-top:24px;color:rgba(148,163,184,0.4);font-size:11px;">Stock Yard v2 — Secure Access</div>
         </div>
     </div>
 
@@ -5174,25 +5218,46 @@
 
         // ─── PIN AUTHENTICATION ──────────────────────────────────────────────────
         const CORRECT_PIN = '202006';
+        let _pinEntry = '';
 
+        function pinPad(digit) {
+            if (_pinEntry.length >= 6) return;
+            _pinEntry += String(digit);
+            updatePinDots();
+            if (_pinEntry.length === 6) {
+                setTimeout(unlockApp, 120); // brief pause so last dot shows
+            }
+        }
+        function pinBackspace() {
+            _pinEntry = _pinEntry.slice(0, -1);
+            updatePinDots();
+        }
+        function pinClear() {
+            _pinEntry = '';
+            updatePinDots();
+            document.getElementById('pinError').textContent = '';
+        }
+        function updatePinDots() {
+            for (let i = 0; i < 6; i++) {
+                const dot = document.getElementById('dot' + i);
+                if (dot) dot.classList.toggle('filled', i < _pinEntry.length);
+            }
+        }
         function unlockApp() {
-            const input = document.getElementById('pinInput');
-            const errorEl = document.getElementById('pinError');
-            const pin = input.value.trim();
-            if (pin === CORRECT_PIN) {
+            if (_pinEntry === CORRECT_PIN) {
                 sessionStorage.setItem('sy_pin_unlocked', '1');
                 const pinScreen = document.getElementById('pinScreen');
                 pinScreen.classList.add('fade-out');
                 document.getElementById('appWrapper').style.display = '';
                 setTimeout(() => { pinScreen.style.display = 'none'; }, 450);
             } else {
-                errorEl.textContent = 'Incorrect PIN. Try again.';
+                document.getElementById('pinError').textContent = 'Incorrect PIN. Try again.';
                 const wrap = document.getElementById('pinInputWrap');
                 wrap.classList.remove('pin-shake');
-                void wrap.offsetWidth; // reflow to restart animation
+                void wrap.offsetWidth;
                 wrap.classList.add('pin-shake');
-                input.value = '';
-                input.focus();
+                _pinEntry = '';
+                updatePinDots();
             }
         }
 
@@ -5236,23 +5301,8 @@
             if (sessionStorage.getItem('sy_pin_unlocked') === '1') {
                 document.getElementById('pinScreen').style.display = 'none';
                 document.getElementById('appWrapper').style.display = '';
-            } else {
-                // iOS PWA fix: remove readonly then focus after paint
-                // readonly trick prevents iOS auto-zoom but blocks keyboard on standalone mode
-                setTimeout(() => {
-                    const pi = document.getElementById('pinInput');
-                    if (pi) {
-                        pi.removeAttribute('readonly');
-                        // Don't auto-focus on iOS PWA — it suppresses keyboard
-                        // User tap triggers focus via onclick handler
-                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                        const isPWA = window.navigator.standalone === true;
-                        if (!isIOS || !isPWA) {
-                            pi.focus();
-                        }
-                    }
-                }, 300);
             }
+            // No keyboard focus needed — numpad is built-in
         })();
 
         // ─── SERVICE WORKER REGISTRATION ────────────────────────────────────────
