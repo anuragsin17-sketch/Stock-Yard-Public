@@ -7406,7 +7406,8 @@
                                     <div style="font-size:11px;color:#6b7280;">Wicks: ${stock.wickTouches || '-'} | ${stock.timeframe || 'monthly'}</div>
                                 </div>
                                 <div style="text-align:right;">
-                                    <div id="tl_ltp_${stock.ticker}" style="font-size:18px;font-weight:700;color:#ffffff;">${formatINR(stock.currentPrice)}</div>
+                                    <div id="tl_ltp_${stock.ticker}" style="font-size:18px;font-weight:700;color:#4b5563;" title="Fetching live price...">${formatINR(stock.currentPrice)}</div>
+                                    <div id="tl_ltp_tag_${stock.ticker}" style="font-size:9px;color:#4b5563;margin-top:1px;font-weight:600;letter-spacing:0.3px;">LAST CLOSE</div>
                                     <div style="font-size:11px;color:#6b7280;margin-top:2px;">Distance: <span id="dist_${stock.ticker}" style="color:#34d399;font-weight:700;">${liveDist}%</span></div>
                                 </div>
                             </div>
@@ -7602,7 +7603,13 @@
                             requestAnimationFrame(() => {
                                 if (currentTab !== 'trendline') return;
                                 const el = document.getElementById(`tl_ltp_${stock.ticker}`);
-                                if (el) el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+                                if (el) {
+                                    el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+                                    el.style.color = '#ffffff';
+                                    el.title = 'Live price';
+                                }
+                                const tagEl = document.getElementById(`tl_ltp_tag_${stock.ticker}`);
+                                if (tagEl) tagEl.style.display = 'none';
                                 const distEl = document.getElementById(`dist_${stock.ticker}`);
                                 const entryEl = document.getElementById(`entry_${stock.ticker}`);
                                 if (distEl && entryEl) {
