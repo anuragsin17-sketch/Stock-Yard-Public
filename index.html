@@ -9362,13 +9362,37 @@
 
                 // Auto-close manual trades that Angel One has a completed SELL for
                 // (trades placed via Spotlight/manual UI that are now sold in Angel One)
+                // Also remove manual trades where the order was cancelled/never filled
+                // (not in holdings AND not in sellExitMap = order never executed)
                 const finalManualTrades = {};
                 Object.entries(manualTrades).forEach(([k, v]) => {
                     const tickerUp = (v.ticker || '').toUpperCase();
                     const orderBookExit = sellExitMap[tickerUp];
                     const isStillOpen = liveTickers.has(v.ticker) || liveTickers.has(tickerUp);
+
+                    // ── Pending orders: promote to Open if filled, drop if not ──
+                    if (v._pending_order) {
+                        if (isStillOpen) {
+                            // Angel One confirmed the fill — promote to Open
+                            console.log(`✅ Pending order filled: ${v.ticker} → promoted to Open`);
+                            finalManualTrades[k] = { ...v, status: 'Open', _pending_order: false };
+                        } else if (anySyncOk) {
+                            // Sync succeeded but not in holdings = cancelled/rejected — drop it
+                            console.log(`🗑️ Pending order not filled (cancelled?): ${v.ticker} → removed from Radar`);
+                            const toastEl2 = document.createElement('div');
+                            toastEl2.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a0a0a;border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;z-index:9999;';
+                            toastEl2.textContent = `❌ ${v.ticker} order was cancelled — removed from Radar`;
+                            document.body.appendChild(toastEl2);
+                            setTimeout(() => toastEl2.remove(), 3500);
+                        } else {
+                            // Sync failed — keep as pending, try again next sync
+                            finalManualTrades[k] = v;
+                        }
+                        return;
+                    }
+
                     if (anySyncOk && orderBookExit && !isStillOpen) {
-                        // Angel One sold this — auto-close it
+                        // Angel One sold this — auto-close with actual exit price
                         const entry  = parseFloat(v.entry_price || 0);
                         const exit   = parseFloat(orderBookExit);
                         const qty    = parseInt(v.quantity || 0);
@@ -9396,6 +9420,9 @@
                             });
                             localStorage.setItem('tradeHistory', JSON.stringify(tradeHistory));
                         }
+                    } else if (anySyncOk && !isStillOpen && !orderBookExit) {
+                        // Not in holdings AND no sell order = order was cancelled/rejected — remove from radar
+                        console.log(`Removed cancelled/unfilled order from Radar: ${v.ticker}`);
                     } else {
                         finalManualTrades[k] = v;
                     }
@@ -10399,6 +10426,9 @@
 
             placeAngelOrder(ticker, 'BUY', qty, entry, stop, target, source).then(result => {
                 if (result.success) {
+                    // ── Save as PENDING, not Open ──────────────────────────────────────
+                    // Trade moves to Radar only after Angel One confirms it in holdings (next sync).
+                    // If order is cancelled before fill, the sync removes it automatically.
                     const overrides = JSON.parse(localStorage.getItem('radarOverrides') || '{}');
                     const key = result.order_id || (source.toUpperCase().slice(0,2) + '_' + ticker + '_' + Date.now());
                     overrides[key] = {
@@ -10407,15 +10437,26 @@
                         target, targetExit: target,
                         stop_loss: stop, stopLoss: stop,
                         quantity: qty, current_price: entry,
-                        status: 'Open', source,
+                        status: 'Pending',   // ← Pending until Angel One confirms fill
+                        source,
                         order_id: key,
                         week52High: week52High,
                         week52Low: week52Low,
                         triggered_at: new Date().toISOString(),
-                        _custom: true
+                        _custom: true,
+                        _pending_order: true  // ← flag so sync can handle it
                     };
                     localStorage.setItem('radarOverrides', JSON.stringify(overrides));
                     markTickerInRadar(ticker);
+
+                    // Show toast and trigger sync after 5s to pick up the filled position
+                    const toastEl = document.createElement('div');
+                    toastEl.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;z-index:9999;';
+                    toastEl.textContent = `⏳ ${ticker} order placed — waiting for Angel One confirmation...`;
+                    document.body.appendChild(toastEl);
+                    setTimeout(() => toastEl.remove(), 4000);
+                    setTimeout(() => syncRadarFromAngelOne(true), 5000);
+                    // Also switch to Radar so user can see the Pending state
                     switchTab('performance');
                 }
             });
