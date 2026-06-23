@@ -5769,7 +5769,7 @@
             hideError();
 
             // Kick off volume gainer watchlist fetch in parallel
-            const watchlistPromise = fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
+            const watchlistPromise = fetch(`./volume_gainer_watchlist.json?t=${Date.now()}`, { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(data => {
                     let stocks = data;
@@ -6439,7 +6439,7 @@
             const cacheStale = (now - _volGainerFetchedAt) > 5 * 60 * 1000;
             if (!Array.isArray(volGainerData) || volGainerData.length === 0 || cacheStale) {
                 try {
-                    const resp = await fetch('./volume_gainer_watchlist.json', { cache: 'no-store' });
+                    const resp = await fetch(`./volume_gainer_watchlist.json?t=${Date.now()}`, { cache: 'no-store' });
                     if (resp.ok) {
                         const freshData = await resp.json();
                         // Support both plain array and {last_scan_run, stocks} object
@@ -7965,7 +7965,7 @@
                         }
                         if (!volCached) {
                             fetches.push(
-                                fetch('./volume_gainer_watchlist.json', { cache: 'no-store' })
+                                fetch(`./volume_gainer_watchlist.json?t=${Date.now()}`, { cache: 'no-store' })
                                     .then(r => r.ok ? r.json() : []).catch(() => [])
                                     .then(data => { if (Array.isArray(data)) volGainerData = data; })
                             );
