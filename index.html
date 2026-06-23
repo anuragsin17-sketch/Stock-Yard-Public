@@ -8333,11 +8333,16 @@
         // ═══════════════════════════════════════════════════════════════════════
         
         // Clear a single trade from radar performance history
-        window.clearRadarTrade = function(tradeIndex) {
+        window.clearRadarTrade = function(ticker, closedAt) {
             const history = JSON.parse(localStorage.getItem('tradeHistory') || '[]');
             
-            if (tradeIndex < 0 || tradeIndex >= history.length) {
-                console.error('Invalid trade index:', tradeIndex);
+            // Find the trade by ticker and closed_at timestamp
+            const tradeIndex = history.findIndex(t => 
+                t.ticker === ticker && t.closed_at === closedAt
+            );
+            
+            if (tradeIndex === -1) {
+                console.error('Trade not found:', ticker, closedAt);
                 return;
             }
             
@@ -8428,13 +8433,14 @@
                 const openedDate = h.opened_at  ? new Date(h.opened_at).toLocaleDateString('en-IN',  {day:'2-digit',month:'short',year:'2-digit'}) : '—';
                 const holdDays = (h.opened_at && h.closed_at)
                     ? Math.round((new Date(h.closed_at) - new Date(h.opened_at)) / 86400000) : '—';
-                const tradeIndex = history.length - 1 - i; // Original index in the history array
+                const ticker = h.ticker;
+                const closedAtTimestamp = h.closed_at || '';
                 return `
                 <div style="background:${bgRow};border:1px solid rgba(31,41,55,0.8);border-radius:10px;padding:14px;margin-bottom:10px;">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
                         <div style="flex:1;">
                             <div style="display:flex;align-items:center;gap:6px;">
-                                <a href="https://in.tradingview.com/chart/?symbol=NSE:${h.ticker}" target="_blank" style="font-size:15px;font-weight:700;color:#fff;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${h.ticker}</a>
+                                <a href="https://in.tradingview.com/chart/?symbol=NSE:${ticker}" target="_blank" style="font-size:15px;font-weight:700;color:#fff;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${ticker}</a>
                                 <span style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;background:${pct>=0?'rgba(16,185,129,0.15)':'rgba(244,63,94,0.15)'};color:${pc};">${icon} ${h.status}</span>
                             </div>
                             <div style="font-size:10px;color:#6b7280;margin-top:2px;">${h.source || 'Manual'} · Held ${holdDays}d · Closed ${closedDate}</div>
@@ -8444,7 +8450,7 @@
                                 <div style="font-size:15px;font-weight:700;color:${pc};" class="mono">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>
                                 <div style="font-size:11px;color:${pc};" class="mono">${pnl >= 0 ? '+' : ''}${formatINR(pnl, 0)}</div>
                             </div>
-                            <button onclick="clearRadarTrade(${tradeIndex})" style="all:unset;cursor:pointer;padding:4px 8px;border-radius:5px;font-size:10px;font-weight:600;background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid rgba(220,38,38,0.3);white-space:nowrap;" title="Remove this trade">✕</button>
+                            <button onclick="clearRadarTrade('${ticker}', '${closedAtTimestamp}')" style="all:unset;cursor:pointer;padding:4px 8px;border-radius:5px;font-size:10px;font-weight:600;background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid rgba(220,38,38,0.3);white-space:nowrap;" title="Remove this trade">✕</button>
                         </div>
                     </div>
                     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
