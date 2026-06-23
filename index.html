@@ -5859,7 +5859,10 @@
 
                 const response = await fetch(EC2_API, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': localStorage.getItem('STOCKYARD_API_KEY') || ''
+                    },
                     body: JSON.stringify({
                         symbol: symbol,
                         action: action,
