@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620194000 -->
+    <!-- BUILD: 20260620195000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -6755,14 +6755,14 @@
                 const nowHasLive = paged.some(s => s._liveLtp > 0);
                 if (!nowHasLive) return;  // still no live prices — nothing to do
 
-                // Re-filter with live prices (-15% to +4%)
+                // Re-filter with live prices (-15% to +2%)
                 const liveFiltered = paged.filter(s => {
                     const entry = s.prev_day_low || 0;
                     if (entry <= 0) return true;
                     const ltp = s._liveLtp || 0;
                     if (ltp <= 0) return false;
                     const distPct = (ltp - entry) / entry * 100;
-                    return distPct >= -15 && distPct <= 4;
+                    return distPct >= -15 && distPct <= 2;
                 });
 
                 // Re-sort by live distance: most negative first, progressing toward positive
