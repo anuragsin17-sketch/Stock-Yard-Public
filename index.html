@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620200000 -->
+    <!-- BUILD: 20260620201000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -6748,6 +6748,9 @@
             // Re-sort AND re-filter cards by live distance to entry after prices loaded.
             // Uses requestAnimationFrame to batch all DOM writes into one paint frame.
             function resortByLive() {
+                // TEMPORARILY DISABLED FOR DEBUGGING
+                return;
+                
                 if (currentTab !== 'volume') return; // user switched away — don't touch DOM
                 const cardsArea = document.getElementById('vol-cards-area');
                 if (!cardsArea) return;
