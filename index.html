@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620180000 -->
+    <!-- BUILD: 20260620190000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -7390,14 +7390,15 @@
                             localStorage.setItem(savedKey, JSON.stringify(saved));
                         }
                     }
-                    // Compute live distance from saved/default entry
-                    const liveDist = Math.abs((stock.currentPrice - entryTrigger) / entryTrigger * 100).toFixed(2);
+                    // Compute live distance from saved/default entry (keep sign for sort display)
+                    const liveDist = ((stock.currentPrice - entryTrigger) / entryTrigger * 100).toFixed(2);
 
-                    // Determine status badge based on live distance
+                    // Determine status badge based on live distance (use absolute value for threshold)
                     let statusBadge = '';
-                    if (liveDist <= 1.0) {
+                    const absLiveDist = Math.abs(liveDist);
+                    if (absLiveDist <= 1.0) {
                         statusBadge = '<span style="background:rgba(244,63,94,0.1);color:#f43f5e;border:1px solid rgba(244,63,94,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">CRITICAL ENTRY</span>';
-                    } else if (liveDist <= 5.0) {
+                    } else if (absLiveDist <= 5.0) {
                         statusBadge = '<span style="background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">WATCHLIST</span>';
                     } else {
                         statusBadge = '<span style="background:rgba(59,130,246,0.1);color:#3b82f6;border:1px solid rgba(59,130,246,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">MONITORING</span>';
@@ -7424,7 +7425,7 @@
                                 <div style="text-align:right;">
                                     <div id="tl_ltp_${stock.ticker}" style="font-size:18px;font-weight:700;color:#4b5563;" title="Fetching live price...">${formatINR(stock.currentPrice)}</div>
                                     <div id="tl_ltp_tag_${stock.ticker}" style="font-size:9px;color:#4b5563;margin-top:1px;font-weight:600;letter-spacing:0.3px;">LAST CLOSE</div>
-                                    <div style="font-size:11px;color:#6b7280;margin-top:2px;">Distance: <span id="dist_${stock.ticker}" style="color:#34d399;font-weight:700;">${liveDist}%</span></div>
+                                    <div style="font-size:11px;color:#6b7280;margin-top:2px;">Distance: <span id="dist_${stock.ticker}" style="color:${liveDist >= 0 ? '#34d399' : '#f87171'};font-weight:700;">${liveDist >= 0 ? '+' : ''}${liveDist}%</span></div>
                                 </div>
                             </div>
                             <!-- Metrics grid: 3 cols -->
