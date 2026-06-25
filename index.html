@@ -7481,11 +7481,6 @@
                 // Score  9 = near fib level ±3%
                 // Score  8 = fib ±3% AND trendline ≤2% (dual confluence — best)
                 const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
-                
-                // Debug: Log state
-                const inRadarTickers = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
-                const radarPurgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
-                console.log(`🔍 Trendline state: trendShowAll=${trendShowAll}, dismissed=${dismissed.length}, inRadar=${inRadarTickers.length}, purged=${radarPurgedTickers.length}`);
 
                 // Calculate dist_pct for each stock before filtering/sorting
                 trendlineStocks.forEach(s => {
@@ -7505,7 +7500,6 @@
                             const isDismissed = dismissed.includes(s.ticker);
                             const isInRadar = isTickerInRadar(s.ticker);
                             if (isDismissed || isInRadar) {
-                                console.log(`🚫 Filtered out ${s.ticker}: dismissed=${isDismissed}, inRadar=${isInRadar}`);
                                 return false;
                             }
                         }
@@ -7545,7 +7539,11 @@
                         // Tertiary: touch count desc (stronger trendline first)
                         return (b.wickTouches || 0) - (a.wickTouches || 0);
                     });
-                console.log(`🔍 Trendline filter: trendShowAll=${trendShowAll}, total=${trendlineStocks.length}, filtered=${filteredTrendStocks.length}`);
+                
+                // Debug logging
+                const inRadarCount = JSON.parse(localStorage.getItem('inRadarTickers') || '[]').length;
+                const purgedCount = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]').length;
+                console.log(`🔍 Trendline: total=${trendlineStocks.length}, filtered=${filteredTrendStocks.length}, trendShowAll=${trendShowAll}, dismissed=${dismissed.length}, inRadar=${inRadarCount}, purged=${purgedCount}`);
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
                 if (trendPage > trendTotalPages) trendPage = 1;
                 // If search active, show all matching stocks across all pages
