@@ -7459,21 +7459,27 @@
                 // Score  8 = fib ±3% AND trendline ≤2% (dual confluence — best)
                 const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
 
+                // Calculate dist_pct for each stock before filtering/sorting
+                trendlineStocks.forEach(s => {
+                    const trigger = s.triggerPrice || 0;
+                    const price = s._liveLtp || s.currentPrice || s.ltp || 0;
+                    if (trigger > 0 && price > 0) {
+                        s.dist_pct = ((price - trigger) / trigger * 100);
+                    } else {
+                        s.dist_pct = 999;
+                    }
+                });
+
                 const filteredTrendStocks = trendlineStocks
                     .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker)
                                  && (s.confluenceScore || 0) >= 8)
                     .sort((a, b) => {
                         // Primary: distance to entry (most negative first, progressing to positive)
-                        // Calculate signed distance: negative = below trigger, positive = above trigger
-                        const aTrigger = a.triggerPrice || 0;
-                        const bTrigger = b.triggerPrice || 0;
-                        const aLive = a._liveLtp || a.currentPrice || a.ltp || 0;
-                        const bLive = b._liveLtp || b.currentPrice || b.ltp || 0;
-                        const aDistPct = (aTrigger > 0 && aLive > 0) ? ((aLive - aTrigger) / aTrigger * 100) : 999;
-                        const bDistPct = (bTrigger > 0 && bLive > 0) ? ((bLive - bTrigger) / bTrigger * 100) : 999;
+                        const aDist = a.dist_pct ?? 999;
+                        const bDist = b.dist_pct ?? 999;
                         // Simple ascending sort: -10 < -5 < 0 < +1 < +2
-                        if (Math.abs(aDistPct - bDistPct) > 0.1) {
-                            return aDistPct - bDistPct;
+                        if (Math.abs(aDist - bDist) > 0.01) {
+                            return aDist - bDist;
                         }
                         // Secondary: Score 10 first (TL touch), then 9 (fib), then 8 (dual confluence)
                         const aScore = a.confluenceScore || 0;
