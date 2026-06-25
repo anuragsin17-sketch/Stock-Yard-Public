@@ -7283,10 +7283,13 @@
                         
                         // Score 9 = Fibonacci only → include only specific levels: 50%, 61.8%, 78.6%, 100%
                         if (score === 9) {
-                            return zone.includes('50%') || zone.includes('50.0') ||
-                                   zone.includes('61.8') ||
-                                   zone.includes('78.6') ||
-                                   zone.includes('100');
+                            const has50 = zone.includes('50%') || zone.includes('50.0');
+                            const has618 = zone.includes('61.8');
+                            const has786 = zone.includes('78.6');
+                            const has100 = zone.includes('100.0%'); // Fixed: was matching 50.0 before
+                            const match = has50 || has618 || has786 || has100;
+                            if (!match) console.log(`❌ Filtered out Score 9: ${s.ticker} - zone: ${zone}`);
+                            return match;
                         }
                         
                         // Score 8 = dual confluence (fib + trendline) → always include (best quality)
@@ -7295,16 +7298,13 @@
                         // Score 7 or below → exclude
                         return false;
                     })
+                    .filter(s => {
+                        // Distance filter: -10% to +3%
+                        const dist = s.dist_pct ?? 999;
+                        return dist >= -10 && dist <= 3;
+                    })
                     .sort((a, b) => {
-                        // Primary sort: Score descending (10 → 9 → 8)
-                        const aScore = a.confluenceScore || 0;
-                        const bScore = b.confluenceScore || 0;
-                        
-                        if (aScore !== bScore) {
-                            return bScore - aScore;  // Higher score first
-                        }
-                        
-                        // Secondary sort: By distance ascending (within same score)
+                        // Sort by distance ascending (negative to positive)
                         return (a.dist_pct ?? 999) - (b.dist_pct ?? 999);
                     });
                 
@@ -7312,6 +7312,7 @@
                 const inRadarCount = JSON.parse(localStorage.getItem('inRadarTickers') || '[]').length;
                 const purgedCount = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]').length;
                 console.log(`🔍 Trendline: total=${trendlineStocks.length}, filtered=${filteredTrendStocks.length}, trendShowAll=${trendShowAll}, dismissed=${dismissed.length}, inRadar=${inRadarCount}, purged=${purgedCount}`);
+                console.log(`📊 Pagination: ${filteredTrendStocks.length} stocks ÷ ${TAB_PAGE_SIZE} per page = ${Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE)} total pages`);
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
                 if (trendPage > trendTotalPages) trendPage = 1;
                 // If search active, show all matching stocks across all pages
