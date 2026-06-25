@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620190000 -->
+    <!-- BUILD: 20260620191500 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -7355,11 +7355,26 @@
                         return false;
                     })
                     .sort((a, b) => {
-                        // Sort by distance to entry (most negative first, progressing to positive)
-                        // -15% < -14% < -13% < ... < -1% < 0% < +1% < +2% < +3% < +4%
-                        const aDist = a.dist_pct ?? 999;
-                        const bDist = b.dist_pct ?? 999;
-                        return aDist - bDist;  // Simple ascending sort
+                        // Primary sort: Score 10 (trendline touch) first
+                        const aScore = a.confluenceScore || 0;
+                        const bScore = b.confluenceScore || 0;
+                        const aIsScore10 = aScore >= 10;
+                        const bIsScore10 = bScore >= 10;
+                        
+                        if (aIsScore10 && !bIsScore10) return -1;
+                        if (!aIsScore10 && bIsScore10) return 1;
+                        
+                        // Secondary sort: Critical entry (within ±1%) comes first
+                        const aDist = Math.abs(a.dist_pct ?? 999);
+                        const bDist = Math.abs(b.dist_pct ?? 999);
+                        const aIsCritical = aDist <= 1.0;
+                        const bIsCritical = bDist <= 1.0;
+                        
+                        if (aIsCritical && !bIsCritical) return -1;
+                        if (!aIsCritical && bIsCritical) return 1;
+                        
+                        // Tertiary sort: By distance (ascending)
+                        return (a.dist_pct ?? 999) - (b.dist_pct ?? 999);
                     });
                 
                 // Debug logging
