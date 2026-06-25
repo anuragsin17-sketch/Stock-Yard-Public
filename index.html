@@ -7304,7 +7304,14 @@
                         return dist >= -10 && dist <= 3;
                     })
                     .sort((a, b) => {
-                        // Sort by distance ascending (negative to positive)
+                        // Primary sort: Critical entry first (within ±1%)
+                        const aCritical = Math.abs(a.dist_pct ?? 999) <= 1;
+                        const bCritical = Math.abs(b.dist_pct ?? 999) <= 1;
+                        
+                        if (aCritical && !bCritical) return -1;
+                        if (!aCritical && bCritical) return 1;
+                        
+                        // Secondary sort: By distance ascending (negative to positive)
                         return (a.dist_pct ?? 999) - (b.dist_pct ?? 999);
                     });
                 
