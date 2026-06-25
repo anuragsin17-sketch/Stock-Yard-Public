@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620193000 -->
+    <!-- BUILD: 20260620194000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -6368,9 +6368,12 @@
         }
 
         function updateTabCounts() {
-            // Volume count — stocks currently in entry zone (-10% to +5%)
+            // Volume count — stocks currently in entry zone (-15% to +2%), excluding closed tickers
             // Use in_entry_zone flag if available, else total unalerted
-            const volInZone = (volGainerData || []).filter(s => s.in_entry_zone === true).length;
+            const volClosed = JSON.parse(localStorage.getItem('vol_closed_tickers') || '[]');
+            const volInZone = (volGainerData || [])
+                .filter(s => !volClosed.includes((s.ticker || '').toUpperCase()))
+                .filter(s => s.in_entry_zone === true).length;
             const volCount  = volInZone > 0
                 ? volInZone
                 : (volGainerData || []).filter(s => !s.alerted).length;
