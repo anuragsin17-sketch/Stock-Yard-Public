@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620191500 -->
+    <!-- BUILD: 20260620192000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -6542,7 +6542,7 @@
                                     s.ltp           = parseFloat(ltp);
                                     s._liveLtp      = parseFloat(ltp);
                                     s.dist_pct      = round2(dist);
-                                    s.in_entry_zone = dist >= -15 && dist <= 4;
+                                    s.in_entry_zone = dist >= -15 && dist <= 2;
                                 } else {
                                     s.in_entry_zone = false;
                                     s.dist_pct      = 999;
@@ -6568,7 +6568,7 @@
                 return (b.added_date || '').localeCompare(a.added_date || '');
             });
 
-            // Filter: show only in_entry_zone = true (now -15% to +4%)
+            // Filter: show only in_entry_zone = true (now -15% to +2%)
             // While still fetching for some (allFlagged=false), show what we have with flags
             let filtered = sorted.filter(s => s.in_entry_zone === true);
             
