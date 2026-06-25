@@ -6376,14 +6376,17 @@
                 : (volGainerData || []).filter(s => !s.alerted).length;
             setTabCount('volTabCount', volCount);
 
-            // Trendline count (dismissed excluded + confluence filter applied)
+            // Trendline count (respects trendShowAll toggle)
             fetch('./trendline_screen.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(tl => {
                     const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
                     // Apply same filter as Trendline tab: Score 10 OR Score 9 with specific fib levels
                     const tlCount = Array.isArray(tl) ? tl.filter(s => {
-                        if (dismissed.includes(s.ticker)) return false;
+                        // Apply dismissed/radar filter only if trendShowAll is false
+                        if (!trendShowAll) {
+                            if (dismissed.includes(s.ticker) || isTickerInRadar(s.ticker)) return false;
+                        }
                         const score = s.confluenceScore || 0;
                         const zone = s.patternZone || '';
                         // Score 10 = Trendline touch
@@ -7290,7 +7293,7 @@
                             <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                             Add Stock
                         </button>
-                        <button onclick="trendShowAll = !trendShowAll; trendPage=1; displayTrendlineScreen();"
+                        <button onclick="trendShowAll = !trendShowAll; trendPage=1; updateTabCounts(); displayTrendlineScreen();"
                             style="all:unset;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:${trendShowAll?'700':'500'};background:${trendShowAll?'rgba(59,130,246,0.15)':'#111625'};border:1px solid ${trendShowAll?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'};color:${trendShowAll?'#3B82F6':'#9ca3af'};cursor:pointer;">
                             ${trendShowAll ? '👁️ Show All' : '🎯 Fresh Only'}
                         </button>
@@ -7314,8 +7317,8 @@
                 manualStocksFiltered.forEach((ms, idx) => {
                     // preserve original index for remove/trade actions
                     const origIdx = manualStocksAll.indexOf(ms);
-                    // Skip if already in Radar
-                    if (isTickerInRadar(ms.symbol)) return;
+                    // Skip if already in Radar (respect trendShowAll toggle)
+                    if (!trendShowAll && isTickerInRadar(ms.symbol)) return;
                     const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ms.symbol}`;
                     const fibDivId = `manualFib_${ms.symbol}_${idx}`;
                     const manualLtpId = `manual_ltp_${ms.symbol}_${idx}`;
@@ -7527,6 +7530,7 @@
                         // Tertiary: touch count desc (stronger trendline first)
                         return (b.wickTouches || 0) - (a.wickTouches || 0);
                     });
+                console.log(`🔍 Trendline filter: trendShowAll=${trendShowAll}, total=${trendlineStocks.length}, filtered=${filteredTrendStocks.length}`);
                 const trendTotalPages = Math.ceil(filteredTrendStocks.length / TAB_PAGE_SIZE);
                 if (trendPage > trendTotalPages) trendPage = 1;
                 // If search active, show all matching stocks across all pages
