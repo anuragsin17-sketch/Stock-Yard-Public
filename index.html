@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620120000 -->
+    <!-- BUILD: 20260620180000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -7179,6 +7179,12 @@
         
         // Display trendline screen with Fibonacci grid analysis
         async function displayTrendlineScreen() {
+            // Debug: Log localStorage state
+            const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
+            const inRadarTickers = JSON.parse(localStorage.getItem('inRadarTickers') || '[]');
+            const radarPurgedTickers = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]');
+            console.log(`🔍 Trendline state: trendShowAll=${trendShowAll}, dismissed=${dismissed.length}, inRadar=${inRadarTickers.length}, purged=${radarPurgedTickers.length}`);
+            
             const container = document.getElementById('resultsContainer');
             
             // Only show skeleton on first load — not on background re-renders
