@@ -6523,7 +6523,7 @@
                                     s.ltp           = parseFloat(ltp);
                                     s._liveLtp      = parseFloat(ltp);
                                     s.dist_pct      = round2(dist);
-                                    s.in_entry_zone = dist >= -10 && dist <= 5;
+                                    s.in_entry_zone = dist >= -15 && dist <= 4;
                                 } else {
                                     s.in_entry_zone = false;
                                     s.dist_pct      = 999;
@@ -6538,15 +6538,25 @@
                 // While fetching, show only the ones we already have flags for
             }
 
-            // Sort nearest entry first
+            // Sort: negative distance first (most negative = -15%), then positive distances
             const sorted = [...volGainerData].sort((a, b) => {
-                const aDist = Math.abs(a.dist_pct ?? 999);
-                const bDist = Math.abs(b.dist_pct ?? 999);
-                if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
+                const aDist = a.dist_pct ?? 999;
+                const bDist = b.dist_pct ?? 999;
+                // If both are negative, more negative comes first (-15% before -5%)
+                if (aDist < 0 && bDist < 0) {
+                    return aDist - bDist; // -15 < -5, so -15 comes first
+                }
+                // If one is negative and one is positive, negative comes first
+                if (aDist < 0 && bDist >= 0) return -1;
+                if (aDist >= 0 && bDist < 0) return 1;
+                // If both are positive, closest to zero comes first
+                if (aDist >= 0 && bDist >= 0) {
+                    return aDist - bDist;
+                }
                 return (b.added_date || '').localeCompare(a.added_date || '');
             });
 
-            // Filter: show only in_entry_zone = true
+            // Filter: show only in_entry_zone = true (now -15% to +4%)
             // While still fetching for some (allFlagged=false), show what we have with flags
             const filtered = sorted.filter(s => s.in_entry_zone === true);
 
@@ -6697,23 +6707,33 @@
                 const nowHasLive = paged.some(s => s._liveLtp > 0);
                 if (!nowHasLive) return;  // still no live prices — nothing to do
 
-                // Re-filter with live prices
+                // Re-filter with live prices (-15% to +4%)
                 const liveFiltered = paged.filter(s => {
                     const entry = s.prev_day_low || 0;
                     if (entry <= 0) return true;
                     const ltp = s._liveLtp || 0;
                     if (ltp <= 0) return false;
                     const distPct = (ltp - entry) / entry * 100;
-                    return distPct >= -10 && distPct <= 5;
+                    return distPct >= -15 && distPct <= 4;
                 });
 
-                // Re-sort by live distance
+                // Re-sort by live distance: negative first, then positive
                 const sortedByLive = [...liveFiltered].sort((a, b) => {
                     const aEntry = a.prev_day_low || 0, bEntry = b.prev_day_low || 0;
                     const aLtp   = a._liveLtp || 0,     bLtp   = b._liveLtp || 0;
-                    const aDist  = (aEntry > 0 && aLtp > 0) ? Math.abs((aLtp - aEntry) / aEntry * 100) : 999;
-                    const bDist  = (bEntry > 0 && bLtp > 0) ? Math.abs((bLtp - bEntry) / bEntry * 100) : 999;
-                    if (Math.abs(aDist - bDist) > 0.1) return aDist - bDist;
+                    const aDist  = (aEntry > 0 && aLtp > 0) ? ((aLtp - aEntry) / aEntry * 100) : 999;
+                    const bDist  = (bEntry > 0 && bLtp > 0) ? ((bLtp - bEntry) / bEntry * 100) : 999;
+                    // If both are negative, more negative comes first (-15% before -5%)
+                    if (aDist < 0 && bDist < 0) {
+                        return aDist - bDist; // -15 < -5, so -15 comes first
+                    }
+                    // If one is negative and one is positive, negative comes first
+                    if (aDist < 0 && bDist >= 0) return -1;
+                    if (aDist >= 0 && bDist < 0) return 1;
+                    // If both are positive, closest to zero comes first
+                    if (aDist >= 0 && bDist >= 0) {
+                        return aDist - bDist;
+                    }
                     return (b.added_date || '').localeCompare(a.added_date || '');
                 });
 
@@ -7845,7 +7865,20 @@
             const closedSet = new Set(closed.map(c => `${c.symbol}_${c.strategy}`));
             const filtered = all.filter(s => !closedSet.has(`${s.symbol}_${s.strategy}`));
             
-            return filtered.sort((a, b) => a.distPct - b.distPct);
+            // Sort: negative distance first (most negative = -10%), then positive distances
+            return filtered.sort((a, b) => {
+                const aDist = a.distRaw; // signed distance
+                const bDist = b.distRaw;
+                // If both are negative, more negative comes first (-10% before -5%)
+                if (aDist < 0 && bDist < 0) {
+                    return aDist - bDist; // -10 < -5, so -10 comes first
+                }
+                // If one is negative and one is positive, negative comes first
+                if (aDist < 0 && bDist >= 0) return -1;
+                if (aDist >= 0 && bDist < 0) return 1;
+                // If both are positive, closest to zero comes first
+                return a.distPct - b.distPct;
+            });
         }
 
         function displayPlaceOrder() {
