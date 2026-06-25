@@ -7282,19 +7282,14 @@
                 const volumeCount = screeningData?.volume_breakout_stocks?.length || 0;
                 const volFiltered = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
                 const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                const totalOpps = volFiltered + trendlineStocks.length + manualStocks.length;
+                const totalOpps = volFiltered + trendlineStocks.length;
                 if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent= totalOpps.toLocaleString();
                 
                 let html = '';
 
-                // Add Stock button for Trendline tab — compact pill, left-aligned
+                // Action buttons for Trendline tab
                 html += `
                     <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                        <button onclick="openAddStockModal('trendline')"
-                            style="all:unset;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;cursor:pointer;">
-                            <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                            Add Stock
-                        </button>
                         <button onclick="trendShowAll = !trendShowAll; trendPage=1; updateTabCounts(); displayTrendlineScreen();"
                             style="all:unset;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:${trendShowAll?'700':'500'};background:${trendShowAll?'rgba(59,130,246,0.15)':'#111625'};border:1px solid ${trendShowAll?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'};color:${trendShowAll?'#3B82F6':'#9ca3af'};cursor:pointer;">
                             ${trendShowAll ? '👁️ Show All' : '🎯 Fresh Only'}
@@ -7306,175 +7301,12 @@
                     </div>
                 `;
 
-                // Show manually added stocks first (skip those already in Radar)
-                // Only show on page 1 — they are not paginated with trendline stocks
                 // When search is active, filter manual stocks by query too
                 const manualStocksAll = JSON.parse(localStorage.getItem('manualStocks') || '[]');
                 const manualStocksFiltered = trendSearch.length >= 3
                     ? manualStocksAll.filter(ms =>
                         (ms.symbol||'').toUpperCase().includes(trendSearch) ||
                         (ms.companyName||'').toUpperCase().includes(trendSearch))
-                    : manualStocksAll;
-                if (trendPage === 1 || trendSearch.length >= 3) {
-                manualStocksFiltered.forEach((ms, idx) => {
-                    // preserve original index for remove/trade actions
-                    const origIdx = manualStocksAll.indexOf(ms);
-                    // Skip if already in Radar (respect trendShowAll toggle)
-                    if (!trendShowAll && isTickerInRadar(ms.symbol)) return;
-                    const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${ms.symbol}`;
-                    const fibDivId = `manualFib_${ms.symbol}_${idx}`;
-                    const manualLtpId = `manual_ltp_${ms.symbol}_${idx}`;
-                    html += `
-                        <div class="stock-card mb-4" style="border-left: 3px solid #6366F1;">
-                            <div class="flex justify-between items-start">
-                                <div class="flex-1">
-                                    <div class="flex items-center space-x-2 mb-1">
-                                        <a href="${chartUrl}" target="_blank" class="text-lg font-bold text-slate-100 hover:text-blue-400">${ms.symbol}</a>
-                                        <span class="px-2 py-0.5 text-xs rounded-full" style="background: rgba(99,102,241,0.2); color: #818CF8;">Manual</span>
-                                    </div>
-                                    <div class="text-xs text-slate-400 mb-3">${ms.companyName || ''}</div>
-                                    <div id="${manualLtpId}" class="text-lg font-bold mono mb-2" style="color: #047857;">₹${parseFloat(ms.currentPrice).toLocaleString()}</div>
-                                    <div class="grid grid-cols-2 gap-2 mb-2">
-                                        <div><div class="text-xs text-slate-500">Entry Trigger</div><div class="text-sm font-bold mono" style="color: #3B82F6;">₹${parseFloat(ms.entryTrigger).toLocaleString()}</div></div>
-                                        <div><div class="text-xs text-slate-500">Target</div><div class="text-sm font-bold mono" style="color: #10B981;">₹${parseFloat(ms.targetExit).toLocaleString()}</div></div>
-                                        <div><div class="text-xs text-slate-500">Stop Loss</div><div class="text-sm font-bold mono" style="color: #DC2626;">₹${parseFloat(ms.stopLoss).toLocaleString()}</div></div>
-                                        <div><div class="text-xs text-slate-500">Position</div><div class="text-sm font-bold mono" style="color: #A78BFA;">₹${parseFloat(ms.positionSize).toLocaleString()}</div></div>
-                                    </div>
-                                    <div id="${fibDivId}" class="text-xs text-slate-500 mono mb-3">—</div>
-                                    <div class="flex items-center space-x-2">
-                                        <button onclick="takeManualTrade(${origIdx})"
-                                            class="px-4 py-2 rounded-lg text-xs font-semibold touch-btn"
-                                            style="background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;min-width:90px;letter-spacing:0.5px;font-weight:700;text-transform:uppercase;border:none;">
-                                            PLACE BUY ORDER
-                                        </button>
-                                        <button onclick="removeManualStock(${origIdx})"
-                                            class="py-2 px-3 rounded-lg text-xs touch-btn"
-                                            style="background: rgba(100,116,139,0.2); color: #94A3B8;">🗑️</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    // Show stored Fib levels (ATH → 2020 low, same as trendline screener).
-                    // If missing, fetch from EC2 /api/get-52w now.
-                    (function(divId, fibData, stockSymbol, stockIdx) {
-                        setTimeout(() => {
-                            const el = document.getElementById(divId);
-                            if (!el) return;
-
-                            function renderFib(d) {
-                                const high = d.fibHigh || d.week52High || 0;
-                                const low  = d.fibLow  || d.week52Low  || 0;
-                                const isATH = !!d.fibHigh;
-                                const rangeLabel = isATH
-                                    ? `ATH ₹${high.toLocaleString()} | 2020 Low ₹${low.toLocaleString()}`
-                                    : `52W H ₹${high.toLocaleString()} | L ₹${low.toLocaleString()}`;
-
-                                // Use entry trigger as reference price for pill highlight
-                                const ref = parseFloat(fibData.entryTrigger) || parseFloat(fibData.currentPrice) || 0;
-
-                                const FIB_DEFS = [
-                                    { k: '0.0%_W',   label: '0.0% (ATH)',   val: high },
-                                    { k: 'fib236',   label: '23.6%',        val: d.fib236 },
-                                    { k: 'fib382',   label: '38.2%',        val: d.fib382 },
-                                    { k: 'fib500',   label: '50.0%',        val: d.fib500 },
-                                    { k: 'fib618',   label: '61.8%',        val: d.fib618 },
-                                    { k: 'fib786',   label: '78.6%',        val: d.fib786 },
-                                    { k: 'fibLow',   label: '100.0% (Base)',val: low  },
-                                ];
-
-                                const pills = FIB_DEFS.map(({ label, val }) => {
-                                    if (!val || val <= 0) return '';
-                                    const dist = ref > 0 ? Math.abs((ref - val) / val * 100) : 999;
-                                    const isNear = dist <= 5.0;
-                                    const isGolden = label.startsWith('61.8');
-                                    let style;
-                                    if (isNear) {
-                                        style = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.5);font-weight:700;';
-                                    } else if (isGolden) {
-                                        style = 'background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);font-weight:600;';
-                                    } else if (val <= ref) {
-                                        style = 'background:rgba(59,130,246,0.07);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);';
-                                    } else {
-                                        style = 'background:rgba(107,114,128,0.07);color:#6b7280;border:1px solid rgba(107,114,128,0.12);';
-                                    }
-                                    const tick = isNear ? ' ✓' : '';
-                                    return `<span style="font-size:10px;padding:3px 7px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${label}: ₹${parseFloat(val).toFixed(0)}${tick}</span>`;
-                                }).join('');
-
-                                el.innerHTML = `
-                                    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">
-                                        Fibonacci Levels &nbsp;<span style="color:#4b5563;">${rangeLabel}</span>
-                                    </div>
-                                    <div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>
-                                `;
-                            }
-
-                            // New format (ATH + 2020 low) — needs fib236 or fib786 to confirm it's the new format
-                            // Old format only had fib382/fib500/fib618 — re-fetch for those
-                            if (fibData.fib618 && fibData.fib382 && fibData.fib236 !== undefined) {
-                                renderFib(fibData);
-                                return;
-                            }
-
-                            // Fib missing — fetch ATH + 2020 low from EC2
-                            el.innerHTML = '<span style="color:#6B7280;">Fib: fetching…</span>';
-                            fetch(`https://32-194-58-75.nip.io/api/get-52w?symbol=${stockSymbol}`, { signal: AbortSignal.timeout(10000) })
-                                .then(r => r.json())
-                                .then(data => {
-                        const high  = data.ath      > 0 ? data.ath      : (data.week_52_high || 0);
-                                    const low   = data.low_2020 > 0 ? data.low_2020 : (data.week_52_low  || 0);
-                                    if (high > 0 && low > 0 && high > low) {
-                                        const range = high - low;
-                                        const fibs = {
-                                            fibHigh: high, fibLow: low,
-                                            fib236: parseFloat((high - range * 0.236).toFixed(2)),
-                                            fib382: parseFloat((high - range * 0.382).toFixed(2)),
-                                            fib500: parseFloat((high - range * 0.500).toFixed(2)),
-                                            fib618: parseFloat((high - range * 0.618).toFixed(2)),
-                                            fib786: parseFloat((high - range * 0.786).toFixed(2)),
-                                            week52High: data.week_52_high || high,
-                                            week52Low:  data.week_52_low  || low,
-                                        };
-                                        renderFib(fibs);
-                                        const stocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                                        if (stocks[stockIdx] && stocks[stockIdx].symbol === stockSymbol) {
-                                            Object.assign(stocks[stockIdx], fibs);
-                                            localStorage.setItem('manualStocks', JSON.stringify(stocks));
-                                        }
-                                    } else {
-                                        el.innerHTML = '<span style="color:#6B7280;">Fib: — (no data)</span>';
-                                    }
-                                })
-                                .catch(() => {
-                                    el.innerHTML = '<span style="color:#6B7280;">Fib: — (EC2 unreachable)</span>';
-                                });
-                        }, 50);
-                    })(fibDivId, ms, ms.symbol, origIdx);
-
-                    // Fetch live LTP for manual stock from EC2
-                    (function(ltpId, symbol) {
-                        fetch(`${EC2_API}/api/get-quote?symbol=${symbol}`, { cache: 'no-store', signal: AbortSignal.timeout(6000) })
-                            .then(r => r.ok ? r.json() : null)
-                            .then(data => {
-                                if (!data || !data.success || !data.ltp) return;
-                                const el = document.getElementById(ltpId);
-                                if (!el) return;
-                                const ltp = parseFloat(data.ltp);
-                                const prev = parseFloat(data.close) || 0;
-                                if (prev > 0) {
-                                    const pct = ((ltp - prev) / prev * 100);
-                                    const color = pct >= 0 ? '#34d399' : '#f87171';
-                                    el.innerHTML = `₹${ltp.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span style="font-size:12px;color:${color};">(${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)</span>`;
-                                } else {
-                                    el.textContent = `₹${ltp.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                                }
-                                el.style.color = '#047857';
-                            })
-                            .catch(() => { /* keep saved price on failure */ });
-                    })(manualLtpId, ms.symbol);
-                });
-                } // end: manual stocks page 1 only
                 
                 // Trendline tab — only show scores 8, 9, 10
                 // Score 10 = trendline touch ≤3%
