@@ -7302,11 +7302,6 @@
                 `;
 
                 // When search is active, filter manual stocks by query too
-                const manualStocksAll = JSON.parse(localStorage.getItem('manualStocks') || '[]');
-                const manualStocksFiltered = trendSearch.length >= 3
-                    ? manualStocksAll.filter(ms =>
-                        (ms.symbol||'').toUpperCase().includes(trendSearch) ||
-                        (ms.companyName||'').toUpperCase().includes(trendSearch))
                 
                 // Trendline tab — only show scores 8, 9, 10
                 // Score 10 = trendline touch ≤3%
