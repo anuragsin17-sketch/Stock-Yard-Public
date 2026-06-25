@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620195000 -->
+    <!-- BUILD: 20260620200000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -6755,23 +6755,13 @@
                 const nowHasLive = paged.some(s => s._liveLtp > 0);
                 if (!nowHasLive) return;  // still no live prices — nothing to do
 
-                // Re-filter with live prices (-15% to +2%)
-                const liveFiltered = paged.filter(s => {
-                    const entry = s.prev_day_low || 0;
-                    if (entry <= 0) return true;
-                    const ltp = s._liveLtp || 0;
-                    if (ltp <= 0) return false;
-                    const distPct = (ltp - entry) / entry * 100;
-                    return distPct >= -15 && distPct <= 2;
-                });
-
-                // Re-sort by live distance: most negative first, progressing toward positive
-                const sortedByLive = [...liveFiltered].sort((a, b) => {
+                // Just re-sort by live distance, don't re-filter (filtering already done in main function)
+                const sortedByLive = [...paged].sort((a, b) => {
                     const aEntry = a.prev_day_low || 0, bEntry = b.prev_day_low || 0;
                     const aLtp   = a._liveLtp || 0,     bLtp   = b._liveLtp || 0;
                     const aDist  = (aEntry > 0 && aLtp > 0) ? ((aLtp - aEntry) / aEntry * 100) : 999;
                     const bDist  = (bEntry > 0 && bLtp > 0) ? ((bLtp - bEntry) / bEntry * 100) : 999;
-                    // Simple ascending sort: -15 < -10 < -5 < 0 < +2 < +4
+                    // Simple ascending sort: -15 < -10 < -5 < 0 < +2
                     if (Math.abs(aDist - bDist) > 0.01) {
                         return aDist - bDist;
                     }
@@ -6786,24 +6776,14 @@
                 const orderChanged = currentOrder.join(',') !== newOrder.join(',');
 
                 // Batch all DOM writes in one rAF to avoid per-update reflows
-                requestAnimationFrame(() => {
-                    // Show/hide cards based on live filter
-                    paged.forEach(s => {
-                        const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
-                        if (!el) return;
-                        el.style.display = liveFiltered.some(f => f.ticker === s.ticker) ? '' : 'none';
-                    });
-
-                    // Only reorder if sequence actually changed
-                    if (orderChanged) {
+                if (orderChanged) {
+                    requestAnimationFrame(() => {
                         sortedByLive.forEach(s => {
                             const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
                             if (el) cardsArea.appendChild(el);
                         });
-                    }
-
-                    setTabCount('volTabCount', liveFiltered.length);
-                });
+                    });
+                }
             }
         }
 
