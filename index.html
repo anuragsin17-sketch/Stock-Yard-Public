@@ -7284,11 +7284,15 @@
 
                 // Add Stock button for Trendline tab — compact pill, left-aligned
                 html += `
-                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
                         <button onclick="openAddStockModal('trendline')"
                             style="all:unset;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(16,185,129,0.3);color:#34d399;cursor:pointer;">
                             <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                             Add Stock
+                        </button>
+                        <button onclick="trendShowAll = !trendShowAll; trendPage=1; displayTrendlineScreen();"
+                            style="all:unset;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:${trendShowAll?'700':'500'};background:${trendShowAll?'rgba(59,130,246,0.15)':'#111625'};border:1px solid ${trendShowAll?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'};color:${trendShowAll?'#3B82F6':'#9ca3af'};cursor:pointer;">
+                            ${trendShowAll ? '👁️ Show All' : '🎯 Fresh Only'}
                         </button>
                         <button onclick="toggleTrendSearch()"
                             style="all:unset;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
@@ -7486,7 +7490,11 @@
 
                 const filteredTrendStocks = trendlineStocks
                     .filter(s => {
-                        if (dismissed.includes(s.ticker) || isTickerInRadar(s.ticker)) return false;
+                        // Apply dismissed/radar filter only if trendShowAll is false
+                        if (!trendShowAll) {
+                            if (dismissed.includes(s.ticker) || isTickerInRadar(s.ticker)) return false;
+                        }
+                        
                         const score = s.confluenceScore || 0;
                         const zone = s.patternZone || '';
                         
@@ -7813,6 +7821,7 @@
         let trendSearch = '';
         let radarSearch = '';
         let volPriceFilter = 'all'; // 'all' | 'below100' | 'above100'
+        let trendShowAll = false; // false = hide dismissed/radar, true = show all
         const TAB_PAGE_SIZE = 10;
 
         function paginationControls(currentPage, totalPages, onPrev, onNext, onJump) {
