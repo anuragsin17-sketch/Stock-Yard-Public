@@ -6376,12 +6376,26 @@
                 : (volGainerData || []).filter(s => !s.alerted).length;
             setTabCount('volTabCount', volCount);
 
-            // Trendline count (dismissed excluded)
+            // Trendline count (dismissed excluded + confluence filter applied)
             fetch('./trendline_screen.json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(tl => {
                     const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
-                    const tlCount = Array.isArray(tl) ? tl.filter(s => !dismissed.includes(s.ticker)).length : 0;
+                    // Apply same filter as Trendline tab: Score 10 OR Score 9 with specific fib levels
+                    const tlCount = Array.isArray(tl) ? tl.filter(s => {
+                        if (dismissed.includes(s.ticker)) return false;
+                        const score = s.confluenceScore || 0;
+                        const zone = s.patternZone || '';
+                        // Score 10 = Trendline touch
+                        if (score >= 10) return true;
+                        // Score 9 = Fibonacci only at 50%, 61.8%, 78.6%, 100%
+                        if (score === 9) {
+                            return zone.includes('50%') || zone.includes('50.0') ||
+                                   zone.includes('61.8') || zone.includes('78.6') ||
+                                   zone.includes('100');
+                        }
+                        return false;
+                    }).length : 0;
                     setTabCount('trendTabCount', tlCount);
                 });
 
