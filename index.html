@@ -7463,13 +7463,22 @@
                     .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker)
                                  && (s.confluenceScore || 0) >= 8)
                     .sort((a, b) => {
-                        // Score 10 first (TL touch), then 9 (fib), then 8 (dual confluence)
+                        // Primary: distance to entry (most negative first, progressing to positive)
+                        // Calculate signed distance: negative = below trigger, positive = above trigger
+                        const aTrigger = a.triggerPrice || 0;
+                        const bTrigger = b.triggerPrice || 0;
+                        const aLive = a._liveLtp || a.currentPrice || a.ltp || 0;
+                        const bLive = b._liveLtp || b.currentPrice || b.ltp || 0;
+                        const aDistPct = (aTrigger > 0 && aLive > 0) ? ((aLive - aTrigger) / aTrigger * 100) : 999;
+                        const bDistPct = (bTrigger > 0 && bLive > 0) ? ((bLive - bTrigger) / bTrigger * 100) : 999;
+                        // Simple ascending sort: -10 < -5 < 0 < +1 < +2
+                        if (Math.abs(aDistPct - bDistPct) > 0.1) {
+                            return aDistPct - bDistPct;
+                        }
+                        // Secondary: Score 10 first (TL touch), then 9 (fib), then 8 (dual confluence)
                         const aScore = a.confluenceScore || 0;
                         const bScore = b.confluenceScore || 0;
                         if (aScore !== bScore) return bScore - aScore;  // 10 > 9 > 8 → descending
-                        // Secondary: distance to trendline asc (closest = most urgent)
-                        const distDiff = (a.distanceRemaining || 0) - (b.distanceRemaining || 0);
-                        if (Math.abs(distDiff) > 0.1) return distDiff;
                         // Tertiary: touch count desc (stronger trendline first)
                         return (b.wickTouches || 0) - (a.wickTouches || 0);
                     });
