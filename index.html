@@ -7304,14 +7304,21 @@
                         return dist >= -10 && dist <= 3;
                     })
                     .sort((a, b) => {
-                        // Primary sort: Critical entry first (within ±1%)
+                        // Primary sort: Score 10 first
+                        const aScore = a.confluenceScore || 0;
+                        const bScore = b.confluenceScore || 0;
+                        
+                        if (aScore === 10 && bScore !== 10) return -1;
+                        if (aScore !== 10 && bScore === 10) return 1;
+                        
+                        // Secondary sort: Critical entry (within ±1%)
                         const aCritical = Math.abs(a.dist_pct ?? 999) <= 1;
                         const bCritical = Math.abs(b.dist_pct ?? 999) <= 1;
                         
                         if (aCritical && !bCritical) return -1;
                         if (!aCritical && bCritical) return 1;
                         
-                        // Secondary sort: By distance ascending (negative to positive)
+                        // Tertiary sort: By distance ascending (negative to positive)
                         return (a.dist_pct ?? 999) - (b.dist_pct ?? 999);
                     });
                 
