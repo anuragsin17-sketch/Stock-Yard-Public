@@ -7471,8 +7471,25 @@
                 });
 
                 const filteredTrendStocks = trendlineStocks
-                    .filter(s => !dismissed.includes(s.ticker) && !isTickerInRadar(s.ticker)
-                                 && (s.confluenceScore || 0) >= 8)
+                    .filter(s => {
+                        if (dismissed.includes(s.ticker) || isTickerInRadar(s.ticker)) return false;
+                        const score = s.confluenceScore || 0;
+                        const zone = s.patternZone || '';
+                        
+                        // Score 10 = Trendline touch → always include
+                        if (score >= 10) return true;
+                        
+                        // Score 9 = Fibonacci only → include only specific levels: 50%, 61.8%, 78.6%, 100%
+                        if (score === 9) {
+                            return zone.includes('50%') || zone.includes('50.0') ||
+                                   zone.includes('61.8') ||
+                                   zone.includes('78.6') ||
+                                   zone.includes('100');
+                        }
+                        
+                        // Score 8 or below → exclude
+                        return false;
+                    })
                     .sort((a, b) => {
                         // Primary: distance to entry (most negative first, progressing to positive)
                         const aDist = a.dist_pct ?? 999;
@@ -7836,6 +7853,16 @@
                 const trigger = s.triggerPrice || 0;
                 const symbol  = s.ticker || '';
                 if (!trigger || !symbol) return;
+                
+                // Apply same filter as Trendline tab: Score 10 (TL touch) OR Score 9 with specific fib levels
+                const score = s.confluenceScore || 0;
+                const zone = s.patternZone || '';
+                const isValidSignal = score >= 10 || // Trendline touch
+                                     (score === 9 && (zone.includes('50%') || zone.includes('50.0') ||
+                                                      zone.includes('61.8') || zone.includes('78.6') ||
+                                                      zone.includes('100')));
+                if (!isValidSignal) return; // Skip if not trendline touch or valid fib level
+                
                 const live = s._liveLtp || s.currentPrice || 0;
                 if (!live) return;
                 // signed distance: negative = below trigger, positive = above trigger
