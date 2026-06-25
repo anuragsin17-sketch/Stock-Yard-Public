@@ -7525,19 +7525,11 @@
                         return false;
                     })
                     .sort((a, b) => {
-                        // Primary: distance to entry (most negative first, progressing to positive)
+                        // Sort by distance to entry (most negative first, progressing to positive)
+                        // -15% < -14% < -13% < ... < -1% < 0% < +1% < +2% < +3% < +4%
                         const aDist = a.dist_pct ?? 999;
                         const bDist = b.dist_pct ?? 999;
-                        // Simple ascending sort: -10 < -5 < 0 < +1 < +2
-                        if (Math.abs(aDist - bDist) > 0.01) {
-                            return aDist - bDist;
-                        }
-                        // Secondary: Score 10 first (TL touch), then 9 (fib), then 8 (dual confluence)
-                        const aScore = a.confluenceScore || 0;
-                        const bScore = b.confluenceScore || 0;
-                        if (aScore !== bScore) return bScore - aScore;  // 10 > 9 > 8 → descending
-                        // Tertiary: touch count desc (stronger trendline first)
-                        return (b.wickTouches || 0) - (a.wickTouches || 0);
+                        return aDist - bDist;  // Simple ascending sort
                     });
                 
                 // Debug logging
