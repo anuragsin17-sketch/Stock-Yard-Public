@@ -7601,7 +7601,7 @@
                 }
 
                 // Count badge update using filtered count
-                const totalOppsFiltered = (screeningData?.volume_breakout_stocks?.length || 0) + filteredTrendStocks.length + manualStocksAll.length;
+                const totalOppsFiltered = (screeningData?.volume_breakout_stocks?.length || 0) + filteredTrendStocks.length;
                 if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent= totalOppsFiltered.toLocaleString();
 
                 container.innerHTML = html;
