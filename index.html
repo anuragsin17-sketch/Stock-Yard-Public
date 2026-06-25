@@ -7324,6 +7324,9 @@
                         s.dist_pct = 999;
                     }
                 });
+                
+                // Debug: Log dist_pct values
+                console.log('📊 First 10 stocks dist_pct:', trendlineStocks.slice(0, 10).map(s => `${s.ticker}: ${s.dist_pct.toFixed(2)}%`));
 
                 const filteredTrendStocks = trendlineStocks
                     .filter(s => {
