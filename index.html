@@ -6381,7 +6381,7 @@
                 .then(r => r.ok ? r.json() : []).catch(() => [])
                 .then(tl => {
                     const dismissed = JSON.parse(localStorage.getItem('trendline_dismissed') || '[]');
-                    // Apply same filter as Trendline tab: Score 10 OR Score 9 with specific fib levels
+                    // Apply same filter as Trendline tab: Score 10, Score 9 with specific fib levels, or Score 8
                     const tlCount = Array.isArray(tl) ? tl.filter(s => {
                         // Apply dismissed/radar filter only if trendShowAll is false
                         if (!trendShowAll) {
@@ -6397,6 +6397,8 @@
                                    zone.includes('61.8') || zone.includes('78.6') ||
                                    zone.includes('100');
                         }
+                        // Score 8 = dual confluence (best)
+                        if (score === 8) return true;
                         return false;
                     }).length : 0;
                     setTabCount('trendTabCount', tlCount);
@@ -7495,7 +7497,12 @@
                     .filter(s => {
                         // Apply dismissed/radar filter only if trendShowAll is false
                         if (!trendShowAll) {
-                            if (dismissed.includes(s.ticker) || isTickerInRadar(s.ticker)) return false;
+                            const isDismissed = dismissed.includes(s.ticker);
+                            const isInRadar = isTickerInRadar(s.ticker);
+                            if (isDismissed || isInRadar) {
+                                console.log(`🚫 Filtered out ${s.ticker}: dismissed=${isDismissed}, inRadar=${isInRadar}`);
+                                return false;
+                            }
                         }
                         
                         const score = s.confluenceScore || 0;
@@ -7512,7 +7519,10 @@
                                    zone.includes('100');
                         }
                         
-                        // Score 8 or below → exclude
+                        // Score 8 = dual confluence (fib + trendline) → always include (best quality)
+                        if (score === 8) return true;
+                        
+                        // Score 7 or below → exclude
                         return false;
                     })
                     .sort((a, b) => {
