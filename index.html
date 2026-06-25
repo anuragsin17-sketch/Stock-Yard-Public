@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- BUILD: 20260620201000 -->
+    <!-- BUILD: 20260620202000 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#047857">
@@ -6733,61 +6733,16 @@
                                     }
                                 }
                             });
-                            resortByLive();
                         });
                     } else {
                         // fetchBulkLTP already tried Yahoo — if still empty, try individual
-                        Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
+                        Promise.allSettled(paged.map(fetchIndividual));
                         return;
                     }
                 })
                 .catch(() => {
-                    Promise.allSettled(paged.map(fetchIndividual)).then(() => resortByLive());
+                    Promise.allSettled(paged.map(fetchIndividual));
                 });
-
-            // Re-sort AND re-filter cards by live distance to entry after prices loaded.
-            // Uses requestAnimationFrame to batch all DOM writes into one paint frame.
-            function resortByLive() {
-                // TEMPORARILY DISABLED FOR DEBUGGING
-                return;
-                
-                if (currentTab !== 'volume') return; // user switched away — don't touch DOM
-                const cardsArea = document.getElementById('vol-cards-area');
-                if (!cardsArea) return;
-
-                const nowHasLive = paged.some(s => s._liveLtp > 0);
-                if (!nowHasLive) return;  // still no live prices — nothing to do
-
-                // Just re-sort by live distance, don't re-filter (filtering already done in main function)
-                const sortedByLive = [...paged].sort((a, b) => {
-                    const aEntry = a.prev_day_low || 0, bEntry = b.prev_day_low || 0;
-                    const aLtp   = a._liveLtp || 0,     bLtp   = b._liveLtp || 0;
-                    const aDist  = (aEntry > 0 && aLtp > 0) ? ((aLtp - aEntry) / aEntry * 100) : 999;
-                    const bDist  = (bEntry > 0 && bLtp > 0) ? ((bLtp - bEntry) / bEntry * 100) : 999;
-                    // Simple ascending sort: -15 < -10 < -5 < 0 < +2
-                    if (Math.abs(aDist - bDist) > 0.01) {
-                        return aDist - bDist;
-                    }
-                    return (b.added_date || '').localeCompare(a.added_date || '');
-                });
-
-                // Check if the visible order actually changed — skip DOM moves if not
-                const currentOrder = Array.from(cardsArea.children)
-                    .filter(el => el.style.display !== 'none')
-                    .map(el => el.getAttribute('data-ticker'));
-                const newOrder = sortedByLive.map(s => s.ticker);
-                const orderChanged = currentOrder.join(',') !== newOrder.join(',');
-
-                // Batch all DOM writes in one rAF to avoid per-update reflows
-                if (orderChanged) {
-                    requestAnimationFrame(() => {
-                        sortedByLive.forEach(s => {
-                            const el = cardsArea.querySelector(`[data-ticker="${s.ticker}"]`);
-                            if (el) cardsArea.appendChild(el);
-                        });
-                    });
-                }
-            }
         }
 
         function createVolumeGainerCard(stock) {
