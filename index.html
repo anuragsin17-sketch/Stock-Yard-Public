@@ -6538,19 +6538,12 @@
                 // While fetching, show only the ones we already have flags for
             }
 
-            // Sort: negative distance first (most negative = -15%), then positive distances
+            // Sort: most negative first (-15%), progressing toward positive (+4%)
             const sorted = [...volGainerData].sort((a, b) => {
                 const aDist = a.dist_pct ?? 999;
                 const bDist = b.dist_pct ?? 999;
-                // If both are negative, more negative comes first (-15% before -5%)
-                if (aDist < 0 && bDist < 0) {
-                    return aDist - bDist; // -15 < -5, so -15 comes first
-                }
-                // If one is negative and one is positive, negative comes first
-                if (aDist < 0 && bDist >= 0) return -1;
-                if (aDist >= 0 && bDist < 0) return 1;
-                // If both are positive, closest to zero comes first
-                if (aDist >= 0 && bDist >= 0) {
+                // Simple ascending sort: -15 < -10 < -5 < 0 < +2 < +4
+                if (Math.abs(aDist - bDist) > 0.01) {
                     return aDist - bDist;
                 }
                 return (b.added_date || '').localeCompare(a.added_date || '');
@@ -6558,7 +6551,31 @@
 
             // Filter: show only in_entry_zone = true (now -15% to +4%)
             // While still fetching for some (allFlagged=false), show what we have with flags
-            const filtered = sorted.filter(s => s.in_entry_zone === true);
+            let filtered = sorted.filter(s => s.in_entry_zone === true);
+            
+            // Apply price filter
+            if (volPriceFilter === 'below100') {
+                filtered = filtered.filter(s => {
+                    const price = s._liveLtp || s.ltp || s.close_price || 0;
+                    return price > 0 && price < 100;
+                });
+            } else if (volPriceFilter === 'above100') {
+                filtered = filtered.filter(s => {
+                    const price = s._liveLtp || s.ltp || s.close_price || 0;
+                    return price >= 100;
+                });
+            }
+            
+            // Count stocks by price range for badges
+            const allInZone = sorted.filter(s => s.in_entry_zone === true);
+            const below100Count = allInZone.filter(s => {
+                const price = s._liveLtp || s.ltp || s.close_price || 0;
+                return price > 0 && price < 100;
+            }).length;
+            const above100Count = allInZone.filter(s => {
+                const price = s._liveLtp || s.ltp || s.close_price || 0;
+                return price >= 100;
+            }).length;
 
             // Render: action bar → cards area → pagination at bottom
             const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE);
@@ -6579,6 +6596,15 @@
                         <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                         Add Stock
                     </button>
+                    <button onclick="volPriceFilter='below100'; volPage=1; displayVolumeGainerTab();"
+                        style="all:unset;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:${volPriceFilter==='below100'?'700':'500'};background:${volPriceFilter==='below100'?'rgba(59,130,246,0.15)':'#111625'};border:1px solid ${volPriceFilter==='below100'?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'};color:${volPriceFilter==='below100'?'#3B82F6':'#9ca3af'};cursor:pointer;">
+                        Below ₹100 <span style="opacity:0.7;">${below100Count}</span>
+                    </button>
+                    <button onclick="volPriceFilter='above100'; volPage=1; displayVolumeGainerTab();"
+                        style="all:unset;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:${volPriceFilter==='above100'?'700':'500'};background:${volPriceFilter==='above100'?'rgba(251,191,36,0.15)':'#111625'};border:1px solid ${volPriceFilter==='above100'?'rgba(251,191,36,0.4)':'rgba(255,255,255,0.1)'};color:${volPriceFilter==='above100'?'#fbbf24':'#9ca3af'};cursor:pointer;">
+                        Above ₹100 <span style="opacity:0.7;">${above100Count}</span>
+                    </button>
+                    ${volPriceFilter !== 'all' ? `<button onclick="volPriceFilter='all'; volPage=1; displayVolumeGainerTab();" style="all:unset;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;font-size:10px;font-weight:600;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;cursor:pointer;">✕ Clear</button>` : ''}
                     <button onclick="toggleVolSearch()"
                         style="all:unset;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
                         <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -6717,21 +6743,14 @@
                     return distPct >= -15 && distPct <= 4;
                 });
 
-                // Re-sort by live distance: negative first, then positive
+                // Re-sort by live distance: most negative first, progressing toward positive
                 const sortedByLive = [...liveFiltered].sort((a, b) => {
                     const aEntry = a.prev_day_low || 0, bEntry = b.prev_day_low || 0;
                     const aLtp   = a._liveLtp || 0,     bLtp   = b._liveLtp || 0;
                     const aDist  = (aEntry > 0 && aLtp > 0) ? ((aLtp - aEntry) / aEntry * 100) : 999;
                     const bDist  = (bEntry > 0 && bLtp > 0) ? ((bLtp - bEntry) / bEntry * 100) : 999;
-                    // If both are negative, more negative comes first (-15% before -5%)
-                    if (aDist < 0 && bDist < 0) {
-                        return aDist - bDist; // -15 < -5, so -15 comes first
-                    }
-                    // If one is negative and one is positive, negative comes first
-                    if (aDist < 0 && bDist >= 0) return -1;
-                    if (aDist >= 0 && bDist < 0) return 1;
-                    // If both are positive, closest to zero comes first
-                    if (aDist >= 0 && bDist >= 0) {
+                    // Simple ascending sort: -15 < -10 < -5 < 0 < +2 < +4
+                    if (Math.abs(aDist - bDist) > 0.01) {
                         return aDist - bDist;
                     }
                     return (b.added_date || '').localeCompare(a.added_date || '');
@@ -7747,6 +7766,7 @@
         let volSearch = '';
         let trendSearch = '';
         let radarSearch = '';
+        let volPriceFilter = 'all'; // 'all' | 'below100' | 'above100'
         const TAB_PAGE_SIZE = 10;
 
         function paginationControls(currentPage, totalPages, onPrev, onNext, onJump) {
@@ -7865,19 +7885,13 @@
             const closedSet = new Set(closed.map(c => `${c.symbol}_${c.strategy}`));
             const filtered = all.filter(s => !closedSet.has(`${s.symbol}_${s.strategy}`));
             
-            // Sort: negative distance first (most negative = -10%), then positive distances
+            // Sort: most negative first (-10%), progressing toward positive (+2%)
+            // Simple ascending sort by raw distance: -10 < -5 < 0 < +1 < +2
             return filtered.sort((a, b) => {
-                const aDist = a.distRaw; // signed distance
-                const bDist = b.distRaw;
-                // If both are negative, more negative comes first (-10% before -5%)
-                if (aDist < 0 && bDist < 0) {
-                    return aDist - bDist; // -10 < -5, so -10 comes first
+                if (Math.abs(a.distRaw - b.distRaw) > 0.01) {
+                    return a.distRaw - b.distRaw;
                 }
-                // If one is negative and one is positive, negative comes first
-                if (aDist < 0 && bDist >= 0) return -1;
-                if (aDist >= 0 && bDist < 0) return 1;
-                // If both are positive, closest to zero comes first
-                return a.distPct - b.distPct;
+                return 0;
             });
         }
 
