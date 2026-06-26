@@ -434,6 +434,13 @@
                     <span id="trendTabCount" class="px-1.5 py-0.5 rounded-full text-xs font-bold" style="background:rgba(255,255,255,0.12);color:#94a3b8;min-width:18px;text-align:center;display:none;"></span>
                 </div>
             </button>
+            <button id="microcap250Tab" class="pill-tab flex-shrink-0">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                    <span>Microcap250</span>
+                    <span id="microcap250TabCount" class="px-1.5 py-0.5 rounded-full text-xs font-bold" style="background:rgba(255,255,255,0.12);color:#94a3b8;min-width:18px;text-align:center;display:none;"></span>
+                </div>
+            </button>
             <button id="placeOrderTab" class="pill-tab flex-shrink-0">
                 <div class="flex items-center space-x-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
@@ -5352,6 +5359,7 @@
             // Tab buttons
             document.getElementById('volTab').addEventListener('click', () => switchTab('volume'));
             document.getElementById('trendlineTab').addEventListener('click', () => switchTab('trendline'));
+            document.getElementById('microcap250Tab').addEventListener('click', () => switchTab('microcap250'));
             document.getElementById('placeOrderTab').addEventListener('click', () => switchTab('placeorder'));
             document.getElementById('performanceTab').addEventListener('click', () => switchTab('performance'));
             document.getElementById('pastPerfTab').addEventListener('click', () => switchTab('pastperf'));
@@ -5362,8 +5370,8 @@
 
             // ─── Swipe gesture support ────────────────────────────────────────
             const swipeTarget = document.querySelector('main') || document.getElementById('resultsContainer');
-            const TAB_ORDER = ['volume', 'trendline', 'placeorder', 'performance', 'pastperf', 'radarperf'];
-            const TAB_BTN_IDS = { volume: 'volTab', trendline: 'trendlineTab', placeorder: 'placeOrderTab', performance: 'performanceTab', pastperf: 'pastPerfTab', radarperf: 'radarPerfTab' };
+            const TAB_ORDER = ['volume', 'trendline', 'microcap250', 'placeorder', 'performance', 'pastperf', 'radarperf'];
+            const TAB_BTN_IDS = { volume: 'volTab', trendline: 'trendlineTab', microcap250: 'microcap250Tab', placeorder: 'placeOrderTab', performance: 'performanceTab', pastperf: 'pastPerfTab', radarperf: 'radarPerfTab' };
             let swipeStartX = 0, swipeStartY = 0;
             swipeTarget.addEventListener('touchstart', function(e) {
                 swipeStartX = e.touches[0].clientX;
@@ -6886,6 +6894,9 @@
                 case 'trendline':
                     displayTrendlineScreen();
                     return;
+                case 'microcap250':
+                    displayMicrocap250Screen();
+                    return;
                 case 'placeorder':
                     displayPlaceOrder();
                     return;
@@ -7600,6 +7611,179 @@
                         })
                         .catch(() => {});
                 });
+        }
+        
+        // Display Microcap250 screen with same logic as Trendline
+        async function displayMicrocap250Screen() {
+            const container = document.getElementById('resultsContainer');
+            
+            // Only show skeleton on first load
+            if (!container.querySelector('[data-ticker]') && !container.querySelector('.stock-card')) {
+                container.innerHTML = skeletonList(4);
+            }
+            
+            let microcap250Stocks = null;
+
+            // Try EC2 DynamoDB API first
+            try {
+                const resp = await fetchWithTimeout(`${EC2_API}/api/signals?type=MICROCAP250`, { cache: 'no-store' }, 4000);
+                if (resp.ok) {
+                    const json = await resp.json();
+                    if (json.success && json.data?.microcap250?.length) {
+                        microcap250Stocks = json.data.microcap250;
+                        console.log(`✅ DynamoDB microcap250: ${microcap250Stocks.length} stocks`);
+                    }
+                }
+            } catch(e) {
+                console.log('⚠️ EC2 microcap250 fetch failed, falling back to JSON');
+            }
+
+            // Fallback to JSON file
+            if (!microcap250Stocks) {
+                try {
+                    const response = await fetch('./microcap250_screen.json', { method: 'GET', headers: { 'Cache-Control': 'no-cache' }, cache: 'no-store' });
+                    if (!response.ok) throw new Error('Failed to load microcap250 data');
+                    microcap250Stocks = await response.json();
+                } catch(e) {
+                    microcap250Stocks = [];
+                }
+            }
+
+            // Guard: user may have switched tabs while the async fetch was in flight
+            if (currentTab !== 'microcap250') return;
+            
+            if (!microcap250Stocks || microcap250Stocks.length === 0) {
+                container.innerHTML = `
+                    <div class="mobile-card rounded-xl p-6 text-center">
+                        <div class="text-slate-400 mb-2">No Microcap250 opportunities found</div>
+                        <div class="text-xs text-slate-500">Check back after market hours for updated screening results</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Update tab count
+            if(document.getElementById('microcap250TabCount')) {
+                document.getElementById('microcap250TabCount').textContent = microcap250Stocks.length;
+            }
+            
+            let html = `
+                <div class="mobile-card rounded-xl p-4 mb-4" style="border-color: rgba(4, 120, 87, 0.2); background: rgba(4, 120, 87, 0.1);">
+                    <div class="text-xs font-semibold tracking-wider uppercase" style="color: #047857;">MICROCAP250 TRENDLINE + FIBONACCI SIGNALS</div>
+                    <div class="text-xs text-slate-400 mt-2">Post-2020 | Wick touch ≤5% | Unbroken trendline | Fibonacci confluence</div>
+                </div>
+            `;
+
+            // Calculate dist_pct for each stock before filtering/sorting
+            microcap250Stocks.forEach(s => {
+                const trigger = s.triggerPrice || 0;
+                const price = s._liveLtp || s.currentPrice || s.ltp || 0;
+                if (trigger > 0 && price > 0) {
+                    s.dist_pct = ((price - trigger) / trigger * 100);
+                } else {
+                    s.dist_pct = 999;
+                }
+            });
+
+            const filteredStocks = microcap250Stocks
+                .filter(s => {
+                    const score = s.confluenceScore || 0;
+                    const zone = s.patternZone || '';
+                    
+                    // Score 10 = Trendline touch → always include
+                    if (score >= 10) return true;
+                    
+                    // Score 9 = Fibonacci only → include only specific levels
+                    if (score === 9) {
+                        const has50 = zone.includes('50%') || zone.includes('50.0');
+                        const has618 = zone.includes('61.8');
+                        const has786 = zone.includes('78.6');
+                        const has100 = zone.includes('100.0%');
+                        return has50 || has618 || has786 || has100;
+                    }
+                    
+                    // Score 8 = dual confluence → always include
+                    if (score === 8) return true;
+                    
+                    return false;
+                })
+                .filter(s => {
+                    // Distance filter: -10% to +3%
+                    const dist = s.dist_pct ?? 999;
+                    return dist >= -10 && dist <= 3;
+                })
+                .sort((a, b) => {
+                    // Primary sort: Score 10 first
+                    const aScore = a.confluenceScore || 0;
+                    const bScore = b.confluenceScore || 0;
+                    
+                    if (aScore === 10 && bScore !== 10) return -1;
+                    if (aScore !== 10 && bScore === 10) return 1;
+                    
+                    // Secondary sort: Critical entry (within ±1%)
+                    const aCritical = Math.abs(a.dist_pct ?? 999) <= 1;
+                    const bCritical = Math.abs(b.dist_pct ?? 999) <= 1;
+                    
+                    if (aCritical && !bCritical) return -1;
+                    if (!aCritical && bCritical) return 1;
+                    
+                    // Tertiary sort: By distance ascending
+                    return (a.dist_pct ?? 999) - (b.dist_pct ?? 999);
+                });
+
+            filteredStocks.forEach(stock => {
+                const entryTrigger = stock.triggerPrice;
+                const liveDist = ((stock.currentPrice - entryTrigger) / entryTrigger * 100).toFixed(2);
+
+                // Determine status badge
+                let statusBadge = '';
+                const absLiveDist = Math.abs(liveDist);
+                if (absLiveDist <= 1.0) {
+                    statusBadge = '<span style="background:rgba(244,63,94,0.1);color:#f43f5e;border:1px solid rgba(244,63,94,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">CRITICAL ENTRY</span>';
+                } else if (absLiveDist <= 5.0) {
+                    statusBadge = '<span style="background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">WATCHLIST</span>';
+                } else {
+                    statusBadge = '<span style="background:rgba(59,130,246,0.1);color:#3b82f6;border:1px solid rgba(59,130,246,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">MONITORING</span>';
+                }
+
+                const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.ticker}`;
+                const stockNameHtml = `<a href="${chartUrl}" target="_blank" style="color:#ffffff;font-weight:700;font-size:16px;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${stock.ticker}</a>`;
+
+                html += `
+                    <div data-ticker="${stock.ticker}" style="background:#111625;border:1px solid #1f2937;border-radius:12px;padding:20px;margin-bottom:16px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                            <div>
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                    ${stockNameHtml}
+                                    ${statusBadge}
+                                </div>
+                                <div style="font-size:11px;color:#6b7280;">Wicks: ${stock.wickTouches || '-'} | ${stock.timeframe || 'monthly'}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:18px;font-weight:700;color:#4b5563;">${formatINR(stock.currentPrice)}</div>
+                                <div style="font-size:9px;color:#4b5563;margin-top:1px;font-weight:600;">LAST CLOSE</div>
+                                <div style="font-size:11px;color:#6b7280;margin-top:2px;">Distance: <span style="color:${liveDist >= 0 ? '#34d399' : '#f87171'};font-weight:700;">${liveDist >= 0 ? '+' : ''}${liveDist}%</span></div>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:14px;border-radius:8px;margin-bottom:10px;">
+                            <div>
+                                <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Trigger</div>
+                                <div style="font-size:14px;font-weight:700;color:#3b82f6;">₹${parseFloat(entryTrigger).toFixed(2)}</div>
+                            </div>
+                            <div>
+                                <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">System Score</div>
+                                <div style="font-size:14px;font-weight:700;color:#fbbf24;">${stock.confluenceScore || '—'} <span style="color:#6b7280;font-size:11px;">/ 10</span></div>
+                            </div>
+                            <div>
+                                <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Signal Type</div>
+                                <div style="font-size:12px;font-weight:600;color:#e5e7eb;">${stock.signalType || 'TRENDLINE'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
         }
         
         // ─── PAST PERFORMANCE TAB ────────────────────────────────────────────────
