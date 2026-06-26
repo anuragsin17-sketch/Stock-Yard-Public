@@ -6450,6 +6450,31 @@
                     setTabCount('trendTabCount', tlCount);
                 });
 
+            // Microcap250 count (respects microcap250ShowAll toggle)
+            fetch('./microcap250_screen.json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : []).catch(() => [])
+                .then(mc => {
+                    const dismissed = JSON.parse(localStorage.getItem('microcap250_dismissed') || '[]');
+                    // Apply same filter as Microcap250 tab
+                    const mcCount = Array.isArray(mc) ? mc.filter(s => {
+                        // Apply dismissed/radar filter only if microcap250ShowAll is false
+                        if (!microcap250ShowAll) {
+                            if (dismissed.includes(s.ticker) || isTickerInRadar(s.ticker)) return false;
+                        }
+                        const score = s.confluenceScore || 0;
+                        const zone = s.patternZone || '';
+                        if (score >= 10) return true;
+                        if (score === 9) {
+                            return zone.includes('50%') || zone.includes('50.0') ||
+                                   zone.includes('61.8') || zone.includes('78.6') ||
+                                   zone.includes('100');
+                        }
+                        if (score === 8) return true;
+                        return false;
+                    }).length : 0;
+                    setTabCount('microcap250TabCount', mcCount);
+                });
+
             // Radar count — sync from localStorage using same merge as displayPerformanceTracking
             setTabCount('radarTabCount', getRadarOpenCount());
 
