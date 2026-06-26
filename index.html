@@ -5928,6 +5928,40 @@
             displayTrendlineScreen();
         };
 
+        // Microcap250 helper functions (same as trendline)
+        function saveMicrocap250Override(ticker, field, value) {
+            const savedKey = `microcap250_${ticker}`;
+            const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
+            saved[field] = parseFloat(value);
+            localStorage.setItem(savedKey, JSON.stringify(saved));
+        }
+
+        window.dismissMicrocap250Stock = function(ticker) {
+            const dismissed = JSON.parse(localStorage.getItem('microcap250_dismissed') || '[]');
+            if (!dismissed.includes(ticker)) {
+                dismissed.push(ticker);
+                localStorage.setItem('microcap250_dismissed', JSON.stringify(dismissed));
+            }
+            // Refresh the microcap250 tab
+            microcap250Page = 1;
+            displayMicrocap250Screen();
+        };
+
+        window.updateMicrocap250Dist = function(ticker, currentPrice, entryValue) {
+            const entry = parseFloat(entryValue) || 0;
+            if (entry <= 0) return;
+            const dist = ((currentPrice - entry) / entry * 100).toFixed(2);
+            const distEl = document.getElementById(`dist_${ticker}`);
+            if (distEl) {
+                distEl.textContent = (dist >= 0 ? '+' : '') + dist + '%';
+                distEl.style.color = dist >= 0 ? '#34d399' : '#f87171';
+            }
+        };
+
+        function toggleMicrocap250Search() {
+            openPersistentSearch();
+        }
+
         window.updateTrendlineDist = function(ticker, currentPrice, entryVal) {
             const entry = parseFloat(entryVal);
             if (!entry || entry <= 0) return;
@@ -7618,6 +7652,490 @@
         async function displayMicrocap250Screen() {
             const container = document.getElementById('resultsContainer');
             
+            // Only show skeleton on first load — not on background re-renders
+            if (!container.querySelector('[data-ticker]') && !container.querySelector('.stock-card')) {
+                container.innerHTML = skeletonList(4);
+            }
+            
+            let microcap250Stocks = null;
+
+            // Try EC2 DynamoDB API first
+            try {
+                const resp = await fetchWithTimeout(`${EC2_API}/api/signals?type=MICROCAP250`, { cache: 'no-store' }, 4000);
+                if (resp.ok) {
+                    const json = await resp.json();
+                    if (json.success && json.data?.microcap250?.length) {
+                        microcap250Stocks = json.data.microcap250;
+                        console.log(`✅ DynamoDB microcap250: ${microcap250Stocks.length} stocks`);
+                    }
+                }
+            } catch(e) {
+                console.log('⚠️ EC2 microcap250 fetch failed, falling back to JSON');
+            }
+
+            // Fallback to JSON file
+            if (!microcap250Stocks) {
+                try {
+                    const response = await fetch('./microcap250_screen.json', { method: 'GET', headers: { 'Cache-Control': 'no-cache' }, cache: 'no-store' });
+                    if (!response.ok) throw new Error('Failed to load microcap250 data');
+                    microcap250Stocks = await response.json();
+                } catch(e) {
+                    microcap250Stocks = [];
+                }
+            }
+
+            // Guard: user may have switched tabs while the async fetch was in flight
+            if (currentTab !== 'microcap250') return;
+                
+                // ─── Cache 52W data from microcap250_screen.json into sessionStorage
+                // so get52WData() can find it for Radar tab (Angel One synced stocks etc.)
+                const tl52wMap = JSON.parse(sessionStorage.getItem('microcap25052wCache') || '{}');
+                let cacheUpdated = false;
+                (microcap250Stocks || []).forEach(s => {
+                    if (s.ticker && s.week52High && s.week52Low) {
+                        tl52wMap[s.ticker.toUpperCase()] = { high: s.week52High, low: s.week52Low };
+                        cacheUpdated = true;
+                    }
+                });
+                if (cacheUpdated) sessionStorage.setItem('microcap25052wCache', JSON.stringify(tl52wMap));
+
+                // ─── Background: enrich missing 52W from golden_stocks / volume data first,
+                // then fetch from Yahoo Finance for anything still missing, and re-render.
+                const missing52w = (microcap250Stocks || []).filter(s => !s.week52High || !s.week52Low);
+                if (missing52w.length > 0) {
+                    missing52w.forEach(s => {
+                        const w52 = get52WData(s.ticker);
+                        if (w52) { s.week52High = w52.high; s.week52Low = w52.low; }
+                    });
+                    // Fetch from Yahoo Finance for those still missing
+                    const stillMissing = (microcap250Stocks || []).filter(s => !s.week52High || !s.week52Low);
+                    if (stillMissing.length > 0) {
+                        Promise.allSettled(stillMissing.map(async s => {
+                            try {
+                                const sym = encodeURIComponent(s.ticker);
+                                const url = `https://32-194-58-75.nip.io/api/get-52w?symbol=${sym}`;
+                                const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+                                if (!r.ok) return;
+                                const d = await r.json();
+                                if (d.success && d.week_52_high && d.week_52_low) {
+                                    s.week52High = parseFloat(d.week_52_high);
+                                    s.week52Low  = parseFloat(d.week_52_low);
+                                    cache52WData(s.ticker, d.week_52_high, d.week_52_low);
+                                    tl52wMap[s.ticker.toUpperCase()] = { high: s.week52High, low: s.week52Low };
+                                }
+                            } catch(e) {}
+                        })).then(() => {
+                            sessionStorage.setItem('microcap25052wCache', JSON.stringify(tl52wMap));
+                            // Patch 52W into already-rendered cards without a full re-render
+                            if (currentTab === 'microcap250') {
+                                stillMissing.forEach(s => {
+                                    const el = document.getElementById(`tl52w_${s.ticker}`);
+                                    if (el && s.week52High && s.week52Low) {
+                                        el.textContent = `₹${parseFloat(s.week52Low).toLocaleString('en-IN')} / ₹${parseFloat(s.week52High).toLocaleString('en-IN')}`;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+                
+                if (!microcap250Stocks || microcap250Stocks.length === 0) {
+                    container.innerHTML = `
+                        <div class="mobile-card rounded-xl p-6 text-center">
+                            <div class="text-slate-400 mb-2">No microcap250 opportunities found</div>
+                            <div class="text-xs text-slate-500">Check back after market hours for updated screening results</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Update opportunities count now that we have microcap250 data
+                const volumeCount = screeningData?.volume_breakout_stocks?.length || 0;
+                const volFiltered = (screeningData?.volume_breakout_stocks || []).filter(s => (s.breakout_volume_ratio || 0) >= 20).length;
+                const manualStocks = JSON.parse(localStorage.getItem('manualStocks') || '[]');
+                const totalOpps = volFiltered + microcap250Stocks.length;
+                if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent= totalOpps.toLocaleString();
+                
+                let html = '';
+
+                // Action buttons for Microcap250 tab
+                html += `
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                        <button onclick="microcap250ShowAll = !microcap250ShowAll; microcap250Page=1; updateTabCounts(); displayMicrocap250Screen();"
+                            style="all:unset;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:${microcap250ShowAll?'700':'500'};background:${microcap250ShowAll?'rgba(59,130,246,0.15)':'#111625'};border:1px solid ${microcap250ShowAll?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'};color:${microcap250ShowAll?'#3B82F6':'#9ca3af'};cursor:pointer;">
+                            ${microcap250ShowAll ? '👁️ Show All' : '🎯 Fresh Only'}
+                        </button>
+                        <button onclick="toggleMicrocap250Search()"
+                            style="all:unset;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;background:#111625;border:1px solid rgba(255,255,255,0.1);color:#9ca3af;cursor:pointer;">
+                            <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </button>
+                    </div>
+                `;
+
+                // When search is active, filter manual stocks by query too
+                
+                // Microcap250 tab — only show scores 8, 9, 10
+                // Score 10 = microcap250 touch ≤3%
+                // Score  9 = near fib level ±3%
+                // Score  8 = fib ±3% AND microcap250 ≤2% (dual confluence — best)
+                const dismissed = JSON.parse(localStorage.getItem('microcap250_dismissed') || '[]');
+
+                // Calculate dist_pct for each stock before filtering/sorting
+                microcap250Stocks.forEach(s => {
+                    const trigger = s.triggerPrice || 0;
+                    const price = s._liveLtp || s.currentPrice || s.ltp || 0;
+                    if (trigger > 0 && price > 0) {
+                        s.dist_pct = ((price - trigger) / trigger * 100);
+                    } else {
+                        s.dist_pct = 999;
+                    }
+                });
+                
+                // Debug: Log dist_pct values
+                console.log('📊 First 10 stocks dist_pct:', microcap250Stocks.slice(0, 10).map(s => s.ticker + ': ' + s.dist_pct.toFixed(2) + '%'));
+
+                const filteredMicrocap250Stocks = microcap250Stocks
+                    .filter(s => {
+                        // Apply dismissed/radar filter only if microcap250ShowAll is false
+                        if (!microcap250ShowAll) {
+                            const isDismissed = dismissed.includes(s.ticker);
+                            const isInRadar = isTickerInRadar(s.ticker);
+                            if (isDismissed || isInRadar) {
+                                return false;
+                            }
+                        }
+                        
+                        const score = s.confluenceScore || 0;
+                        const zone = s.patternZone || '';
+                        
+                        // Score 10 = Microcap250 touch → always include
+                        if (score >= 10) return true;
+                        
+                        // Score 9 = Fibonacci only → include only specific levels: 50%, 61.8%, 78.6%, 100%
+                        if (score === 9) {
+                            const has50 = zone.includes('50%') || zone.includes('50.0');
+                            const has618 = zone.includes('61.8');
+                            const has786 = zone.includes('78.6');
+                            const has100 = zone.includes('100.0%'); // Fixed: was matching 50.0 before
+                            const match = has50 || has618 || has786 || has100;
+                            if (!match) console.log(`❌ Filtered out Score 9: ${s.ticker} - zone: ${zone}`);
+                            return match;
+                        }
+                        
+                        // Score 8 = dual confluence (fib + microcap250) → always include (best quality)
+                        if (score === 8) return true;
+                        
+                        // Score 7 or below → exclude
+                        return false;
+                    })
+                    .filter(s => {
+                        // Distance filter: -10% to +3%
+                        const dist = s.dist_pct ?? 999;
+                        return dist >= -10 && dist <= 3;
+                    })
+                    .sort((a, b) => {
+                        // Primary sort: Score 10 first
+                        const aScore = a.confluenceScore || 0;
+                        const bScore = b.confluenceScore || 0;
+                        
+                        if (aScore === 10 && bScore !== 10) return -1;
+                        if (aScore !== 10 && bScore === 10) return 1;
+                        
+                        // Secondary sort: Critical entry (within ±1%)
+                        const aCritical = Math.abs(a.dist_pct ?? 999) <= 1;
+                        const bCritical = Math.abs(b.dist_pct ?? 999) <= 1;
+                        
+                        if (aCritical && !bCritical) return -1;
+                        if (!aCritical && bCritical) return 1;
+                        
+                        // Tertiary sort: By distance ascending (negative to positive)
+                        return (a.dist_pct ?? 999) - (b.dist_pct ?? 999);
+                    });
+                
+                // Debug logging
+                const inRadarCount = JSON.parse(localStorage.getItem('inRadarTickers') || '[]').length;
+                const purgedCount = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]').length;
+                console.log(`🔍 Microcap250: total=${microcap250Stocks.length}, filtered=${filteredMicrocap250Stocks.length}, microcap250ShowAll=${microcap250ShowAll}, dismissed=${dismissed.length}, inRadar=${inRadarCount}, purged=${purgedCount}`);
+                console.log(`📊 Pagination: ${filteredMicrocap250Stocks.length} stocks ÷ ${TAB_PAGE_SIZE} per page = ${Math.ceil(filteredMicrocap250Stocks.length / TAB_PAGE_SIZE)} total pages`);
+                const microcap250TotalPages = Math.ceil(filteredMicrocap250Stocks.length / TAB_PAGE_SIZE);
+                if (microcap250Page > microcap250TotalPages) microcap250Page = 1;
+                // If search active, show all matching stocks across all pages
+                const pagedMicrocap250Stocks = (microcap250Search.length >= 3)
+                    ? filteredMicrocap250Stocks.filter(s => (s.ticker||'').toUpperCase().includes(microcap250Search) || (s.company_name||'').toUpperCase().includes(microcap250Search))
+                    : filteredMicrocap250Stocks.slice((microcap250Page-1)*TAB_PAGE_SIZE, microcap250Page*TAB_PAGE_SIZE);
+
+                pagedMicrocap250Stocks.forEach(stock => {
+                    // Get saved entry trigger override from localStorage
+                    const savedKey = `microcap250_${stock.ticker}`;
+                    const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
+                    // Validate saved entry — discard if it causes >50% distance (corrupted)
+                    let entryTrigger = stock.triggerPrice;
+                    if (saved.entryTrigger) {
+                        const savedEntry = parseFloat(saved.entryTrigger);
+                        const sanityDist = Math.abs((stock.currentPrice - savedEntry) / savedEntry * 100);
+                        if (savedEntry > 0 && sanityDist < 50) {
+                            entryTrigger = savedEntry;
+                        } else {
+                            // Clear corrupted value
+                            delete saved.entryTrigger;
+                            localStorage.setItem(savedKey, JSON.stringify(saved));
+                        }
+                    }
+                    // Compute live distance from saved/default entry (keep sign for sort display)
+                    const liveDist = ((stock.currentPrice - entryTrigger) / entryTrigger * 100).toFixed(2);
+
+                    // Determine status badge based on live distance (use absolute value for threshold)
+                    let statusBadge = '';
+                    const absLiveDist = Math.abs(liveDist);
+                    if (absLiveDist <= 1.0) {
+                        statusBadge = '<span style="background:rgba(244,63,94,0.1);color:#f43f5e;border:1px solid rgba(244,63,94,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">CRITICAL ENTRY</span>';
+                    } else if (absLiveDist <= 5.0) {
+                        statusBadge = '<span style="background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">WATCHLIST</span>';
+                    } else {
+                        statusBadge = '<span style="background:rgba(59,130,246,0.1);color:#3b82f6;border:1px solid rgba(59,130,246,0.2);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;">MONITORING</span>';
+                    }
+
+                    const chartUrl = `https://in.tradingview.com/chart/?symbol=NSE:${stock.ticker}`;
+                    // Pre-compute 52W data FIRST (needed by stockNameHtml below)
+                    const tl52w = get52WData(stock.ticker);
+                    const tl52wHigh = stock.week52High || (tl52w ? tl52w.high : null);
+                    const tl52wLow  = stock.week52Low  || (tl52w ? tl52w.low  : null);
+                    const stockNameHtml = `<a href="${chartUrl}" target="_blank" style="color:#ffffff;font-weight:700;font-size:16px;text-decoration:underline;text-decoration-color:rgba(59,130,246,0.4);">${stock.ticker}</a>`;
+
+                    html += `
+                        <div data-ticker="${stock.ticker}" style="background:#111625;border:1px solid #1f2937;border-radius:12px;padding:20px;margin-bottom:16px;">
+                            <!-- Top row: ticker + badge | price + distance -->
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                                <div>
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                        ${stockNameHtml}
+                                        ${statusBadge}
+                                    </div>
+                                    <div style="font-size:11px;color:#6b7280;">Wicks: ${stock.wickTouches || '-'} | ${stock.timeframe || 'monthly'}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div id="tl_ltp_${stock.ticker}" style="font-size:18px;font-weight:700;color:#4b5563;" title="Fetching live price...">${formatINR(stock.currentPrice)}</div>
+                                    <div id="tl_ltp_tag_${stock.ticker}" style="font-size:9px;color:#4b5563;margin-top:1px;font-weight:600;letter-spacing:0.3px;">LAST CLOSE</div>
+                                    <div style="font-size:11px;color:#6b7280;margin-top:2px;">Distance: <span id="dist_${stock.ticker}" style="color:${liveDist >= 0 ? '#34d399' : '#f87171'};font-weight:700;">${liveDist >= 0 ? '+' : ''}${liveDist}%</span></div>
+                                </div>
+                            </div>
+                            <!-- Metrics grid: 3 cols -->
+                            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:14px;border-radius:8px;margin-bottom:10px;">
+                                <div>
+                                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Trigger ${saved.entryTrigger ? '<span style="color:#f59e0b;font-size:9px;">✏️</span>' : ''}</div>
+                                    <div style="display:flex;align-items:center;gap:3px;">
+                                        <span style="font-size:12px;color:#3b82f6;">₹</span>
+                                        <input type="number"
+                                            id="entry_${stock.ticker}"
+                                            value="${parseFloat(entryTrigger).toFixed(2)}"
+                                            step="0.01"
+                                            style="font-size:14px;font-weight:700;color:#3b82f6;background:transparent;border:none;border-bottom:1px solid rgba(59,130,246,0.3);outline:none;width:80px;font-family:'JetBrains Mono',monospace;"
+                                            oninput="updateMicrocap250Dist('${stock.ticker}', ${stock.currentPrice}, this.value)"
+                                            onblur="if(!this.value||parseFloat(this.value)<=0){this.value='${parseFloat(stock.triggerPrice).toFixed(2)}';saveMicrocap250Override('${stock.ticker}','entryTrigger','${parseFloat(stock.triggerPrice).toFixed(2)}');updateMicrocap250Dist('${stock.ticker}',${stock.currentPrice},'${parseFloat(stock.triggerPrice).toFixed(2)}')}"
+                                            onchange="saveMicrocap250Override('${stock.ticker}', 'entryTrigger', this.value); updateMicrocap250Dist('${stock.ticker}', ${stock.currentPrice}, this.value)"/>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">System Score</div>
+                                    ${(() => {
+                                        const sc = stock.confluenceScore;
+                                        const zone = stock.patternZone || '';
+                                        let badge = '';
+                                        if (sc >= 10) {
+                                            const zone = stock.patternZone || '';
+                                            let lbl = zone.includes('61.8') ? '🔥 61.8%+MC250'
+                                                     : zone.includes('50%') || zone.includes('50.0') ? '🔥 50%+MC250'
+                                                     : zone.includes('78.6') ? '🔥 78.6%+MC250'
+                                                     : zone.includes('100') ? '🔥 100%+MC250'
+                                                     : '🔥 ULTRA';
+                                            badge = `<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">${lbl}</span>`;
+                                        } else if (sc >= 9) {
+                                            const zone = stock.patternZone || '';
+                                            let lbl = zone.includes('61.8') ? '⚡ Near 61.8%'
+                                                     : zone.includes('50%') || zone.includes('50.0') ? '⚡ Near 50%'
+                                                     : zone.includes('78.6') ? '⚡ Near 78.6%'
+                                                     : zone.includes('100') ? '⚡ Near 100%'
+                                                     : '⚡ Near Fib Level';
+                                            badge = `<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">${lbl}</span>`;
+                                        } else {
+                                            badge = '<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(107,114,128,0.1);color:#9ca3af;border:1px solid rgba(107,114,128,0.2);">📊 Monitoring</span>';
+                                        }                                        return `<div style="font-size:14px;font-weight:700;color:#fbbf24;">${sc != null ? sc : '—'} <span style="color:#6b7280;font-size:11px;">/ 10</span></div>${badge}`;
+                                    })()}
+                                </div>
+                                <div>
+                                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">52-Week L / H</div>
+                                    ${tl52wHigh && tl52wLow ? `<div id="tl52w_${stock.ticker}" style="font-size:12px;font-weight:600;color:#e5e7eb;" class="mono">${formatINR(tl52wLow)} / ${formatINR(tl52wHigh)}</div>` : `<div id="tl52w_${stock.ticker}" style="font-size:12px;color:#6b7280;">—</div>`}
+                                </div>
+                            </div>
+                            <!-- Fibonacci Levels Row — dual W+M timeframe display -->
+                            ${(() => {
+                                const fibs = stock.fibonacciLevels || {};
+                                const wFib = fibs._weekly  || null;
+                                const mFib = fibs._monthly || null;
+                                const p618lo = fibs.pocket_618_low  || 0;
+                                const p618hi = fibs.pocket_618_high || 0;
+                                const p500lo = fibs.pocket_500_low  || 0;
+                                const p500hi = fibs.pocket_500_high || 0;
+                                const inP618 = p618lo > 0 && entryTrigger >= p618lo && entryTrigger <= p618hi;
+                                const inP500 = p500lo > 0 && entryTrigger >= p500lo && entryTrigger <= p500hi;
+
+                                // If weekly fib data available (new 2020-low → ATH format)
+                                if (wFib) {
+                                    const LEVELS = ['23.6%','38.2%','50.0%','61.8%','78.6%','100.0%'];
+
+                                    const makePill = (label, price) => {
+                                        if (!price || price <= 0) return '';
+                                        const dist = Math.abs((entryTrigger - price) / price * 100);
+                                        const isNear = dist <= 5.0;
+                                        const p786lo = fibs.pocket_786_low  || 0;
+                                        const p786hi = fibs.pocket_786_high || 0;
+                                        const p100lo = fibs.pocket_100_low  || 0;
+                                        const p100hi = fibs.pocket_100_high || 0;
+                                        const in786p = p786lo > 0 && price >= p786lo && price <= p786hi;
+                                        const in100p = p100lo > 0 && price >= p100lo && price <= p100hi;
+                                        // Colour logic
+                                        let style, glow = '';
+                                        if (isNear) {
+                                            style = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.5);font-weight:700;';
+                                            glow  = ' ✓';
+                                        } else if (inP618 || inP500) {
+                                            style = 'background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);font-weight:600;';
+                                        } else if (in786p) {
+                                            style = 'background:rgba(59,130,246,0.12);color:#60a5fa;border:1px solid rgba(59,130,246,0.35);font-weight:600;';
+                                        } else if (in100p) {
+                                            style = 'background:rgba(167,139,250,0.12);color:#a78bfa;border:1px solid rgba(167,139,250,0.35);font-weight:600;';
+                                        } else if (price <= entryTrigger) {
+                                            style = 'background:rgba(59,130,246,0.07);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);';
+                                        } else {
+                                            style = 'background:rgba(107,114,128,0.07);color:#6b7280;border:1px solid rgba(107,114,128,0.12);';
+                                        }
+                                        return `<span style="font-size:10px;padding:3px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${label}: ₹${parseFloat(price).toFixed(0)}${glow}</span>`;
+                                    };
+
+                                    // Render key levels (weekly = 2020 low → ATH)
+                                    let pillsHtml = '';
+                                    LEVELS.forEach(lvl => {
+                                        const wp = wFib[lvl];
+                                        pillsHtml += makePill(lvl, wp);
+                                    });
+
+                                    // Pocket indicators
+                                    const pocket618 = (inP618)
+                                        ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);font-weight:700;">⚡ 61.8% POCKET ₹${p618lo.toFixed(0)}–₹${p618hi.toFixed(0)}</span>` : '';
+                                    const pocket500 = (inP500)
+                                        ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);font-weight:700;">📊 50% POCKET ₹${p500lo.toFixed(0)}–₹${p500hi.toFixed(0)}</span>` : '';
+                                    const p786lo = fibs.pocket_786_low  || 0;
+                                    const p786hi = fibs.pocket_786_high || 0;
+                                    const inP786 = p786lo > 0 && entryTrigger >= p786lo && entryTrigger <= p786hi;
+                                    const pocket786 = (inP786)
+                                        ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);font-weight:700;">📉 78.6% DEEP POCKET ₹${p786lo.toFixed(0)}–₹${p786hi.toFixed(0)}</span>` : '';
+                                    const p100lo = fibs.pocket_100_low  || 0;
+                                    const p100hi = fibs.pocket_100_high || 0;
+                                    const inP100 = p100lo > 0 && entryTrigger >= p100lo && entryTrigger <= p100hi;
+                                    const pocket100 = (inP100)
+                                        ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.4);font-weight:700;">🎯 100% ZONE ₹${p100lo.toFixed(0)}–₹${p100hi.toFixed(0)}</span>` : '';
+
+                                    return `
+                                    <div style="margin-bottom:10px;">
+                                        <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">
+                                            Fibonacci Levels &nbsp;<span style="color:#4b5563;">ATH ₹${wFib['0.0%']?.toLocaleString() || '—'} → 2020 Low ₹${wFib['100.0%']?.toLocaleString() || '—'}</span>
+                                        </div>
+                                        ${(pocket618 || pocket500 || pocket786 || pocket100) ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">${pocket618}${pocket500}${pocket786}${pocket100}</div>` : ''}
+                                        <div style="display:flex;flex-wrap:wrap;gap:4px;">${pillsHtml}</div>
+                                    </div>`;
+                                }
+
+                                // Fallback: old single grid display
+                                if (!fibs || Object.keys(fibs).filter(k=>!k.startsWith('_')&&!k.startsWith('pocket')&&!k.startsWith('fib')&&!k.startsWith('Ext')).length === 0) return '';
+                                const fibEntries = Object.entries(fibs)
+                                    .filter(([k,v]) => !k.startsWith('_') && !k.startsWith('pocket') && !k.startsWith('fib') && !k.startsWith('Ext') && typeof v === 'number')
+                                    .sort((a,b) => parseFloat(b[1]) - parseFloat(a[1]));
+                                const pills = fibEntries.map(([level, price]) => {
+                                    const dist = ((entryTrigger - price) / price * 100);
+                                    const isNear = Math.abs(dist) <= 2.0;
+                                    const isBelowEntry = price <= entryTrigger;
+                                    const pillColor = isNear
+                                        ? 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);font-weight:700;'
+                                        : isBelowEntry
+                                        ? 'background:rgba(59,130,246,0.08);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);'
+                                        : 'background:rgba(107,114,128,0.08);color:#6b7280;border:1px solid rgba(107,114,128,0.15);';
+                                    const marker = isNear ? ' ✓' : '';
+                                    return `<span style="font-size:10px;padding:3px 7px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${pillColor}">${level}: ₹${parseFloat(price).toFixed(0)}${marker}</span>`;
+                                }).join('');
+                                return `
+                                <div style="margin-bottom:10px;">
+                                    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">Fibonacci Levels</div>
+                                    <div style="display:flex;flex-wrap:wrap;gap:5px;">${pills}</div>
+                                </div>`;
+                            })()}
+                            <!-- Action row -->
+                            <!-- Action row -->
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <button onclick="dismissMicrocap250Stock('${stock.ticker}')"
+                                    style="padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(107,114,128,0.15);color:#6b7280;border:1px solid rgba(107,114,128,0.2);cursor:pointer;"
+                                    title="Dismiss">🗑️</button>
+                                <button onclick="haptic(50); takeTrade('${stock.ticker}', ${entryTrigger}, ${stock.positionSizing?.pivotTargetExit || 0}, ${stock.positionSizing?.strictStopLoss || 0}, ${tl52wHigh || 'null'}, ${tl52wLow || 'null'})"
+                                    style="padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#00C4B4,#22C55E);color:#000;border:none;cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;">
+                                    PLACE BUY ORDER
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // Microcap250 pagination controls — no search filtering in rendered HTML
+                if (microcap250TotalPages > 1 && microcap250Search.length < 3) {
+                    html += paginationControls(
+                        microcap250Page, microcap250TotalPages,
+                        'microcap250Page=Math.max(1,microcap250Page-1); displayMicrocap250Screen()',
+                        `microcap250Page=Math.min(${microcap250TotalPages},microcap250Page+1); displayMicrocap250Screen()`
+                    );
+                }
+
+                // Count badge update using filtered count
+                const totalOppsFiltered = (screeningData?.volume_breakout_stocks?.length || 0) + filteredMicrocap250Stocks.length;
+                if(document.getElementById('totalOpportunities')) document.getElementById('totalOpportunities').textContent= totalOppsFiltered.toLocaleString();
+
+                container.innerHTML = html;
+
+                // Fetch live LTP for visible microcap250 stocks — batch all DOM writes per stock
+                // into requestAnimationFrame so staggered responses don't cause per-update reflows
+                pagedMicrocap250Stocks.forEach(stock => {
+                    fetch(`https://32-194-58-75.nip.io/api/get-quote?symbol=${stock.ticker}`, { cache: 'no-store' })
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => {
+                            if (currentTab !== 'microcap250') return; // switched away
+                            if (!data || !data.success) return;
+                            const ltp = parseFloat(data.ltp);
+                            if (!ltp || ltp <= 0) return;
+                            requestAnimationFrame(() => {
+                                if (currentTab !== 'microcap250') return;
+                                const el = document.getElementById(`tl_ltp_${stock.ticker}`);
+                                if (el) {
+                                    el.textContent = '₹' + ltp.toLocaleString('en-IN', {maximumFractionDigits:2});
+                                    el.style.color = '#ffffff';
+                                    el.title = 'Live price';
+                                }
+                                const tagEl = document.getElementById(`tl_ltp_tag_${stock.ticker}`);
+                                if (tagEl) tagEl.style.display = 'none';
+                                const distEl = document.getElementById(`dist_${stock.ticker}`);
+                                const entryEl = document.getElementById(`entry_${stock.ticker}`);
+                                if (distEl && entryEl) {
+                                    const entry = parseFloat(entryEl.value) || stock.triggerPrice;
+                                    const dist = Math.abs((ltp - entry) / entry * 100).toFixed(2);
+                                    distEl.textContent = dist + '%';
+                                    distEl.style.color = dist <= 1 ? '#f43f5e' : dist <= 5 ? '#fbbf24' : '#34d399';
+                                }
+                            });
+                        })
+                        .catch(() => {});
+                });
+        }
+        
+        // Display Microcap250 screen with same logic as Microcap250
+        async function displayMicrocap250Screen() {
+            const container = document.getElementById('resultsContainer');
+            
             // Only show skeleton on first load
             if (!container.querySelector('[data-ticker]') && !container.querySelector('.stock-card')) {
                 container.innerHTML = skeletonList(4);
@@ -7670,8 +8188,8 @@
             
             let html = `
                 <div class="mobile-card rounded-xl p-4 mb-4" style="border-color: rgba(4, 120, 87, 0.2); background: rgba(4, 120, 87, 0.1);">
-                    <div class="text-xs font-semibold tracking-wider uppercase" style="color: #047857;">MICROCAP250 TRENDLINE + FIBONACCI SIGNALS</div>
-                    <div class="text-xs text-slate-400 mt-2">Post-2020 | Wick touch ≤5% | Unbroken trendline | Fibonacci confluence</div>
+                    <div class="text-xs font-semibold tracking-wider uppercase" style="color: #047857;">MICROCAP250 MICROCAP250 + FIBONACCI SIGNALS</div>
+                    <div class="text-xs text-slate-400 mt-2">Post-2020 | Wick touch ≤5% | Unbroken microcap250 | Fibonacci confluence</div>
                 </div>
             `;
 
@@ -7691,7 +8209,7 @@
                     const score = s.confluenceScore || 0;
                     const zone = s.patternZone || '';
                     
-                    // Score 10 = Trendline touch → always include
+                    // Score 10 = Microcap250 touch → always include
                     if (score >= 10) return true;
                     
                     // Score 9 = Fibonacci only → include only specific levels
@@ -7777,7 +8295,7 @@
                             </div>
                             <div>
                                 <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Signal Type</div>
-                                <div style="font-size:12px;font-weight:600;color:#e5e7eb;">${stock.signalType || 'TRENDLINE'}</div>
+                                <div style="font-size:12px;font-weight:600;color:#e5e7eb;">${stock.signalType || 'MICROCAP250'}</div>
                             </div>
                         </div>
                     </div>
@@ -7803,11 +8321,14 @@
         // Pagination state for Volume and Trendline tabs
         let volPage = 1;
         let trendPage = 1;
+        let microcap250Page = 1;
         let volSearch = '';
         let trendSearch = '';
+        let microcap250Search = '';
         let radarSearch = '';
         let volPriceFilter = 'all'; // 'all' | 'below100' | 'above100'
         let trendShowAll = false; // false = hide dismissed/radar, true = show all
+        let microcap250ShowAll = false; // false = hide dismissed/radar, true = show all
         const TAB_PAGE_SIZE = 10;
 
         function paginationControls(currentPage, totalPages, onPrev, onNext, onJump) {
