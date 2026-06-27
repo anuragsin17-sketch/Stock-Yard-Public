@@ -6214,6 +6214,9 @@
                 return;
             }
 
+            // NOTE: Target and SL are calculated here but NOT placed yet!
+            // They will only be sent to Angel One AFTER you confirm the order,
+            // and GTT will only be placed AFTER the BUY order is filled.
             const target   = parseFloat((entry * 1.15).toFixed(2));
             const stopLoss = parseFloat((entry * 0.96).toFixed(2));
             showOrderModal(symbol, entry, stopLoss, target, 'Volume');
@@ -6225,7 +6228,9 @@
             const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
             const entry  = saved.entryTrigger || entryTrigger;
             
-            // Fixed Target and SL (same as Volume strategy)
+            // NOTE: Target and SL are calculated here but NOT placed yet!
+            // They will only be sent to Angel One AFTER you confirm the order,
+            // and GTT will only be placed AFTER the BUY order is filled.
             const target = parseFloat((entry * 1.15).toFixed(2));  // +15% fixed
             const stop   = parseFloat((entry * 0.96).toFixed(2));  // -4% fixed
             
@@ -6570,10 +6575,46 @@
             }
 
             // Filter out manually closed tickers (persisted in localStorage)
+            // Persist volume stocks across days - ALWAYS use localStorage as primary source
             const volClosed = JSON.parse(localStorage.getItem('vol_closed_tickers') || '[]');
-            if (volClosed.length > 0 && Array.isArray(volGainerData)) {
-                volGainerData = volGainerData.filter(s => !volClosed.includes((s.ticker || '').toUpperCase()));
+            const volPersistent = JSON.parse(localStorage.getItem('vol_persistent_stocks') || '[]');
+            
+            // Build merged map with persistent stocks as foundation
+            const mergedMap = {};
+            
+            // STEP 1: Add all existing persistent stocks (these survive daily watchlist refreshes)
+            volPersistent.forEach(s => {
+                if (!volClosed.includes((s.ticker || '').toUpperCase())) {
+                    mergedMap[s.ticker] = s;
+                }
+            });
+            
+            // STEP 2: Add NEW stocks from today's watchlist (don't overwrite existing)
+            if (Array.isArray(volGainerData) && volGainerData.length > 0) {
+                volGainerData.forEach(s => {
+                    const ticker = s.ticker || '';
+                    if (!volClosed.includes(ticker.toUpperCase())) {
+                        if (!mergedMap[ticker]) {
+                            // Brand new stock - add it
+                            mergedMap[ticker] = s;
+                        } else {
+                            // Stock exists - update live prices but keep user's saved data
+                            const existing = mergedMap[ticker];
+                            existing._liveLtp = s._liveLtp || existing._liveLtp;
+                            existing.ltp = s.ltp || existing.ltp;
+                            existing.current_price = s.current_price || existing.current_price;
+                            // Update entry zone flags from latest scan
+                            if (s.in_entry_zone !== undefined) existing.in_entry_zone = s.in_entry_zone;
+                            if (s.dist_pct !== undefined) existing.dist_pct = s.dist_pct;
+                        }
+                    }
+                });
             }
+            
+            volGainerData = Object.values(mergedMap);
+            
+            // Save back to localStorage (single source of truth - survives daily refreshes)
+            localStorage.setItem('vol_persistent_stocks', JSON.stringify(volGainerData));
 
             // Don't overwrite another tab's content if user switched away during fetch
             if (currentTab !== 'volume') return;
@@ -6851,7 +6892,7 @@
                         <div style="font-size:10px;color:#6b7280;">on ${addedDate}</div>
                     </div>
                 </div>                <!-- Metrics grid -->
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:12px;border-radius:8px;margin-bottom:12px;">
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;background:rgba(8,12,20,0.5);border:1px solid rgba(31,41,55,0.5);padding:12px;border-radius:8px;margin-bottom:12px;">
                     <div>
                         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Entry Zone</div>
                         <div style="font-size:13px;font-weight:700;color:#3B82F6;" class="mono">
@@ -6860,11 +6901,6 @@
                                 step="0.5"
                                 style="font-size:13px;font-weight:700;color:#3b82f6;background:transparent;border:none;border-bottom:1px solid rgba(59,130,246,0.3);outline:none;width:70px;font-family:'JetBrains Mono',monospace;"/>
                         </div>
-                    </div>
-                    <div>
-                        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">Target +15%</div>
-                        <div style="font-size:13px;font-weight:700;color:#10B981;" class="mono">₹${targetPrice.toLocaleString()}</div>
-                        <div style="font-size:9px;color:#6b7280;margin-top:2px;">SL ₹${slPrice.toLocaleString()} (-4%)</div>
                     </div>
                     <div>
                         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:3px;">52W L / H</div>
@@ -6901,9 +6937,8 @@
                 alert('Please set a valid entry price first');
                 return;
             }
-            const target   = preTarget || round2(entry * 1.15);
-            const stopLoss = preSL     || round2(entry * 0.96);
-            showOrderModal(ticker, entry, stopLoss, target, 'VolumeGainer');
+            // Don't set target or stop loss for volume stocks - let user decide after position is taken
+            showOrderModal(ticker, entry, 0, 0, 'VolumeGainer');
         };
 
         window.markVolSignalClosed = function(ticker) {
@@ -7882,8 +7917,9 @@
                 const purgedCount = JSON.parse(localStorage.getItem('radarPurgedTickers') || '[]').length;
                 console.log(`🔍 Microcap250: total=${microcap250Stocks.length}, filtered=${filteredMicrocap250Stocks.length}, microcap250ShowAll=${microcap250ShowAll}, dismissed=${dismissed.length}, inRadar=${inRadarCount}, purged=${purgedCount}`);
                 console.log(`📊 Pagination: ${filteredMicrocap250Stocks.length} stocks ÷ ${TAB_PAGE_SIZE} per page = ${Math.ceil(filteredMicrocap250Stocks.length / TAB_PAGE_SIZE)} total pages`);
-                const microcap250TotalPages = Math.ceil(filteredMicrocap250Stocks.length / TAB_PAGE_SIZE);
+                const microcap250TotalPages = Math.max(1, Math.ceil(filteredMicrocap250Stocks.length / TAB_PAGE_SIZE));
                 if (microcap250Page > microcap250TotalPages) microcap250Page = 1;
+                if (microcap250Page < 1) microcap250Page = 1;
                 // If search active, show all matching stocks across all pages
                 const pagedMicrocap250Stocks = (microcap250Search.length >= 3)
                     ? filteredMicrocap250Stocks.filter(s => (s.ticker||'').toUpperCase().includes(microcap250Search) || (s.company_name||'').toUpperCase().includes(microcap250Search))
@@ -8113,7 +8149,8 @@
                     html += paginationControls(
                         microcap250Page, microcap250TotalPages,
                         'microcap250Page=Math.max(1,microcap250Page-1); displayMicrocap250Screen()',
-                        `microcap250Page=Math.min(${microcap250TotalPages},microcap250Page+1); displayMicrocap250Screen()`
+                        `microcap250Page=Math.min(${microcap250TotalPages},microcap250Page+1); displayMicrocap250Screen()`,
+                        (p) => `microcap250Page=${p}; displayMicrocap250Screen()`
                     );
                 }
 
