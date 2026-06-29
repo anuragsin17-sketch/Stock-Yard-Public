@@ -9690,6 +9690,29 @@
                 });
         }
 
+        // Clear DynamoDB radar trades
+        window.clearRadarDynamoDB = function() {
+            if (!confirm('Clear all trades from DynamoDB? You can resync after clearing.')) return;
+            
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '<div class="mobile-card rounded-xl p-5 text-center text-slate-400">Clearing DynamoDB...</div>';
+            
+            fetch('https://32-194-58-75.nip.io/api/radar/clear', { method: 'POST', cache: 'no-store', mode: 'cors' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`✅ Cleared ${data.deleted} trades from DynamoDB. Click Sync to repopulate.`);
+                        displayPerformanceTracking();
+                    } else {
+                        alert('❌ Failed to clear DynamoDB: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(err => {
+                    alert('❌ Clear failed: ' + err.message);
+                    displayPerformanceTracking();
+                });
+        };
+
         // Sync Radar with Angel One open positions
         window.syncRadarFromAngelOne = function(silent = false) {
             const container = document.getElementById('resultsContainer');
@@ -10377,6 +10400,9 @@
                         </button>
                         <button onclick="syncRadarFromAngelOne()" style="all:unset;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(6,182,212,0.3);color:#22d3ee;cursor:pointer;">
                             <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Sync
+                        </button>
+                        <button onclick="clearRadarDynamoDB()" style="all:unset;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(239,68,68,0.3);color:#ef4444;cursor:pointer;">
+                            <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>Clear DB
                         </button>
                         <button onclick="openGrowwTokenModal()" style="all:unset;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;background:#111625;border:1px solid rgba(139,92,246,0.3);color:#a78bfa;cursor:pointer;">
                             <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>Groww Token
