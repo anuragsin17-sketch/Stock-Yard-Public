@@ -10429,7 +10429,11 @@
             }
 
             let totalAmt = 0, totalCur = 0;
-            open.forEach(t => { totalAmt += t.entry_price * t.quantity; totalCur += t.current_price * t.quantity; });
+            // Calculate based on open trades only (closed trades have final P&L already recorded)
+            open.forEach(t => { 
+                totalAmt += (t.entry_price || 0) * (t.quantity || 0); 
+                totalCur += (t.current_price || 0) * (t.quantity || 0); 
+            });
             const totalPnL = totalCur - totalAmt;
             const pnlColor = totalPnL >= 0 ? '#10B981' : '#DC2626';
 
