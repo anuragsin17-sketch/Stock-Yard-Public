@@ -1,63 +1,63 @@
 [
   {
-    "ticker": "MAPMYINDIA",
-    "entry_price": 826.93,
-    "current_price": 844.9,
-    "target": 1033.66,
-    "stop_loss": 769.04,
-    "quantity": 200,
-    "status": "Open",
-    "source": "Angel One",
-    "is_angel_synced": true,
-    "triggered_at": "2026-07-01T07:19:22.321667"
-  },
-  {
-    "ticker": "TCIEXP",
-    "entry_price": 513.2,
-    "current_price": 512.0,
-    "target": 641.5,
-    "stop_loss": 477.28,
-    "quantity": 300,
-    "status": "Open",
-    "source": "Angel One",
-    "is_angel_synced": true,
-    "triggered_at": "2026-07-01T07:19:22.321686"
-  },
-  {
     "ticker": "BATAINDIA",
     "entry_price": 686.52,
-    "current_price": 689.0,
+    "current_price": 690.2,
     "target": 858.15,
     "stop_loss": 638.46,
     "quantity": 200,
     "status": "Open",
     "source": "Angel One",
     "is_angel_synced": true,
-    "triggered_at": "2026-07-01T07:19:22.321694"
+    "triggered_at": "2026-07-01T08:19:01.244131"
   },
   {
     "ticker": "CLEAN",
-    "entry_price": 771.93,
-    "current_price": 764.0,
-    "target": 964.91,
-    "stop_loss": 717.89,
-    "quantity": 200,
+    "entry_price": 769.51,
+    "current_price": 763.8,
+    "target": 961.89,
+    "stop_loss": 715.64,
+    "quantity": 300,
     "status": "Open",
     "source": "Angel One",
     "is_angel_synced": true,
-    "triggered_at": "2026-07-01T07:19:22.321700"
+    "triggered_at": "2026-07-01T08:19:01.244149"
   },
   {
     "ticker": "FINOPB",
     "entry_price": 141.8,
-    "current_price": 140.54,
+    "current_price": 141.13,
     "target": 177.25,
     "stop_loss": 131.87,
     "quantity": 500,
     "status": "Open",
     "source": "Angel One",
     "is_angel_synced": true,
-    "triggered_at": "2026-07-01T07:19:22.321705"
+    "triggered_at": "2026-07-01T08:19:01.244157"
+  },
+  {
+    "ticker": "MAPMYINDIA",
+    "entry_price": 826.93,
+    "current_price": 865.0,
+    "target": 1033.66,
+    "stop_loss": 769.04,
+    "quantity": 200,
+    "status": "Open",
+    "source": "Angel One",
+    "is_angel_synced": true,
+    "triggered_at": "2026-07-01T08:19:01.244164"
+  },
+  {
+    "ticker": "TCIEXP",
+    "entry_price": 513.2,
+    "current_price": 511.55,
+    "target": 641.5,
+    "stop_loss": 477.28,
+    "quantity": 300,
+    "status": "Open",
+    "source": "Angel One",
+    "is_angel_synced": true,
+    "triggered_at": "2026-07-01T08:19:01.244171"
   },
   {
     "ticker": "BALKRISIND",
