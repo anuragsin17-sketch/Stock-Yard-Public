@@ -73,3 +73,6 @@ stock-yard-key.pem
 *.b64
 credentials.json
 aws_credentials
+
+# Backend repo (separate git repository)
+backend_repo/
