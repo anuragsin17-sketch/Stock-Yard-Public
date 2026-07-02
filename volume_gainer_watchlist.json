@@ -1,16 +1,9 @@
 {
   "last_scan_run": {
-<<<<<<< HEAD
     "timestamp": "2026-07-02 22:58 IST",
     "date": "2026-07-02",
     "new_stocks": 0,
     "total": 99
-=======
-    "timestamp": "2026-06-30 10:30 IST",
-    "date": "2026-06-29",
-    "new_stocks": 0,
-    "total": 92
->>>>>>> c5f0823ec2cc38a22540f35f56c3697a34a38b2d
   },
   "stocks": [
     {
@@ -2022,7 +2015,6 @@
       "in_entry_zone": false,
       "ltp_updated_at": "2026-07-02T12:22:06.200772",
       "in_place_order_zone": false
-<<<<<<< HEAD
     },
     {
       "ticker": "ONMOBILE",
@@ -2142,8 +2134,6 @@
       "alert_sent_at": null,
       "week_52_high": 917.5,
       "week_52_low": 517.0
-=======
->>>>>>> c5f0823ec2cc38a22540f35f56c3697a34a38b2d
     }
   ]
 }
