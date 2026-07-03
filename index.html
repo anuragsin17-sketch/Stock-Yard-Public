@@ -8646,6 +8646,39 @@
                                 }</div>
                             </div>
                         </div>
+                        ${isTL && s._raw?.fibonacciLevels ? (() => {
+                            const fibs = s._raw.fibonacciLevels || {};
+                            const wFib = fibs._weekly || null;
+                            if (!wFib) return '';
+                            const LEVELS = ['23.6%','38.2%','50.0%','61.8%','78.6%','100.0%'];
+                            const makePill = (label, price) => {
+                                if (!price || price <= 0) return '';
+                                const dist = Math.abs((trigger - price) / price * 100);
+                                const isNear = dist <= 5.0;
+                                let style, glow = '';
+                                if (isNear) {
+                                    style = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.5);font-weight:700;';
+                                    glow  = ' ✓';
+                                } else if (price <= trigger) {
+                                    style = 'background:rgba(59,130,246,0.07);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);';
+                                } else {
+                                    style = 'background:rgba(107,114,128,0.07);color:#6b7280;border:1px solid rgba(107,114,128,0.12);';
+                                }
+                                return `<span style="font-size:10px;padding:3px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${label}: ₹${parseFloat(price).toFixed(0)}${glow}</span>`;
+                            };
+                            let pillsHtml = '';
+                            LEVELS.forEach(lvl => {
+                                const wp = wFib[lvl];
+                                pillsHtml += makePill(lvl, wp);
+                            });
+                            return `
+                            <div style="margin-bottom:10px;margin-top:10px;">
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">
+                                    Fibonacci Levels &nbsp;<span style="color:#4b5563;">ATH ₹${wFib['0.0%']?.toLocaleString() || '—'} → 2020 Low ₹${wFib['100.0%']?.toLocaleString() || '—'}</span>
+                                </div>
+                                <div style="display:flex;flex-wrap:wrap;gap:4px;">${pillsHtml}</div>
+                            </div>`;
+                        })() : ''}
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                             <div style="font-size:10px;color:#6b7280;">
                                 ${s.gainPct?'📊 Signal +'+parseFloat(s.gainPct).toFixed(1)+'%':''}
