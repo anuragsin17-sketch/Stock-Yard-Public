@@ -8648,35 +8648,102 @@
                         </div>
                         ${isTL && s._raw?.fibonacciLevels ? (() => {
                             const fibs = s._raw.fibonacciLevels || {};
-                            const wFib = fibs._weekly || null;
-                            if (!wFib) return '';
-                            const LEVELS = ['23.6%','38.2%','50.0%','61.8%','78.6%','100.0%'];
-                            const makePill = (label, price) => {
-                                if (!price || price <= 0) return '';
-                                const dist = Math.abs((trigger - price) / price * 100);
-                                const isNear = dist <= 5.0;
-                                let style, glow = '';
-                                if (isNear) {
-                                    style = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.5);font-weight:700;';
-                                    glow  = ' ✓';
-                                } else if (price <= trigger) {
-                                    style = 'background:rgba(59,130,246,0.07);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);';
-                                } else {
-                                    style = 'background:rgba(107,114,128,0.07);color:#6b7280;border:1px solid rgba(107,114,128,0.12);';
-                                }
-                                return `<span style="font-size:10px;padding:3px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${label}: ₹${parseFloat(price).toFixed(0)}${glow}</span>`;
-                            };
-                            let pillsHtml = '';
-                            LEVELS.forEach(lvl => {
-                                const wp = wFib[lvl];
-                                pillsHtml += makePill(lvl, wp);
-                            });
+                            const wFib = fibs._weekly  || null;
+                            const mFib = fibs._monthly || null;
+                            const p618lo = fibs.pocket_618_low  || 0;
+                            const p618hi = fibs.pocket_618_high || 0;
+                            const p500lo = fibs.pocket_500_low  || 0;
+                            const p500hi = fibs.pocket_500_high || 0;
+                            const inP618 = p618lo > 0 && trigger >= p618lo && trigger <= p618hi;
+                            const inP500 = p500lo > 0 && trigger >= p500lo && trigger <= p500hi;
+
+                            // If weekly fib data available (new 2020-low → ATH format)
+                            if (wFib) {
+                                const LEVELS = ['23.6%','38.2%','50.0%','61.8%','78.6%','100.0%'];
+
+                                const makePill = (label, price) => {
+                                    if (!price || price <= 0) return '';
+                                    const dist = Math.abs((trigger - price) / price * 100);
+                                    const isNear = dist <= 5.0;
+                                    const p786lo = fibs.pocket_786_low  || 0;
+                                    const p786hi = fibs.pocket_786_high || 0;
+                                    const p100lo = fibs.pocket_100_low  || 0;
+                                    const p100hi = fibs.pocket_100_high || 0;
+                                    const in786p = p786lo > 0 && price >= p786lo && price <= p786hi;
+                                    const in100p = p100lo > 0 && price >= p100lo && price <= p100hi;
+                                    // Colour logic
+                                    let style, glow = '';
+                                    if (isNear) {
+                                        style = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.5);font-weight:700;';
+                                        glow  = ' ✓';
+                                    } else if (inP618 || inP500) {
+                                        style = 'background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);font-weight:600;';
+                                    } else if (in786p) {
+                                        style = 'background:rgba(59,130,246,0.12);color:#60a5fa;border:1px solid rgba(59,130,246,0.35);font-weight:600;';
+                                    } else if (in100p) {
+                                        style = 'background:rgba(167,139,250,0.12);color:#a78bfa;border:1px solid rgba(167,139,250,0.35);font-weight:600;';
+                                    } else if (price <= trigger) {
+                                        style = 'background:rgba(59,130,246,0.07);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);';
+                                    } else {
+                                        style = 'background:rgba(107,114,128,0.07);color:#6b7280;border:1px solid rgba(107,114,128,0.12);';
+                                    }
+                                    return `<span style="font-size:10px;padding:3px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${style}">${label}: ₹${parseFloat(price).toFixed(0)}${glow}</span>`;
+                                };
+
+                                // Render key levels (weekly = 2020 low → ATH)
+                                let pillsHtml = '';
+                                LEVELS.forEach(lvl => {
+                                    const wp = wFib[lvl];
+                                    pillsHtml += makePill(lvl, wp);
+                                });
+
+                                // Pocket indicators
+                                const pocket618 = (inP618)
+                                    ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);font-weight:700;">⚡ 61.8% POCKET ₹${p618lo.toFixed(0)}–₹${p618hi.toFixed(0)}</span>` : '';
+                                const pocket500 = (inP500)
+                                    ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);font-weight:700;">📊 50% POCKET ₹${p500lo.toFixed(0)}–₹${p500hi.toFixed(0)}</span>` : '';
+                                const p786lo = fibs.pocket_786_low  || 0;
+                                const p786hi = fibs.pocket_786_high || 0;
+                                const inP786 = p786lo > 0 && trigger >= p786lo && trigger <= p786hi;
+                                const pocket786 = (inP786)
+                                    ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);font-weight:700;">📉 78.6% DEEP POCKET ₹${p786lo.toFixed(0)}–₹${p786hi.toFixed(0)}</span>` : '';
+                                const p100lo = fibs.pocket_100_low  || 0;
+                                const p100hi = fibs.pocket_100_high || 0;
+                                const inP100 = p100lo > 0 && trigger >= p100lo && trigger <= p100hi;
+                                const pocket100 = (inP100)
+                                    ? `<span style="font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.4);font-weight:700;">🎯 100% ZONE ₹${p100lo.toFixed(0)}–₹${p100hi.toFixed(0)}</span>` : '';
+
+                                return `
+                                <div style="margin-bottom:10px;">
+                                    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">
+                                        Fibonacci Levels &nbsp;<span style="color:#4b5563;">ATH ₹${wFib['0.0%']?.toLocaleString() || '—'} → 2020 Low ₹${wFib['100.0%']?.toLocaleString() || '—'}</span>
+                                    </div>
+                                    ${(pocket618 || pocket500 || pocket786 || pocket100) ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">${pocket618}${pocket500}${pocket786}${pocket100}</div>` : ''}
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px;">${pillsHtml}</div>
+                                </div>`;
+                            }
+
+                            // Fallback: old single grid display
+                            if (!fibs || Object.keys(fibs).filter(k=>!k.startsWith('_')&&!k.startsWith('pocket')&&!k.startsWith('fib')&&!k.startsWith('Ext')).length === 0) return '';
+                            const fibEntries = Object.entries(fibs)
+                                .filter(([k,v]) => !k.startsWith('_') && !k.startsWith('pocket') && !k.startsWith('fib') && !k.startsWith('Ext') && typeof v === 'number')
+                                .sort((a,b) => parseFloat(b[1]) - parseFloat(a[1]));
+                            const pills = fibEntries.map(([level, price]) => {
+                                const dist = ((trigger - price) / price * 100);
+                                const isNear = Math.abs(dist) <= 2.0;
+                                const isBelowEntry = price <= trigger;
+                                const pillColor = isNear
+                                    ? 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);font-weight:700;'
+                                    : isBelowEntry
+                                    ? 'background:rgba(59,130,246,0.08);color:#60a5fa;border:1px solid rgba(59,130,246,0.15);'
+                                    : 'background:rgba(107,114,128,0.08);color:#6b7280;border:1px solid rgba(107,114,128,0.15);';
+                                const marker = isNear ? ' ✓' : '';
+                                return `<span style="font-size:10px;padding:3px 7px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;${pillColor}">${level}: ₹${parseFloat(price).toFixed(0)}${marker}</span>`;
+                            }).join('');
                             return `
-                            <div style="margin-bottom:10px;margin-top:10px;">
-                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">
-                                    Fibonacci Levels &nbsp;<span style="color:#4b5563;">ATH ₹${wFib['0.0%']?.toLocaleString() || '—'} → 2020 Low ₹${wFib['100.0%']?.toLocaleString() || '—'}</span>
-                                </div>
-                                <div style="display:flex;flex-wrap:wrap;gap:4px;">${pillsHtml}</div>
+                            <div style="margin-bottom:10px;">
+                                <div style="font-size:9px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">Fibonacci Levels</div>
+                                <div style="display:flex;flex-wrap:wrap;gap:5px;">${pills}</div>
                             </div>`;
                         })() : ''}
                         <div style="display:flex;justify-content:space-between;align-items:center;">
