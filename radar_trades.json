@@ -1,5 +1,17 @@
 [
   {
+    "ticker": "TATAELXSI",
+    "entry_price": 3505.95,
+    "current_price": 3501.1,
+    "target": 4376.82,
+    "stop_loss": 3256.36,
+    "quantity": 140,
+    "status": "Open",
+    "source": "Angel One",
+    "is_angel_synced": true,
+    "triggered_at": "2026-07-17T06:23:51.178682"
+  },
+  {
     "ticker": "MTARTECH-BE",
     "entry_price": 6441.88,
     "current_price": 5744.0,
@@ -14,7 +26,7 @@
   {
     "ticker": "KPITTECH",
     "entry_price": 552.17,
-    "current_price": 557.25,
+    "current_price": 556.6,
     "target": 689.33,
     "stop_loss": 512.86,
     "quantity": 500,
@@ -26,7 +38,7 @@
   {
     "ticker": "IONEXCHANG",
     "entry_price": 423.42,
-    "current_price": 431.5,
+    "current_price": 430.25,
     "target": 534.92,
     "stop_loss": 397.98,
     "quantity": 300,
@@ -34,18 +46,6 @@
     "source": "Angel One",
     "is_angel_synced": true,
     "triggered_at": "2026-07-17T06:23:51.178688"
-  },
-  {
-    "ticker": "TATAELXSI",
-    "entry_price": 3505.95,
-    "current_price": 3505.2,
-    "target": 4376.82,
-    "stop_loss": 3256.36,
-    "quantity": 140,
-    "status": "Open",
-    "source": "Angel One",
-    "is_angel_synced": true,
-    "triggered_at": "2026-07-17T06:23:51.178682"
   },
   {
     "ticker": "BALKRISIND",
