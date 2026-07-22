@@ -1,53 +1,5 @@
 [
   {
-    "ticker": "M&MFIN",
-    "entry_price": 379.9,
-    "current_price": 379.2,
-    "target": 474.88,
-    "stop_loss": 353.31,
-    "quantity": 800,
-    "status": "Open",
-    "source": "Angel One",
-    "is_angel_synced": true,
-    "triggered_at": "2026-07-22T06:03:31.052180"
-  },
-  {
-    "ticker": "SWSOLAR",
-    "entry_price": 206.4,
-    "current_price": 206.2,
-    "target": 258.0,
-    "stop_loss": 191.95,
-    "quantity": 1000,
-    "status": "Open",
-    "source": "Angel One",
-    "is_angel_synced": true,
-    "triggered_at": "2026-07-22T06:03:31.052198"
-  },
-  {
-    "ticker": "WAAREEENER",
-    "entry_price": 2699.13,
-    "current_price": 2690.7,
-    "target": 3373.91,
-    "stop_loss": 2510.19,
-    "quantity": 200,
-    "status": "Open",
-    "source": "Angel One",
-    "is_angel_synced": true,
-    "triggered_at": "2026-07-22T06:03:31.052205"
-  },
-  {
-    "ticker": "ELECTCAST",
-    "entry_price": 72.25,
-    "current_price": 71.67,
-    "target": 90.31,
-    "stop_loss": 67.19,
-    "quantity": 4001,
-    "status": "Open",
-    "source": "Angel One",
-    "is_angel_synced": true,
-    "triggered_at": "2026-07-22T06:03:31.052216"
-  },
-  {
     "ticker": "BALKRISIND",
     "order_id": "260608000232881",
     "entry_price": 2140.9,
